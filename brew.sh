@@ -105,6 +105,8 @@ brew install webkit2png
 brew install zopfli
 brew install tig
 brew install pgcli
+brew install fzf
+brew install ripgrep
 
 brew install Caskroom/cask/iterm2
 brew cask install virtualbox
