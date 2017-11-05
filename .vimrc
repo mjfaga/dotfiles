@@ -19,7 +19,10 @@ Plugin 'haya14busa/incsearch.vim'
 Plugin 'haya14busa/incsearch-easymotion.vim'
 " Plugin 'maksimr/vim-jsbeautify'
 Plugin 'mileszs/ack.vim'
-Plugin 'nathanaelkane/vim-indent-guides'
+Plugin 'prettier/vim-prettier', {
+  \ 'do': 'yarn install',
+  \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql'] }
+Plugin 'Yggdroot/indentLine'
 Plugin 'othree/html5.vim'
 Plugin 'pangloss/vim-javascript'
 Plugin 'scrooloose/nerdcommenter'
@@ -49,6 +52,8 @@ Plugin 'andrewradev/splitjoin.vim'
 " Plugin 'vim-scripts/gitignore'
 Plugin 'kana/vim-textobj-user'
 Plugin 'nelstrom/vim-textobj-rubyblock'
+Plugin 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
+Plugin 'junegunn/fzf'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -196,6 +201,10 @@ hi rubyDefine ctermfg=166
 " hi rubySymbol ctermfg=125
 let &colorcolumn="81," . join(range(121,999),",")
 
+" Indentation Guides
+let g:indentLine_setColors = 1
+let g:indentLine_char = '│'
+
 "" COPY/PASTE
 "vmap <Leader>y "+y
 "vmap <Leader>d "+d
@@ -222,10 +231,10 @@ nnoremap <silent> <A-Right> :execute 'silent! tabmove ' . tabpagenr()<CR>
 "nmap <leader>bq :bp <BAR> bd #<CR>      " Close current buffer and move to previous one, replicates idea of closing tab
 "nmap <leader>bl :ls<CR>                 " Show all open buffers and their status
 "map q: :q                               " stop annoying window from popping up
-"nnoremap <Leader>o :CtrlP<CR>           " leader o to open file
-"nnoremap <Leader>w :w<CR>               " leader w to write file
+nnoremap <Leader>o :CtrlP<CR>           " leader o to open file
+nnoremap <Leader>w :w<CR>
 
-let g:ackprg = 'ag --vimgrep'           " Use the 'silver surfer' when grepping
+let g:ackprg = 'rg --vimgrep'           " Use the 'silver surfer' when grepping
 
 " Nerd commenter defaults
 let g:NERDSpaceDelims = 1
@@ -344,3 +353,34 @@ function! <SID>SynStack()
   endif
   echo map(synstack(line('.'), col('.')), 'synIDattr(v:val, "name")')
 endfunc
+
+let g:prettier#autoformat = 0
+autocmd BufWritePre *.js,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.graphql PrettierAsync
+
+nnoremap <leader>f :FZF<cr>
+let g:fzf_layout = { 'window': '-tabnew' }
+
+" CTAGS via Async
+" function! s:CtagsAsync()
+"   let job_id = async#job#start(['atomic-ctags'],
+"         \ {
+"         \   'on_exit': function('s:on_exit'),
+"         \ })
+" endfunction
+" command! CtagsAsync call <sid>CtagsAsync()
+"
+" function! s:on_exit(job_id, exit_code, _)
+"   if a:exit_code != 0
+"     echohl Error
+"     echom 'Error running: ' . a:job_id . '; exit code: ' . a:exit_code
+"     echohl None
+"   endif
+" endfunction
+"
+" augroup async_ctags
+"   autocmd!
+"   autocmd VimEnter * CtagsAsync
+"   autocmd BufWritePost * CtagsAsync
+" augroup END
+"
+" " vim:ft=vim
