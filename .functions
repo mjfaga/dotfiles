@@ -244,3 +244,7 @@ function o() {
 function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
+
+function servers() {
+  cap ${1:-production} ec2:status
+}
