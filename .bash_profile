@@ -46,3 +46,7 @@ complete -W "NSGlobalDomain" defaults;
 
 # Add `killall` tab completion for common apps
 complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes SystemUIServer Terminal Twitter" killall;
+
+# FZF Configurations
+bind -x '"\C-f": FZF_FILE=$(fzf --preview="rougify -t monokai.sublime {}") && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+bind -x '"\C-e": FZF_FILE=$("rg" --nobreak --nonumbers --noheading . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
