@@ -33,12 +33,12 @@ Once you are bootstrapped, add the following to the bottom of the global .gitcon
   email = example@email.com
 ```
 
-### Sensible OS X defaults
+### Sensible macOS defaults
 
-When setting up a new Mac, you may want to set some sensible OS X defaults:
+When setting up a new Mac, you may want to set some sensible macOS defaults:
 
 ```bash
-./.osx
+./.macos
 ```
 
 ### Install Homebrew formulae
