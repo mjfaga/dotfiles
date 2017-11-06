@@ -33,6 +33,10 @@ Once you are bootstrapped, add the following to the bottom of the global .gitcon
   email = example@email.com
 ```
 
+Other things I like to install:
+* [Disk Inventory X](http://www.derlien.com/index.html)
+* Microsoft Office 365 for Mac
+
 ### Sensible macOS defaults
 
 When setting up a new Mac, you may want to set some sensible macOS defaults:
