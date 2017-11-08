@@ -13,7 +13,6 @@ Plugin 'vim-airline/vim-airline-themes'
 " Plugin 'godlygeek/tabular'
 Plugin 'groenewege/vim-less'
 " Plugin 'kchmck/vim-coffee-script'
-Plugin 'kien/ctrlp.vim'
 Plugin 'Lokaltog/vim-easymotion'
 Plugin 'haya14busa/incsearch.vim'
 Plugin 'haya14busa/incsearch-easymotion.vim'
@@ -232,7 +231,6 @@ nnoremap <silent> <A-Right> :execute 'silent! tabmove ' . tabpagenr()<CR>
 "nmap <leader>bq :bp <BAR> bd #<CR>      " Close current buffer and move to previous one, replicates idea of closing tab
 "nmap <leader>bl :ls<CR>                 " Show all open buffers and their status
 "map q: :q                               " stop annoying window from popping up
-nnoremap <Leader>o :CtrlP<CR>           " leader o to open file
 nnoremap <Leader>w :w<CR>
 
 let g:ackprg = 'rg --vimgrep'           " Use the 'silver surfer' when grepping
@@ -266,14 +264,6 @@ nmap <silent> <leader>a :TestSuite<CR>
 nmap <silent> <leader>l :TestLast<CR>
 nmap <silent> <leader>g :TestVisit<CR>
 let test#strategy = "dispatch_background"
-
-" CTRL-P SETTINGS
-let g:ctrlp_show_hidden = 1
-" Custom Ignore for Ctrl, add sprockets and cache files
-let g:ctrlp_custom_ignore = {
-  \ 'dir':  '\v[\/]\.(git|hg|svn|sprockets)$',
-  \ 'file': '\v\.(exe|so|dll|cache)$'
-  \ }
 
 runtime macros/matchit.vim " WHAT IS THIS?
 
