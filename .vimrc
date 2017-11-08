@@ -25,6 +25,7 @@ Plugin 'prettier/vim-prettier', {
 Plugin 'Yggdroot/indentLine'
 Plugin 'othree/html5.vim'
 Plugin 'pangloss/vim-javascript'
+Plugin 'mxw/vim-jsx'
 Plugin 'scrooloose/nerdcommenter'
 Plugin 'scrooloose/nerdtree'
 Plugin 'scrooloose/syntastic'
