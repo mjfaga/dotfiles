@@ -2,6 +2,8 @@
 export PATH="$HOME/bin:$PATH";
 export PATH="/usr/local/sbin:$PATH"
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+export FZF_DEFAULT_COMMAND="rg --hidden --files"
+export FZF_DEFAULT_OPTS='--preview="rougify -t monokai.sublime {}"'
 
 # Load the shell dotfiles, and then some:
 # * ~/.path can be used to extend `$PATH`.
@@ -48,5 +50,5 @@ complete -W "NSGlobalDomain" defaults;
 complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes SystemUIServer Terminal Twitter" killall;
 
 # FZF Configurations
-bind -x '"\C-f": FZF_FILE=$(fzf --preview="rougify -t monokai.sublime {}") && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
-bind -x '"\C-e": FZF_FILE=$("rg" --nobreak --nonumbers --noheading . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'

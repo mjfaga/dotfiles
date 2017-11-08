@@ -357,8 +357,8 @@ endfunc
 let g:prettier#autoformat = 0
 autocmd BufWritePre *.js,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.graphql PrettierAsync
 
-nnoremap <leader>f :FZF<cr>
-let g:fzf_layout = { 'window': '-tabnew' }
+" FZF
+nnoremap <leader>f :FZF!<cr>
 
 " CTAGS via Async
 " function! s:CtagsAsync()
