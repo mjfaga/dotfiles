@@ -1,9 +1,0 @@
---type-set=haml=.haml
---type-set=scss=.scss
---type-set=coffee=.coffee
---type-set=erb=.erb
-
---ignore-dir=tmp
---ignore-dir=log
---ignore-file=match:.csv
---ignore-file=is:tags

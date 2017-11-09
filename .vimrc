@@ -15,7 +15,6 @@ Plugin 'groenewege/vim-less'
 Plugin 'Lokaltog/vim-easymotion'
 Plugin 'haya14busa/incsearch.vim'
 Plugin 'haya14busa/incsearch-easymotion.vim'
-Plugin 'mileszs/ack.vim'
 Plugin 'prettier/vim-prettier', {
   \ 'do': 'yarn install',
   \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql'] }
@@ -50,6 +49,7 @@ Plugin 'kana/vim-textobj-user'
 Plugin 'nelstrom/vim-textobj-rubyblock'
 Plugin 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
 Plugin 'junegunn/fzf'
+Plugin 'junegunn/fzf.vim'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -229,8 +229,6 @@ nnoremap <silent> <A-Right> :execute 'silent! tabmove ' . tabpagenr()<CR>
 "map q: :q                               " stop annoying window from popping up
 nnoremap <Leader>w :w<CR>
 
-let g:ackprg = 'rg --vimgrep'           " Use the 'silver surfer' when grepping
-
 " Nerd commenter defaults
 let g:NERDSpaceDelims = 1
 let g:NERDDefaultAlign = 'left'
@@ -316,21 +314,6 @@ augroup BWCCreateDir
   autocmd BufWritePre * :call s:MkNonExDir(expand('<afile>'), +expand('<abuf>'))
 augroup END
 
-nnoremap <leader>g :set operatorfunc=GrepOperator<cr>g@
-vnoremap <leader>g :<c-u>call GrepOperator(visualmode())<cr>
-function! GrepOperator(type)
-  if a:type ==# 'v'
-    execute "normal! `<v`>y"
-  elseif a:type ==# 'char'
-    execute "normal! `[v`]y"
-  else
-    return
-  endif
-
-  execute "Ack! -R " . shellescape(@@) . " ."
-  copen
-endfunction
-
 " Show which highlight groups apply to the item under the cursor
 " https://jordanelver.co.uk/blog/2015/05/27/working-with-vim-colorschemes/
 nmap <leader>sp :call <SID>SynStack()<CR>
@@ -346,6 +329,10 @@ autocmd BufWritePre *.js,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.gra
 
 " FZF
 nnoremap <leader>f :FZF!<cr>
+nnoremap <leader>e :Find!<cr>
+nnoremap <leader>c :FindCursor!<cr>
+command! -bang -nargs=* Find call fzf#vim#grep('rg --column --line-number --no-heading --color "always" '.shellescape(<q-args>), 1, fzf#vim#with_preview('right:50%'), <bang>0)
+command! -bang -nargs=* FindCursor call fzf#vim#grep('rg --column --line-number --no-heading --color "always" '.shellescape(empty(<q-args>)?expand("<cword>"):<q-args>), 1, fzf#vim#with_preview('right:50%'), <bang>0)
 
 " CTAGS via Async
 " function! s:CtagsAsync()
