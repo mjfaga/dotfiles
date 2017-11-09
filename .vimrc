@@ -6,8 +6,11 @@ call vundle#begin()
 
 Plugin 'gmarik/Vundle.vim'
 Plugin 'w0ng/vim-hybrid'
+Plugin 'avakhov/vim-yaml'
 Plugin 'vim-airline/vim-airline'
 Plugin 'vim-airline/vim-airline-themes'
+Plugin 'christoomey/vim-tmux-navigator'
+Plugin 'godlygeek/tabular'
 Plugin 'groenewege/vim-less'
 Plugin 'Lokaltog/vim-easymotion'
 Plugin 'haya14busa/incsearch.vim'
