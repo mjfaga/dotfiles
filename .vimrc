@@ -273,8 +273,8 @@ let g:closetag_filenames = '*.html,*.xhtml,*.phtml,*.html.erb,*.html.slim'
 let g:closetag_xhtml_filenames = '*.xhtml,*.jsx,*html.erb,*.html.slim'
 
 " Automatically open nerd tree when vim started without a file specified
-autocmd StdinReadPre * let s:std_in=1
-autocmd VimEnter * if argc() == 0 && !exists("s:std_in") | NERDTree | endif
+" autocmd StdinReadPre * let s:std_in=1
+" autocmd VimEnter * if argc() == 0 && !exists("s:std_in") | NERDTree | endif
 
 " Automatically close vim when only nerd tree is left open
 autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
