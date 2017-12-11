@@ -55,6 +55,7 @@ Plugin 'jparise/vim-graphql'
 Plugin 'hail2u/vim-css3-syntax'
 Plugin 'ap/vim-css-color'
 " Plugin 'styled-components/vim-styled-components'
+Plugin 'majutsushi/tagbar'                      " Navigate tags of current buffer
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -64,6 +65,12 @@ call vundle#end()            " required
 " :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
 " :PluginSearch foo - searches for foo; append `!` to refresh local cache
 " :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
+" Tagbar
+nnoremap <leader>s :TagbarOpenAutoClose<CR>
+
+" Tagbar
+let g:tagbar_singleclick = 0
+let g:tagbar_autopreview = 1
 
 let mapleader = ","
 
