@@ -51,6 +51,7 @@ Plugin 'nelstrom/vim-textobj-rubyblock'
 Plugin 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
 Plugin 'junegunn/fzf'
 Plugin 'junegunn/fzf.vim'
+Plugin 'jparise/vim-graphql'
 Plugin 'hail2u/vim-css3-syntax'
 Plugin 'ap/vim-css-color'
 
