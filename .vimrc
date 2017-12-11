@@ -51,6 +51,7 @@ Plugin 'nelstrom/vim-textobj-rubyblock'
 Plugin 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
 Plugin 'junegunn/fzf'
 Plugin 'junegunn/fzf.vim'
+Plugin 'hail2u/vim-css3-syntax'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -278,6 +279,13 @@ let g:ale_linter_aliases = {'jsx': 'css'}
 " let g:syntastic_javascript_checkers = ['eslint']
 " let g:syntastic_check_on_open = 1
 " let g:syntastic_check_on_wq = 0
+
+" vim-css3-syntax
+augroup VimCSS3Syntax
+  autocmd!
+
+  autocmd FileType css setlocal iskeyword+=-
+augroup END
 
 " vim-closetag configurations
 let g:closetag_filenames = '*.html,*.xhtml,*.phtml,*.html.erb,*.html.slim'
