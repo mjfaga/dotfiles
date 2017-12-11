@@ -17,7 +17,7 @@ Plugin 'haya14busa/incsearch.vim'
 Plugin 'haya14busa/incsearch-easymotion.vim'
 Plugin 'prettier/vim-prettier', {
   \ 'do': 'yarn install',
-  \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql'] }
+  \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql', 'markdown'] }
 Plugin 'Yggdroot/indentLine'
 Plugin 'othree/html5.vim'
 Plugin 'pangloss/vim-javascript'
@@ -326,6 +326,7 @@ endfunc
 
 let g:prettier#autoformat = 0
 autocmd BufWritePre *.js,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.graphql PrettierAsync
+autocmd FileType javascript set formatprg=prettier-eslint\ --stdin
 
 " FZF
 nnoremap <leader>f :FZF!<cr>
