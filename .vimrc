@@ -24,7 +24,8 @@ Plugin 'pangloss/vim-javascript'
 Plugin 'mxw/vim-jsx'
 Plugin 'scrooloose/nerdcommenter'
 Plugin 'scrooloose/nerdtree'
-Plugin 'scrooloose/syntastic'
+" Plugin 'scrooloose/syntastic'
+Plugin 'w0rp/ale'
 Plugin 'keith/rspec.vim'
 Plugin 'Xuyuanp/nerdtree-git-plugin'
 Plugin 'tpope/vim-abolish'
@@ -263,10 +264,20 @@ runtime macros/matchit.vim " WHAT IS THIS?
 
 let g:jsx_ext_required = 0 " Allow JSX in normal JS files
 
+" w0rp/ae configurations
+" https://github.com/w0rp/ale#5xii-how-can-i-check-jsx-files-with-both-stylelint-and-eslint
+augroup FiletypeGroup
+    autocmd!
+    au BufNewFile,BufRead *.jsx set filetype=javascript.jsx
+augroup END
+
+let g:ale_linters = {'jsx': ['stylelint', 'eslint']}
+let g:ale_linter_aliases = {'jsx': 'css'}
+
 " Syntastic configurations
-let g:syntastic_javascript_checkers = ['eslint']
-let g:syntastic_check_on_open = 1
-let g:syntastic_check_on_wq = 0
+" let g:syntastic_javascript_checkers = ['eslint']
+" let g:syntastic_check_on_open = 1
+" let g:syntastic_check_on_wq = 0
 
 " vim-closetag configurations
 let g:closetag_filenames = '*.html,*.xhtml,*.phtml,*.html.erb,*.html.slim'
