@@ -284,7 +284,7 @@ nmap <silent> <leader>T :TestFile<CR>
 nmap <silent> <leader>a :TestSuite<CR>
 nmap <silent> <leader>L :TestLast<CR>
 nmap <silent> <leader>g :TestVisit<CR>
-let test#strategy = "dispatch_background"
+let test#strategy = "neovim"
 
 runtime macros/matchit.vim " WHAT IS THIS?
 
