@@ -3,6 +3,7 @@ set nocompatible
 " set the runtime path to include Vundle and initialize
 call plug#begin('~/.vim/plugged')
 
+Plug 'mileszs/ack.vim'
 Plug 'djoshea/vim-autoread'
 Plug 'gmarik/Vundle.vim'
 Plug 'w0ng/vim-hybrid'
@@ -66,6 +67,9 @@ call plug#end()            " required
 " :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
 " :PluginSearch foo - searches for foo; append `!` to refresh local cache
 " :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
+
+" Ack
+let g:ackprg = 'rg --vimgrep'           " Use the 'silver surfer' when grepping
 
 " Tagbar
 nnoremap <leader>s :TagbarOpenAutoClose<CR>
