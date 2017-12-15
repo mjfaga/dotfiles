@@ -6,7 +6,8 @@ git pull origin master;
 
 function doIt() {
 	rsync --exclude ".git/" --exclude ".DS_Store" --exclude "bootstrap.sh" \
-		--exclude "README.md" --exclude "LICENSE-MIT.txt" -avh --no-perms . ~;
+		--exclude "README.md" --exclude "LICENSE-MIT.txt" --exclude "init.vim" -avh --no-perms . ~;
+	rsync init.vim ~/.config/nvim/
 	source ~/.bash_profile;
 }
 

@@ -1,65 +1,64 @@
 set nocompatible
 
 " set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
+call plug#begin('~/.vim/plugged')
 
-Plugin 'gmarik/Vundle.vim'
-Plugin 'w0ng/vim-hybrid'
-Plugin 'avakhov/vim-yaml'
-Plugin 'vim-airline/vim-airline'
-Plugin 'vim-airline/vim-airline-themes'
-Plugin 'christoomey/vim-tmux-navigator'
-Plugin 'godlygeek/tabular'
-Plugin 'groenewege/vim-less'
-Plugin 'Lokaltog/vim-easymotion'
-Plugin 'haya14busa/incsearch.vim'
-Plugin 'haya14busa/incsearch-easymotion.vim'
-Plugin 'prettier/vim-prettier', {
+Plug 'gmarik/Vundle.vim'
+Plug 'w0ng/vim-hybrid'
+Plug 'avakhov/vim-yaml'
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+Plug 'christoomey/vim-tmux-navigator'
+Plug 'godlygeek/tabular'
+Plug 'groenewege/vim-less'
+Plug 'Lokaltog/vim-easymotion'
+Plug 'haya14busa/incsearch.vim'
+Plug 'haya14busa/incsearch-easymotion.vim'
+Plug 'prettier/vim-prettier', {
   \ 'do': 'yarn install',
   \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql', 'markdown'] }
-Plugin 'Yggdroot/indentLine'
-Plugin 'othree/html5.vim'
-Plugin 'pangloss/vim-javascript'
-Plugin 'mxw/vim-jsx'
-Plugin 'scrooloose/nerdcommenter'
-Plugin 'scrooloose/nerdtree'
-" Plugin 'scrooloose/syntastic'
-Plugin 'w0rp/ale'
-Plugin 'keith/rspec.vim'
-Plugin 'Xuyuanp/nerdtree-git-plugin'
-Plugin 'tpope/vim-abolish'
-Plugin 'tpope/vim-endwise'
-Plugin 'tpope/vim-repeat'
-Plugin 'tpope/vim-surround'
-Plugin 'tpope/vim-fugitive'
-Plugin 'tpope/vim-rails'
-Plugin 'tpope/vim-bundler'
-Plugin 'tpope/vim-dispatch'
-Plugin 'alvan/vim-closetag'
-Plugin 'jiangmiao/auto-pairs'
-" Plugin 'tpope/vim-rake'
-Plugin 'vim-ruby/vim-ruby'
-Plugin 'janko-m/vim-test'
-Plugin 'slim-template/vim-slim.git'
-Plugin 'andrewradev/splitjoin.vim'
-" Plugin 'gcmt/taboo.vim'
-" Plugin 'ngmy/vim-rubocop'
-" Plugin 'vim-scripts/gitignore'
-Plugin 'kana/vim-textobj-user'
-Plugin 'nelstrom/vim-textobj-rubyblock'
-Plugin 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
-Plugin 'junegunn/fzf'
-Plugin 'junegunn/fzf.vim'
-Plugin 'jparise/vim-graphql'
-Plugin 'hail2u/vim-css3-syntax'
-Plugin 'ap/vim-css-color'
-" Plugin 'styled-components/vim-styled-components'
-Plugin 'majutsushi/tagbar'                      " Navigate tags of current buffer
-Plugin 'leafgarland/typescript-vim'
+Plug 'Yggdroot/indentLine'
+Plug 'othree/html5.vim'
+Plug 'pangloss/vim-javascript'
+Plug 'mxw/vim-jsx'
+Plug 'scrooloose/nerdcommenter'
+Plug 'scrooloose/nerdtree'
+" Plug 'scrooloose/syntastic'
+Plug 'w0rp/ale'
+Plug 'keith/rspec.vim'
+Plug 'Xuyuanp/nerdtree-git-plugin'
+Plug 'tpope/vim-abolish'
+Plug 'tpope/vim-endwise'
+Plug 'tpope/vim-repeat'
+Plug 'tpope/vim-surround'
+Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-rails'
+Plug 'tpope/vim-bundler'
+Plug 'tpope/vim-dispatch'
+Plug 'alvan/vim-closetag'
+Plug 'jiangmiao/auto-pairs'
+" Plug 'tpope/vim-rake'
+Plug 'vim-ruby/vim-ruby'
+Plug 'janko-m/vim-test'
+Plug 'slim-template/vim-slim.git'
+Plug 'andrewradev/splitjoin.vim'
+" Plug 'gcmt/taboo.vim'
+" Plug 'ngmy/vim-rubocop'
+" Plug 'vim-scripts/gitignore'
+Plug 'kana/vim-textobj-user'
+Plug 'nelstrom/vim-textobj-rubyblock'
+Plug 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
+Plug 'junegunn/fzf'
+Plug 'junegunn/fzf.vim'
+Plug 'jparise/vim-graphql'
+Plug 'hail2u/vim-css3-syntax'
+Plug 'ap/vim-css-color'
+" Plug 'styled-components/vim-styled-components'
+Plug 'majutsushi/tagbar'                      " Navigate tags of current buffer
+Plug 'leafgarland/typescript-vim'
 
 " All of your Plugins must be added before the following line
-call vundle#end()            " required
+call plug#end()            " required
 
 " Brief help
 " :PluginList       - lists configured plugins
