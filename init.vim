@@ -65,6 +65,7 @@ call plug#end()            " required
 " :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
 " :PluginSearch foo - searches for foo; append `!` to refresh local cache
 " :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
+
 " Tagbar
 nnoremap <leader>s :TagbarOpenAutoClose<CR>
 
@@ -242,8 +243,8 @@ nnoremap <silent> <A-Left> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
 nnoremap <silent> <A-Right> :execute 'silent! tabmove ' . tabpagenr()<CR>
 
 "nmap <leader>T :enew<cr>                " To open a new empty buffer; replaces :tabnew
-"nmap <leader>l :bnext<CR>               " Move to the next buffer
-"nmap <leader>h :bprevious<CR>           " Move to the previous buffer
+nmap <leader>l :bnext<CR>               " Move to the next buffer
+nmap <leader>h :bprevious<CR>           " Move to the previous buffer
 "nmap <leader>bq :bp <BAR> bd #<CR>      " Close current buffer and move to previous one, replicates idea of closing tab
 "nmap <leader>bl :ls<CR>                 " Show all open buffers and their status
 "map q: :q                               " stop annoying window from popping up
@@ -275,7 +276,7 @@ let g:NERDTreeWinSize = 51
 nmap <silent> <leader>t :TestNearest<CR>
 nmap <silent> <leader>T :TestFile<CR>
 nmap <silent> <leader>a :TestSuite<CR>
-nmap <silent> <leader>l :TestLast<CR>
+nmap <silent> <leader>L :TestLast<CR>
 nmap <silent> <leader>g :TestVisit<CR>
 let test#strategy = "dispatch_background"
 
