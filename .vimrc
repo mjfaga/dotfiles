@@ -56,6 +56,7 @@ Plugin 'hail2u/vim-css3-syntax'
 Plugin 'ap/vim-css-color'
 " Plugin 'styled-components/vim-styled-components'
 Plugin 'majutsushi/tagbar'                      " Navigate tags of current buffer
+Plugin 'leafgarland/typescript-vim'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
