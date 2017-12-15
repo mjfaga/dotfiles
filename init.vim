@@ -83,17 +83,25 @@ noremap \ :NERDTreeToggle<CR>
 noremap \| :NERDTreeFind<CR>
 
 " NORMAL MAPINGS
-nnoremap - ddp                                                                                    " Move line down
-nnoremap _ dd1kP                                                                                  " Move line up
-nnoremap <leader>ev :vsplit $MYVIMRC<cr>                                                          " Edit ~/.vimrc file
-nnoremap <leader>sv :source $MYVIMRC<cr>                                                          " Source ~/vimrc file
-nnoremap <leader>" viw<esc>a"<esc>bi"<esc>lel                                                     " Quote the selected word
+" Move line down
+nnoremap - ddp
+" Move line up
+nnoremap _ dd1kP
+" Edit ~/.vimrc file
+nnoremap <leader>ev :vsplit $MYVIMRC<cr>
+" Source ~/vimrc file
+nnoremap <leader>sv :source $MYVIMRC<cr>
+" Quote the selected word
+nnoremap <leader>" viw<esc>a"<esc>bi"<esc>lel
 
 " INSERT MAPPINGS
-inoremap <c-d> <esc>ddi                                                                           " Delete line while in insert mode
-inoremap <c-u> <esc>viwUi                                                                         " Uppercase current word in insert mode
-inoremap jk <esc>                                                                                 " New escape key (<esc>, <c-c>, <c-[>)
-
+" Delete line while in insert mode
+inoremap <c-d> <esc>ddi
+" Uppercase current word in insert mode
+inoremap <c-u> <esc>viwUi
+" New escape key (<esc>, <c-c>, <c-[>)
+inoremap jk <esc>
+"
 " OPERATION MAPPINGS
 onoremap an{ :<c-u>normal! f(va{<cr>
 onoremap al{ :<c-u>normal! F(va{<cr>
