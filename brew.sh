@@ -130,5 +130,9 @@ brew install memcached
 brew install redis
 brew install direnv
 
+# https://github.com/thoughtbot/parit://github.com/thoughtbot/parity
+brew tap thoughtbot/formulae
+brew install parity
+
 # Remove outdated versions from the cellar.
 brew cleanup
