@@ -3,6 +3,7 @@ set nocompatible
 " set the runtime path to include Vundle and initialize
 call plug#begin('~/.vim/plugged')
 
+Plug 'djoshea/vim-autoread'
 Plug 'gmarik/Vundle.vim'
 Plug 'w0ng/vim-hybrid'
 Plug 'avakhov/vim-yaml'
