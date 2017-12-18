@@ -153,10 +153,12 @@ noremap <silent><expr> z?  incsearch#go(<SID>incsearch_config({'command': '?'}))
 noremap <silent><expr> zg/ incsearch#go(<SID>incsearch_config({'is_stay': 1}))
 
 " VIM SETTINGS
-syntax on                                                                                         " Enable syntax highlighting
-filetype on                                                                                       " Enable filetype detection
-filetype indent on                                                                                " Enable filetype-specific indenting
-filetype plugin on                                                                                " Enable filetype-specific plugins
+if has('autocmd')
+  filetype plugin indent on                                                                       " Enable filetype detection, filetype-specific indenting/plugins
+endif
+if has('syntax') && !exists('g:syntax_on')
+  syntax enable                                                                                   " Enable syntax highlighting
+endif
 
 set hlsearch
 set number                                                                                        " Line numbers
@@ -170,7 +172,8 @@ set smarttab                                                                    
 set shiftwidth=2                                                                                  " Width of autoindent
 set shiftround                                                                                    " Round shift to nearest shiftwidth
 set list                                                                                          " Show whitespace
-set listchars=trail:·
+set listchars=tab:>\ ,trail:-,extends:>,precedes:<,nbsp:+
+set formatoptions+=j                                                                              " Delete comment character when joining commented lines
 set showmatch                                                                                     " Show matching brackets
 set splitright                                                                                    " Add new windows towards the right
 set splitbelow                                                                                    " ... and bottom
@@ -182,7 +185,7 @@ set clipboard=unnamed                                                           
 "set backspace=indent,eol,start                                                                    " Allow backspace in insert mode
 "set ttyfast                                                                                       " Optimize for fast terminal connections
 set gdefault                                                                                      " Add the g flag to search/replace by default
-"set encoding=utf-8 nobomb                                                                         " Use UTF-8 without BOM
+set encoding=utf-8                                                                               " Use UTF-8
 "set binary
 "set noeol                                                                                         " Don’t add empty newlines at the end of files
 set backupdir=~/.vim/backups                                                                      " Centralize backups
@@ -213,7 +216,10 @@ set showmode                                                                    
 set title                                                                                         " Show the filename in the window titlebar
 set showcmd                                                                                       " Show the (partial) command as it’s being typed
 set scrolloff=3                                                                                   " Start scrolling three lines before the horizontal window border
+set sidescrolloff=5
+set display+=lastline
 set cursorline                          " Highlight current line
+set shell=/bin/bash
 
 " THEME
 set background=dark
@@ -286,7 +292,10 @@ nmap <silent> <leader>L :TestLast<CR>
 nmap <silent> <leader>g :TestVisit<CR>
 let test#strategy = "neovim"
 
-runtime macros/matchit.vim " WHAT IS THIS?
+" Load matchit.vim, but only if the user hasn't installed a newer version.
+if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
+  runtime! macros/matchit.vim
+endif
 
 let g:jsx_ext_required = 0 " Allow JSX in normal JS files
 
