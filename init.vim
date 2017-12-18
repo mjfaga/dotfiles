@@ -59,6 +59,7 @@ Plug 'ap/vim-css-color'
 Plug 'majutsushi/tagbar'                      " Navigate tags of current buffer
 Plug 'leafgarland/typescript-vim'
 Plug 'mattn/emmet-vim'
+Plug 'machakann/vim-highlightedyank'
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
