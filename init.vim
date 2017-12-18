@@ -247,6 +247,10 @@ set sidescrolloff=5
 set display+=lastline
 set cursorline                          " Highlight current line
 set shell=/bin/bash
+" Neovim options
+if has('nvim')
+  set inccommand=split                          " Live highlight of interactive commands like substitute
+endif
 
 " THEME
 set background=dark
