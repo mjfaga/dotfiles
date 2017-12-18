@@ -69,6 +69,29 @@ call plug#end()            " required
 " :PluginSearch foo - searches for foo; append `!` to refresh local cache
 " :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
 
+" NeoVim Terminal
+if has('nvim')
+  " Escape to exit terminal mode
+  :tnoremap <Esc> <C-\><C-n>
+
+  " Restore navigation between terminal windows/vim windows
+  :tnoremap <A-h> <C-\><C-N><C-w>h
+  :tnoremap <A-j> <C-\><C-N><C-w>j
+  :tnoremap <A-k> <C-\><C-N><C-w>k
+  :tnoremap <A-l> <C-\><C-N><C-w>l
+
+  " Paste registers into terminal with alt-r
+  :tnoremap <expr> <A-r> '<C-\><C-n>"'.nr2char(getchar()).'pi'
+endif
+:inoremap <A-h> <C-\><C-N><C-w>h
+:inoremap <A-j> <C-\><C-N><C-w>j
+:inoremap <A-k> <C-\><C-N><C-w>k
+:inoremap <A-l> <C-\><C-N><C-w>l
+:nnoremap <A-h> <C-w>h
+:nnoremap <A-j> <C-w>j
+:nnoremap <A-k> <C-w>k
+:nnoremap <A-l> <C-w>l
+
 " Ack
 let g:ackprg = 'rg --vimgrep'           " Use the 'silver surfer' when grepping
 
@@ -242,11 +265,6 @@ let g:indentLine_char = '│'
 "vmap <Leader>p "+p
 "vmap <Leader>P "+P
 
-"" SPLIT NAVIGATION
-nnoremap <C-J> <C-W><C-J>
-nnoremap <C-K> <C-W><C-K>
-nnoremap <C-L> <C-W><C-L>
-nnoremap <C-H> <C-W><C-H>
 
 "" TAB NAVIGATION
 nnoremap <C-Left> :tabprevious<CR>
