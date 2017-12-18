@@ -260,6 +260,11 @@ colorscheme hybrid
 hi rubyDefine ctermfg=166
 " hi rubySymbol ctermfg=125
 let &colorcolumn="81," . join(range(121,999),",")
+if has('nvim')
+  " Highlight cursor in terminal mode even when terminal not active
+  hi! TermCursorNC ctermfg=15 guifg=#fdf6e3 ctermbg=14 guibg=#93a1a1 cterm=NONE gui=NONE
+endif
+
 
 " Indentation Guides
 let g:indentLine_setColors = 1
