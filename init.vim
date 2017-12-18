@@ -60,6 +60,9 @@ Plug 'majutsushi/tagbar'                      " Navigate tags of current buffer
 Plug 'leafgarland/typescript-vim'
 Plug 'mattn/emmet-vim'
 Plug 'machakann/vim-highlightedyank'
+if has('nvim')
+  Plug 'kassio/neoterm'
+endif
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
@@ -309,7 +312,11 @@ nmap <silent> <leader>T :TestFile<CR>
 nmap <silent> <leader>a :TestSuite<CR>
 nmap <silent> <leader>L :TestLast<CR>
 nmap <silent> <leader>g :TestVisit<CR>
-let test#strategy = "neovim"
+if has('nvim')
+  let test#strategy = "neoterm"
+else
+  let test#strategy = "dispatch"
+endif
 
 " Load matchit.vim, but only if the user hasn't installed a newer version.
 if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
