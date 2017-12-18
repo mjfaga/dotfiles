@@ -387,6 +387,10 @@ nnoremap <leader>e :Find!<cr>
 nnoremap <leader>c :FindCursor!<cr>
 command! -bang -nargs=* Find call fzf#vim#grep('rg --column --line-number --color "always" '.shellescape(<q-args>), 1, fzf#vim#with_preview('right:50%'), <bang>0)
 command! -bang -nargs=* FindCursor call fzf#vim#grep('rg --column --line-number --no-heading --color "always" '.shellescape(empty(<q-args>)?expand("<cword>"):<q-args>), 1, fzf#vim#with_preview('right:50%'), <bang>0)
+" Neovim - Esc to close FZF window
+if has('nvim')
+  autocmd FileType fzf tnoremap <buffer> <ESC> <C-c>
+endif
 
 " CTAGS via Async
 " function! s:CtagsAsync()
