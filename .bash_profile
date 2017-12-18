@@ -52,3 +52,10 @@ complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes Syste
 # FZF Configurations
 bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
 bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+
+[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+
+export NVM_DIR="$HOME/.nvm"
+
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
