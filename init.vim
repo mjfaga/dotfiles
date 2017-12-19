@@ -97,7 +97,7 @@ endif
 :nnoremap <A-l> <C-w>l
 
 " Ack
-let g:ackprg = 'rg --vimgrep'           " Use the 'silver surfer' when grepping
+let g:ackprg = 'rg --hidden --vimgrep'
 
 " Tagbar
 nnoremap <leader>s :TagbarOpenAutoClose<CR>
