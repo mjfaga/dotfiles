@@ -160,5 +160,9 @@ alias randport="jot -r 1 5000 65000"
 alias tunnel_example="ssh -f -L 5433:warehouse-production.cbdirsqswodm.us-east-1.redshift.amazonaws.com:5432 mark.faga@bastion.example.com sleep 10"
 
 # pgcli EXAMPLES
-alias ="pgcli svfrd10" # No tunnel needed
 alias pgexample="tunnel_example && pgcli -h localhost -p 5433 database user" # Tunnel needed
+
+for file in ~/.aliases.local; do
+	[ -r "$file" ] && [ -f "$file" ] && source "$file";
+done;
+unset file;
