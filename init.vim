@@ -192,7 +192,6 @@ if has('syntax') && !exists('g:syntax_on')
   syntax enable                                                                                   " Enable syntax highlighting
 endif
 
-set hlsearch
 set number                                                                                        " Line numbers
 set relativenumber                                                                                " Show relative line numbers
 set nowrap                                                                                        " No wrapping
@@ -231,8 +230,10 @@ set backupskip=/tmp/*,/private/tmp/*                                            
 set exrc                                                                                          " Enable per-directory .vimrc files and disable unsafe commands in them
 "set secure
 "set list
-set ignorecase                                                                                    " Ignore case of searches
 set incsearch                                                                                     " Highlight dynamically as pattern is typed
+set hlsearch                                                                                      " Highlight all matches when search accepted
+set ignorecase                                                                                    " Ignore case of searches
+set smartcase                                                                                     " If capital letter typed, make search case sensitive
 set laststatus=2                                                                                  " Always show status line
 set statusline=%<%f\ %y%h%m%r%=%b\ 0x%B\ \ %l,%c%V\ %P                                            " Custom status line format
 set statusline+=%#warningmsg#
