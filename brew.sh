@@ -134,5 +134,8 @@ brew install direnv
 brew tap thoughtbot/formulae
 brew install parity
 
+# Matrix console screen saver
+brew install cmatrix
+
 # Remove outdated versions from the cellar.
 brew cleanup
