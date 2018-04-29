@@ -119,6 +119,9 @@ noremap \| :NERDTreeFind<CR>
 nnoremap j gj
 nnoremap k gk
 
+" restart eslint_d
+nnoremap <leader>es :Tnew <bar> :T node_modules/.bin/eslint_d stop && exit<CR>
+
 " Move line down
 nnoremap - ddp
 " Move line up
