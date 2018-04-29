@@ -91,6 +91,11 @@ if has('nvim')
 
   " Paste registers into terminal with alt-r
   :tnoremap <expr> <A-r> '<C-\><C-n>"'.nr2char(getchar()).'pi'
+
+  " Terminal/REPL
+  nnoremap TN :Tnew<CR><ESC>
+  nnoremap TT :Ttoggle<CR><ESC>
+  nnoremap TA :TtoggleAll<CR><ESC>
 endif
 :inoremap <A-h> <C-\><C-N><C-w>h
 :inoremap <A-j> <C-\><C-N><C-w>j
