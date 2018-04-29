@@ -10,7 +10,6 @@ Plug 'mileszs/ack.vim'
 Plug 'vim-scripts/Tabmerge'
 
 Plug 'djoshea/vim-autoread'
-Plug 'gmarik/Vundle.vim'
 Plug 'w0ng/vim-hybrid'
 Plug 'avakhov/vim-yaml'
 Plug 'vim-airline/vim-airline'
