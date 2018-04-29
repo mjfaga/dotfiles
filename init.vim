@@ -1,6 +1,6 @@
 set nocompatible
 
-" set the runtime path to include Vundle and initialize
+" set the runtime path to include Plugged and initialize
 call plug#begin('~/.vim/plugged')
 
 Plug 'mileszs/ack.vim'
