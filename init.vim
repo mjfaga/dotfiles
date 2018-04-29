@@ -60,7 +60,6 @@ Plug 'jparise/vim-graphql'
 Plug 'hail2u/vim-css3-syntax'
 Plug 'ap/vim-css-color'
 " Plug 'styled-components/vim-styled-components'
-Plug 'majutsushi/tagbar'                      " Navigate tags of current buffer
 Plug 'leafgarland/typescript-vim'
 Plug 'mattn/emmet-vim'
 Plug 'machakann/vim-highlightedyank'
@@ -102,13 +101,6 @@ endif
 
 " Ack
 let g:ackprg = 'rg --hidden --vimgrep'
-
-" Tagbar
-nnoremap <leader>s :TagbarOpenAutoClose<CR>
-
-" Tagbar
-let g:tagbar_singleclick = 0
-let g:tagbar_autopreview = 1
 
 let mapleader = ","
 
