@@ -113,6 +113,10 @@ noremap \ :NERDTreeToggle<CR>
 noremap \| :NERDTreeFind<CR>
 
 " NORMAL MAPINGS
+" When lines are wrapped, always navigate 1 up/down
+nnoremap j gj
+nnoremap k gk
+
 " Move line down
 nnoremap - ddp
 " Move line up
