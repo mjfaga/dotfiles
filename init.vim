@@ -102,7 +102,7 @@ endif
 :nnoremap <A-l> <C-w>l
 
 " Ack
-let g:ackprg = 'rg --hidden --vimgrep'
+let g:ackprg = 'rg --hidden --vimgrep'           " Use the 'silver surfer' when grepping
 
 let mapleader = ","
 
