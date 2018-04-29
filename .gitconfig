@@ -6,7 +6,7 @@
   df = diff
   ps = !git push -u origin $(git rev-parse --abbrev-ref HEAD)
   fps = !git push -f origin $(git rev-parse --abbrev-ref HEAD)
-  frm = !git checkout master && git fetch origin && git rebase origin/master && git checkout -
+  frm = !git checkout master && git pull && git rebase master && git checkout -
   att = !git frm && bundle && rake db:migrate db:test:prepare
   rhh = reset --hard HEAD
   rhb = !git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
