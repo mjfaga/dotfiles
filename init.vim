@@ -63,6 +63,8 @@ Plug 'styled-components/vim-styled-components'
 Plug 'leafgarland/typescript-vim'
 Plug 'mattn/emmet-vim'
 Plug 'machakann/vim-highlightedyank'
+Plug 'keith/investigate.vim'
+
 if has('nvim')
   Plug 'kassio/neoterm'
 endif
@@ -178,6 +180,8 @@ endfunction
 noremap <silent><expr> z/  incsearch#go(<SID>incsearch_config())
 noremap <silent><expr> z?  incsearch#go(<SID>incsearch_config({'command': '?'}))
 noremap <silent><expr> zg/ incsearch#go(<SID>incsearch_config({'is_stay': 1}))
+
+let g:investigate_use_dash=1
 
 " VIM SETTINGS
 if has('autocmd')
