@@ -436,6 +436,12 @@ endif
 " Tabmerge
 nnoremap <leader>tm :execute "Tabmerge left"<cr>
 
+function! ExtractUrlFromCurrentLine()
+  return matchstr(getline("."), "http[^ ]*")
+endfunction
+command! OpenUrlOnCurrentLineInBrowser exec "!open" ExtractUrlFromCurrentLine()
+nnoremap <leader>ou :execute "OpenUrlOnCurrentLineInBrowser"<cr>
+
 " CTAGS via Async
 " function! s:CtagsAsync()
 "   let job_id = async#job#start(['atomic-ctags'],
