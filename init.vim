@@ -3,7 +3,12 @@ set nocompatible
 " set the runtime path to include Plugged and initialize
 call plug#begin('~/.vim/plugged')
 
+" Search
 Plug 'mileszs/ack.vim'
+
+" Tabs
+Plug 'vim-scripts/Tabmerge'
+
 Plug 'djoshea/vim-autoread'
 Plug 'gmarik/Vundle.vim'
 Plug 'w0ng/vim-hybrid'
@@ -426,6 +431,9 @@ command! -bang -nargs=* FindCursor call fzf#vim#grep('rg --column --line-number 
 if has('nvim')
   autocmd FileType fzf tnoremap <buffer> <ESC> <C-c>
 endif
+
+" Tabmerge
+nnoremap <leader>tm :execute "Tabmerge left"<cr>
 
 " CTAGS via Async
 " function! s:CtagsAsync()
