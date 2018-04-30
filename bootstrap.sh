@@ -5,11 +5,26 @@ cd "$(dirname "${BASH_SOURCE}")";
 git pull origin master;
 
 function doIt() {
-  rsync --exclude ".git/" --exclude ".DS_Store" --exclude "bootstrap.sh" \
-    --exclude "README.md" --exclude "LICENSE-MIT.txt" --exclude "init.vim" -avh --no-perms . ~;
+  for file in ./{bin,init,.?[a-z]*}; do
+    localFile=${file:2}
+    if [ "$localFile" != ".git" ] && [ "$localFile" != ".gitconfig" ] && [ "$localFile" != ".macos" ]; then
+      echo "Simlinking '$localFile'"
+      ln -s "$(pwd)/$localFile" "~/$localFile"
+    fi;
+    unset localFile;
+  done;
+  unset file;
+
+  echo "Simlinking 'init.vim'"
   ln -s "$(pwd)/init.vim" ~/.vimrc
   ln -s "$(pwd)/init.vim" ~/.config/nvim/init.vim
+
+  echo "Sourcing ~/.bash_profile"
   source ~/.bash_profile;
+
+  echo "Don't forget to configure your git name/email!"
+  echo "git config --global user.name \"First Last\""
+  echo "git config --global user.email \"email@example.com\""
 }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
