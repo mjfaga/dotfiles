@@ -403,6 +403,9 @@ else
   let test#strategy = "dispatch"
 endif
 
+" kassio/neoterm
+let g:neoterm_default_mod = 'vertical'
+
 " haya14busa/incsearch.vim - basic overrides
 map /  <Plug>(incsearch-forward)
 map ?  <Plug>(incsearch-backward)
