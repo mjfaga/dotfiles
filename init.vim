@@ -51,6 +51,9 @@ Plug 'djoshea/vim-autoread'
 """""""""""""""""""""""""""""""""
 " Tabs
 """""""""""""""""""""""""""""""""
+" Tab naming, dirty modifier, etc.
+Plug 'gcmt/taboo.vim'
+
 " Merge two tabs into 1
 Plug 'vim-scripts/Tabmerge'
 
@@ -211,6 +214,10 @@ endif
 
 " Ack
 let g:ackprg = 'rg --hidden --vimgrep'           " Use the 'silver surfer' when grepping
+
+" Taboo
+let g:taboo_tab_format = " %W - %f%m "
+let g:taboo_renamed_tab_format = " %W - :Tab%l]%m "
 
 let mapleader = ","
 
