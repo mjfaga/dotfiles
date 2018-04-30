@@ -73,6 +73,7 @@ Plug 'hail2u/vim-css3-syntax'
 Plug 'ap/vim-css-color'
 Plug 'groenewege/vim-less'
 Plug 'jparise/vim-graphql'
+Plug 'vim-scripts/nginx.vim'
 
 """""""""""""""""""""""""""""""""
 " General File Editing
