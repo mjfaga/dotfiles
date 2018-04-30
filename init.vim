@@ -1,76 +1,178 @@
 set nocompatible
 
-" set the runtime path to include Plugged and initialize
+"""""""""""""""""""""""""""""""""
+" PLUGINS: START
+"""""""""""""""""""""""""""""""""
 call plug#begin('~/.vim/plugged')
 
-" Search
-Plug 'mileszs/ack.vim'
-
-" Tabs
-Plug 'vim-scripts/Tabmerge'
-
-Plug 'djoshea/vim-autoread'
+"""""""""""""""""""""""""""""""""
+" Vim color schemes
+"""""""""""""""""""""""""""""""""
 Plug 'w0ng/vim-hybrid'
-Plug 'avakhov/vim-yaml'
+
+"""""""""""""""""""""""""""""""""
+" Vim Status Bar
+"""""""""""""""""""""""""""""""""
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
+
+"""""""""""""""""""""""""""""""""
+" Project Navigation
+"""""""""""""""""""""""""""""""""
+" Ack command
+Plug 'mileszs/ack.vim'
+
+" File searching w/fzf
+Plug 'junegunn/fzf'
+Plug 'junegunn/fzf.vim'
+
 Plug 'christoomey/vim-tmux-navigator'
-Plug 'godlygeek/tabular'
-Plug 'groenewege/vim-less'
-Plug 'Lokaltog/vim-easymotion'
+
+"""""""""""""""""""""""""""""""""
+" File Navigation
+"""""""""""""""""""""""""""""""""
+" Highlight all search pattern matches
 Plug 'haya14busa/incsearch.vim'
+Plug 'scrooloose/nerdtree'
+
+" Highlight git changes in nerdtree panel
+Plug 'Xuyuanp/nerdtree-git-plugin'
+
+" Quick Navigation
+Plug 'Lokaltog/vim-easymotion'
 Plug 'haya14busa/incsearch-easymotion.vim'
+
+"""""""""""""""""""""""""""""""""
+" File management
+"""""""""""""""""""""""""""""""""
+" Reload file when changed and buffer out of date
+Plug 'djoshea/vim-autoread'
+
+"""""""""""""""""""""""""""""""""
+" Tabs
+"""""""""""""""""""""""""""""""""
+" Merge two tabs into 1
+Plug 'vim-scripts/Tabmerge'
+
+"""""""""""""""""""""""""""""""""
+" Language Specific Highlighting/Functionality
+"""""""""""""""""""""""""""""""""
+Plug 'vim-ruby/vim-ruby'
+Plug 'keith/rspec.vim'
+Plug 'slim-template/vim-slim'
+Plug 'avakhov/vim-yaml'
+Plug 'othree/html5.vim'
+Plug 'pangloss/vim-javascript'
+Plug 'leafgarland/typescript-vim'
+Plug 'mxw/vim-jsx'
+Plug 'styled-components/vim-styled-components'
+Plug 'hail2u/vim-css3-syntax'
+Plug 'ap/vim-css-color'
+Plug 'groenewege/vim-less'
+Plug 'jparise/vim-graphql'
+
+"""""""""""""""""""""""""""""""""
+" General File Editing
+"""""""""""""""""""""""""""""""""
+" Improved tab/alignment control
+Plug 'godlygeek/tabular'
+
+" Commenting key bindings
+Plug 'scrooloose/nerdcommenter'
+
+" Smart abbreviations, subsitution, & coercion
+Plug 'tpope/vim-abolish'
+
+" Treat quotes, brackets, etc. in pairs
+Plug 'jiangmiao/auto-pairs'
+
+" Automatically add end structures
+Plug 'tpope/vim-endwise'
+
+" Keybindings for surrounding stuff
+Plug 'tpope/vim-surround'
+
+" Extend the . repeat command for other plugin functions
+Plug 'tpope/vim-repeat'
+
+" Git wrapper
+Plug 'tpope/vim-fugitive'
+
+" Single/Multiline statement toggle
+Plug 'andrewradev/splitjoin.vim'
+
+" Open up documentation for word under cursor
+Plug 'keith/investigate.vim'
+
+" Allow creation of custom text objects
+Plug 'kana/vim-textobj-user'
+
+" [ & ] keymappings for :allthethings:
+Plug 'tpope/vim-unimpaired'
+
+"""""""""""""""""""""""""""""""""
+" Ruby File Editing
+"""""""""""""""""""""""""""""""""
+" Bundle wrapper
+Plug 'tpope/vim-bundler'
+
+" Rails file editing/navigation
+Plug 'tpope/vim-rails'
+
+" Ruby file editing/navigation
+" Plug 'tpope/vim-rake'
+
+" Ruby custom text objects
+Plug 'nelstrom/vim-textobj-rubyblock'
+
+"""""""""""""""""""""""""""""""""
+" HTML File Editing
+"""""""""""""""""""""""""""""""""
+" Automatically generate html closing tags
+Plug 'alvan/vim-closetag'
+
+" Quick tag creation/editing
+Plug 'mattn/emmet-vim'
+
+"""""""""""""""""""""""""""""""""
+" File Linting
+"""""""""""""""""""""""""""""""""
+Plug 'w0rp/ale'
 Plug 'prettier/vim-prettier', {
   \ 'do': 'yarn install',
   \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql', 'markdown'] }
+
+"""""""""""""""""""""""""""""""""
+" File Visualation Helpers
+"""""""""""""""""""""""""""""""""
 Plug 'Yggdroot/indentLine'
-Plug 'othree/html5.vim'
-Plug 'pangloss/vim-javascript'
-Plug 'mxw/vim-jsx'
-Plug 'scrooloose/nerdcommenter'
-Plug 'scrooloose/nerdtree'
-" Plug 'scrooloose/syntastic'
-Plug 'w0rp/ale'
-Plug 'keith/rspec.vim'
-Plug 'Xuyuanp/nerdtree-git-plugin'
-Plug 'tpope/vim-abolish'
-Plug 'tpope/vim-endwise'
-Plug 'tpope/vim-repeat'
-Plug 'tpope/vim-surround'
-Plug 'tpope/vim-fugitive'
-Plug 'tpope/vim-rails'
-Plug 'tpope/vim-bundler'
-Plug 'tpope/vim-dispatch'
-Plug 'alvan/vim-closetag'
-Plug 'jiangmiao/auto-pairs'
-" Plug 'tpope/vim-rake'
-Plug 'vim-ruby/vim-ruby'
+Plug 'machakann/vim-highlightedyank'
+
+"""""""""""""""""""""""""""""""""
+" Tests
+"""""""""""""""""""""""""""""""""
 Plug 'janko-m/vim-test'
-Plug 'slim-template/vim-slim'
-Plug 'andrewradev/splitjoin.vim'
-" Plug 'gcmt/taboo.vim'
+
 " Plug 'ngmy/vim-rubocop'
 " Plug 'vim-scripts/gitignore'
-Plug 'kana/vim-textobj-user'
-Plug 'nelstrom/vim-textobj-rubyblock'
-Plug 'prabirshrestha/async.vim'               " Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
-Plug 'junegunn/fzf'
-Plug 'junegunn/fzf.vim'
-Plug 'jparise/vim-graphql'
-Plug 'hail2u/vim-css3-syntax'
-Plug 'ap/vim-css-color'
-Plug 'styled-components/vim-styled-components'
-Plug 'leafgarland/typescript-vim'
-Plug 'mattn/emmet-vim'
-Plug 'machakann/vim-highlightedyank'
-Plug 'keith/investigate.vim'
 
 if has('nvim')
   Plug 'kassio/neoterm'
 endif
 
-" All of your Plugins must be added before the following line
-call plug#end()            " required
+"""""""""""""""""""""""""""""""""
+" Task Backgrounding
+"""""""""""""""""""""""""""""""""
+" Async.vim - Normalized interface to Vim 8 & NeoVim async jobs
+Plug 'prabirshrestha/async.vim'
+
+" Synchronous adapters to spawn interactive processes
+Plug 'tpope/vim-dispatch'
+
+call plug#end()
+"""""""""""""""""""""""""""""""""
+" PLUGINS: END
+"""""""""""""""""""""""""""""""""
 
 " Brief help
 " :PluginList       - lists configured plugins
@@ -83,7 +185,8 @@ if has('nvim')
   " Escape to exit terminal mode
   :tnoremap <Esc> <C-\><C-n>
 
-  " Restore navigation between terminal windows/vim windows
+  " Restore navigation between terminal windows/vim windows when in insert
+  " mode
   :tnoremap <A-h> <C-\><C-N><C-w>h
   :tnoremap <A-j> <C-\><C-N><C-w>j
   :tnoremap <A-k> <C-\><C-N><C-w>k
