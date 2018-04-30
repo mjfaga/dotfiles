@@ -113,6 +113,9 @@ Plug 'kana/vim-textobj-user'
 " [ & ] keymappings for :allthethings:
 Plug 'tpope/vim-unimpaired'
 
+" Autocomplete for search
+Plug 'vim-scripts/SearchComplete'
+
 """""""""""""""""""""""""""""""""
 " Ruby File Editing
 """""""""""""""""""""""""""""""""
