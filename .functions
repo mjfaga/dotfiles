@@ -248,3 +248,9 @@ function tre() {
 function servers() {
   cap ${1:-production} ec2:status
 }
+
+for file in ~/.functions.local; do
+	[ -r "$file" ] && [ -f "$file" ] && source "$file";
+done;
+unset file;
+
