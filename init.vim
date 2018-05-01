@@ -567,6 +567,11 @@ augroup GitRebaseMode
   autocmd FileType gitrebase nnoremap <buffer> <leader>s :2,$s/^pick/squash/<CR>
 augroup END
 
+" when in diff mode
+if &diff
+  set diffopt+=iwhite
+endif
+
 """""""""""""""""""""""""""""""""
 " Troubleshooting
 """""""""""""""""""""""""""""""""
