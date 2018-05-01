@@ -561,6 +561,12 @@ endfunction
 command! OpenUrlOnCurrentLineInBrowser exec "!open" ExtractUrlFromCurrentLine()
 nnoremap <leader>ou :execute "OpenUrlOnCurrentLineInBrowser"<cr>
 
+augroup GitRebaseMode
+  autocmd!
+
+  autocmd FileType gitrebase nnoremap <buffer> <leader>s :2,$s/^pick/squash/<CR>
+augroup END
+
 """""""""""""""""""""""""""""""""
 " Troubleshooting
 """""""""""""""""""""""""""""""""
