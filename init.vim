@@ -48,6 +48,9 @@ Plug 'haya14busa/incsearch-easymotion.vim'
 " Reload file when changed and buffer out of date
 Plug 'djoshea/vim-autoread'
 
+" UNIX helpers
+Plug 'tpope/vim-eunuch'
+
 """""""""""""""""""""""""""""""""
 " Tabs
 """""""""""""""""""""""""""""""""
