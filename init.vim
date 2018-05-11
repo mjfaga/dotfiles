@@ -564,7 +564,8 @@ nnoremap <leader>ou :execute "OpenUrlOnCurrentLineInBrowser"<cr>
 augroup GitRebaseMode
   autocmd!
 
-  autocmd FileType gitrebase nnoremap <buffer> <leader>s :2,$s/^pick/squash/<CR>
+  autocmd FileType gitrebase nnoremap <buffer> <leader>s :2,$s/^\w\+ /s /<CR>
+  autocmd FileType gitrebase nnoremap <buffer> <leader>f :2,$s/^\w\+ /f /<CR>
 augroup END
 
 " when in diff mode
