@@ -26,7 +26,10 @@ function doIt() {
   echo "Sourcing '~/.bash_profile'..."
   source ~/.bash_profile;
 
-  echo "Don't forget to configure your git name/email!"
+  echo "Copying ..gitconfig'..."
+  cp .gitconfig ~/.gitconfig
+
+  echo "Don't forget to configure your git name/email:"
   echo "git config --global user.name \"First Last\""
   echo "git config --global user.email \"email@example.com\""
 }
