@@ -5,6 +5,9 @@ cd "$(dirname "${BASH_SOURCE}")";
 git pull origin master;
 
 function doIt() {
+  # Install Homebrew
+  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
   for file in ./{bin,init,.?[a-z]*}; do
     localFile=${file:2}
     if [ "$localFile" != ".git" ] && [ "$localFile" != ".gitconfig" ] && [ "$localFile" != ".macos" ]; then
