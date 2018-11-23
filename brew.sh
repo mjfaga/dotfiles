@@ -97,6 +97,7 @@ brew cask install 1password
 brew cask install divvy
 brew cask install gimp
 brew cask install dash
+brew cask install alfred
 brew install Caskroom/cask/iterm2
 brew install Caskroom/cask/dropbox
 brew install Caskroom/cask/bettertouchtool
