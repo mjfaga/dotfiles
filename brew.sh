@@ -87,6 +87,8 @@ brew install tig
 brew install pgcli
 brew install fzf
 brew install ripgrep
+brew install nvm
+mkdir ~/.nvm
 brew install yarn --without-node
 
 # Applications
