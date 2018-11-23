@@ -2,6 +2,7 @@
 export PATH="$HOME/bin:$PATH";
 export PATH="/usr/local/sbin:$PATH"
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+export PATH="$PATH:$HOME/.rvm/bin"
 export FZF_DEFAULT_COMMAND="rg --hidden --files"
 export FZF_DEFAULT_OPTS='--preview="rougify -t monokai.sublime {}"'
 
