@@ -5,6 +5,8 @@
 .DS_Store
 Desktop.ini
 .vim/.netrwhist
+.vim/autoload
+.vim/plugged
 
 # Thumbnail cache files
 ._*
