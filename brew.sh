@@ -70,6 +70,7 @@ brew install xz
 brew install ack
 brew install git
 brew install git-lfs
+brew install shellcheck
 brew install imagemagick --with-webp
 brew install neovim
 brew install p7zip
