@@ -111,6 +111,8 @@ brew install graphviz
 brew install memcached
 brew install redis
 brew install direnv
+brew tap heroku/brew
+brew install heroku
 
 # https://github.com/thoughtbot/parity
 brew tap thoughtbot/formulae
