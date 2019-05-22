@@ -243,11 +243,6 @@ set hlsearch                                                                    
 set ignorecase                                                                                    " Ignore case of searches
 set smartcase                                                                                     " If capital letter typed, make search case sensitive
 set laststatus=2                                                                                  " Always show status line
-set statusline=%<%f\ %y%h%m%r%=%b\ 0x%B\ \ %l,%c%V\ %P                                            " Custom status line format
-set statusline+=%#warningmsg#
-set statusline+=%{SyntasticStatuslineFlag()}
-set statusline+=%*
-set statusline+=%{fugitive#statusline()}
 set mouse=a                                                                                       " Enable mouse in all modes
 set noerrorbells                                                                                  " Disable error bells
 "set nostartofline                                                                                 " Don’t reset cursor to start of line when moving around.
@@ -390,9 +385,10 @@ let g:NERDCommentEmptyLines = 1
 let g:NERDTrimTrailingWhitespace = 1
 
 " vim-airline/vim-airline
-:let g:airline_theme='sol'
-:let g:airline#extensions#tabline#enabled = 1
-:let g:airline#extensions#tabline#fnamemod = ':t'
+let g:airline_theme='sol'
+let g:airline#extensions#tabline#enabled = 1
+let g:airline#extensions#tabline#fnameod = ':t'
+let g:airline#extensions#ale#enabled = 1
 
 " janko-m/vim-test
 nmap <silent> <leader>t :TestNearest<CR>
