@@ -160,6 +160,11 @@ Plug 'Yggdroot/indentLine'
 Plug 'machakann/vim-highlightedyank'
 
 """""""""""""""""""""""""""""""""
+" External Integrations
+"""""""""""""""""""""""""""""""""
+Plug 'rizzatti/dash.vim'
+
+"""""""""""""""""""""""""""""""""
 " Tests
 """""""""""""""""""""""""""""""""
 Plug 'janko-m/vim-test'
@@ -390,6 +395,9 @@ let g:airline_theme='sol'
 let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#fnameod = ':t'
 let g:airline#extensions#ale#enabled = 1
+
+" rizzatti/dash.vim
+nnoremap <Leader>d :Dash<CR>
 
 " janko-m/vim-test
 nmap <silent> <leader>t :TestNearest<CR>
