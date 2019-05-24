@@ -77,6 +77,7 @@ Plug 'ap/vim-css-color'
 Plug 'groenewege/vim-less'
 Plug 'jparise/vim-graphql'
 Plug 'vim-scripts/nginx.vim'
+Plug 'StanAngeloff/php.vim'
 
 """""""""""""""""""""""""""""""""
 " General File Editing
