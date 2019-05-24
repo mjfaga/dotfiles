@@ -16,8 +16,8 @@ for file in ~/.{path,bash_prompt,exports,aliases,functions,extra}; do
 done;
 unset file;
 
-# save history immediately on a new prompt command
-PROMPT_COMMAND="history -a"
+# save and reload history immediately on a new prompt command
+export PROMPT_COMMAND="history -a; history -c; history -r;"
 
 # Case-insensitive globbing (used in pathname expansion)
 shopt -s nocaseglob;
