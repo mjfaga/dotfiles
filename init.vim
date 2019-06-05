@@ -249,7 +249,7 @@ set hlsearch                                                                    
 set ignorecase                                                                                    " Ignore case of searches
 set smartcase                                                                                     " If capital letter typed, make search case sensitive
 set laststatus=2                                                                                  " Always show status line
-set mouse=a                                                                                       " Enable mouse in all modes
+" set mouse=a                                                                                       " Enable mouse in all modes
 set noerrorbells                                                                                  " Disable error bells
 "set nostartofline                                                                                 " Don’t reset cursor to start of line when moving around.
 set ruler                                                                                         " Show the cursor position
