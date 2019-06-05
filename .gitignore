@@ -7,6 +7,7 @@ Desktop.ini
 .vim/.netrwhist
 .vim/autoload
 .vim/plugged
+.vim/swaps
 
 # Thumbnail cache files
 ._*
