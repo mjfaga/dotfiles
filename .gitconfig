@@ -182,6 +182,9 @@
   # Make `git push` push relevant annotated tags when pushing branches out.
   followTags = true
 
+[pack]
+	useSparse = true
+
 [rerere]
   enabled = true
 
