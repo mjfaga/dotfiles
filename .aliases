@@ -149,7 +149,7 @@ alias reload="exec $SHELL -l"
 
 alias ssha="eval \"$(ssh-agent -s)\" && ssh-add"
 
-alias specs="bin/rspec --options ~/.myrspec"
+alias specs="bundle exec rspec --options ~/.myrspec"
 
 alias vim="nvim"
 alias shutupvim="rm ~/.vim/swaps/*.swp"
