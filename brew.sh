@@ -106,6 +106,7 @@ brew install Caskroom/cask/dropbox
 brew install Caskroom/cask/bettertouchtool
 brew install Caskroom/cask/evernote
 brew install graphviz
+brew cask install licecap
 
 #dev tools
 brew install memcached
