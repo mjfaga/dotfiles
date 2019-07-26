@@ -37,9 +37,11 @@ for option in autocd globstar; do
 done;
 
 # Add tab completion for many Bash commands
-if [ -f $(brew --prefix)/etc/bash_completion ]; then
-  . $(brew --prefix)/etc/bash_completion
-fi
+for file in $(brew --prefix)/etc/bash_completion.d/*
+do
+  . $file
+done;
+unset file;
 
 # Enable tab completion for `g` by marking it as an alias for `git`
 if type _git &> /dev/null && [ -f /usr/local/etc/bash_completion.d/git-completion.bash ]; then
