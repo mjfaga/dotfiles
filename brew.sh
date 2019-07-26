@@ -35,7 +35,7 @@ brew install bash-completion2
 brew install wget --with-iri
 
 # Install more recent versions of some OS X tools.
-brew install vim --override-system-vi
+brew install vim --with-override-system-vi
 
 # Install Java
 brew cask install Java
