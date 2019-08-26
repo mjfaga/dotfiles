@@ -94,6 +94,7 @@ brew install yarn --without-node
 
 # Applications
 brew cask install google-chrome
+brew cask install brave-browser
 brew cask install firefox
 brew cask install slack
 brew cask install 1password
