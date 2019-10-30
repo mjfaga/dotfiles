@@ -99,6 +99,7 @@ cask "iterm2"
 cask "dropbox"
 cask "bettertouchtool"
 cask "evernote"
+cask "visual-studio-code"
 brew "graphviz"
 
 #dev tools
