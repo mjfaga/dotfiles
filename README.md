@@ -2,9 +2,29 @@
 
 ## Installation
 
-### Using Git and the bootstrap script
+### Clone repositories
 
-You can clone the repository wherever you want (I like to keep it in `~/Projects/dotfiles`). The bootstrapper script will pull in the latest version and copy the files to your home folder.
+Yep, that's right. My scripts assume you have a general dotfiles repository, and also a dotfiles-local repository where you store stuff specific to your workstation. If you don't have a "local" repository, that's cool too. Just skip that step.
+
+You can clone the repositories wherever you want (I like to keep them in `~/projects/`).
+
+```bash
+# from ~/projects
+git clone git@github.com:mjfaga/dotfiles-local.git ./dotfiles-local # Regardles of the local dotfiles name, always putit in a dotfiles-local directory
+git clone git@github.com:mjfaga/dotfiles.git
+cd dotfiles
+```
+
+### Install Homebrew formulae
+
+When setting up a new Mac, you may want to install some common [Homebrew](http://brew.sh/) formulae (Homebrew installed automatically by script):
+```bash
+./brew.sh
+```
+
+### Bootstrap script
+
+The bootstrapper script will pull in the latest version of your dotfiels and simlink/copy the files to your home folder.
 
 ```bash
 # from ~/Projects
@@ -25,14 +45,6 @@ set -- -f; source bootstrap.sh
 
 To update later on, just run that command again.
 
-Once you are bootstrapped, add the following to the bottom of the global .gitconfig:
-```bash
-[user]
-
-  name = First Last
-  email = example@email.com
-```
-
 Other things I like to install:
 * [Disk Inventory X](http://www.derlien.com/index.html)
 * Microsoft Office 365 for Mac
@@ -45,24 +57,6 @@ When setting up a new Mac, you may want to set some sensible macOS defaults:
 ./.macos
 ```
 
-### Install Homebrew formulae
-
-When setting up a new Mac, you may want to install some common [Homebrew](http://brew.sh/) formulae (after installing Homebrew, of course):
-```bash
-./brew.sh
-```
-
 ## Feedback
 
 Suggestions/improvements [welcome](https://github.com/mjfaga/dotfiles/issues)!
-
-## Author
-
-Original Author:
-
-| [![twitter/mathias](http://gravatar.com/avatar/24e08a9ea84deb17ae121074d0f17125?s=70)](http://twitter.com/mathias "Follow @mathias on Twitter") |
-|---|
-| [Mathias Bynens](https://mathiasbynens.be/) |
-
-Updates By:
-Mark Faga
