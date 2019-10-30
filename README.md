@@ -4,7 +4,9 @@
 
 ### Clone repositories
 
-Yep, that's right. My scripts assume you have a general dotfiles repository, and also a dotfiles-local repository where you store stuff specific to your workstation. If you don't have a "local" repository, that's cool too. Just skip that step.
+Yep, that's right. My scripts assume you have a general dotfiles repository, and
+also a dotfiles-local repository where you store stuff specific to your workstation.
+If you don't have a "local" repository, that's cool too. Just skip that step.
 
 You can clone the repositories wherever you want (I like to keep them in `~/projects/`).
 
@@ -17,14 +19,17 @@ cd dotfiles
 
 ### Install Homebrew formulae
 
-When setting up a new Mac, you may want to install some common [Homebrew](http://brew.sh/) formulae (Homebrew installed automatically by script):
+When setting up a new Mac, you may want to install some common [Homebrew](http://brew.sh/)
+formulae (Homebrew installed automatically by script):
 ```bash
 ./brew.sh
 ```
 
 ### Bootstrap script
 
-The bootstrapper script will pull in the latest version of your dotfiels and simlink/copy the files to your home folder.
+The bootstrapper script will pull in the latest version of your dotfiels and
+simlink/copy the files to your home folder. If you have a dotfiles-local directory sibling,
+configuration in that file will be recognized as well.
 
 ```bash
 # from ~/Projects
