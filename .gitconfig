@@ -1,13 +1,11 @@
 [alias]
   st = status
-  ci = commit -v
   co = checkout
   br = branch
   df = diff
   ps = !git push -u origin $(git rev-parse --abbrev-ref HEAD)
   fps = !git push -f origin $(git rev-parse --abbrev-ref HEAD)
-  frm = !git checkout master && git pull && git rebase master && git checkout -
-  att = !git frm && bundle && rake db:migrate db:test:prepare
+  frm = !git checkout master && git pull && git checkout - && git rebase master
   rhh = reset --hard HEAD
   rhb = !git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
   stashall = stash save --include-untracked
@@ -32,9 +30,6 @@
 
   # Clone a repository including all submodules
   c = clone --recursive
-
-  # Commit all changes
-  ca = !git add -A && git commit -av
 
   # Switch to a branch, creating it if necessary
   go = "!f() { git checkout -b \"$1\" 2> /dev/null || git checkout \"$1\"; }; f"
@@ -74,18 +69,6 @@
 
   # List contributors with number of commits
   contributors = shortlog --summary --numbered -e
-
-  # Merge GitHub pull request on top of the `master` branch
-  mpr = "!f() { \
-    if [ $(printf \"%s\" \"$1\" | grep '^[0-9]\\+$' > /dev/null; printf $?) -eq 0 ]; then \
-      git fetch origin refs/pull/$1/head:pr/$1 && \
-      git rebase master pr/$1 && \
-      git checkout master && \
-      git merge pr/$1 && \
-      git branch -D pr/$1 && \
-      git commit --amend -m \"$(git log -1 --pretty=%B)\n\nCloses #$1.\"; \
-    fi \
-  }; f"
 
 [branch]
   autosetupmerge = always
