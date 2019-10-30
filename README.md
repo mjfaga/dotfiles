@@ -17,12 +17,12 @@ git clone git@github.com:mjfaga/dotfiles.git
 cd dotfiles
 ```
 
-### Install Homebrew formulae
+### Install Applications
 
-When setting up a new Mac, you may want to install some common [Homebrew](http://brew.sh/)
-formulae (Homebrew installed automatically by script):
+Installs a mix of applications via [Homebrew](http://brew.sh/) (Homebrew installed
+automatically by script if not already) & curl :
 ```bash
-./brew.sh
+./apps.sh
 ```
 
 ### Bootstrap script

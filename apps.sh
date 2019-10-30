@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 
-# Install all homebrew packages inside Brewfile
-
 # Check for Homebrew Installation
 if ! which brew > /dev/null; then
-     # Install Homebrew
-     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+  echo "Installing Homebrew"
+  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 fi;
 
+echo "Updating and installing apps via Homebrew..."
 # Make sure we’re using the latest Homebrew.
 brew update
 
@@ -17,8 +16,8 @@ brew upgrade
 # Install everything inside Brewfile
 brew bundle
 
-# Switch to using brew-installed bash as default shell
 if ! fgrep -q '/usr/local/bin/bash' /etc/shells; then
+  echo "Switch to using brew-installed bash as default shell..."
   echo '/usr/local/bin/bash' | sudo tee -a /etc/shells;
   chsh -s /usr/local/bin/bash;
 fi;
