@@ -24,6 +24,10 @@ fi;
 if [ ! -d "$HOME/.rvm" ]; then
   echo "Installing RVM..."
   \curl -sSL https://get.rvm.io | bash -s stable
+  # Install latest version of ruby automatically
+  rvm install $(rvm list known | grep "\[ruby-\]" | grep -v "preview" | tail -1 | sed "s/\[//g" | sed "s/\]//g")
+  # Install rails globally
+  sudo gem install rails
 fi;
 
 if [ ! -f "$HOME/.vim/autoload/plug.vim" ]; then
