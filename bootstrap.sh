@@ -17,9 +17,8 @@ function doIt() {
   unset file;
 
   echo "Simlinking 'init.vim'..."
-  ln -sf "$(pwd)/init.vim" ~/.vimrc
   mkdir -p ~/.config/nvim
-  ln -sf "$(pwd)/init.vim" ~/.config/nvim/init.vim
+  ln -sf "$(pwd)/.vimrc" ~/.config/nvim/init.vim
 
   echo "Sourcing '~/.bash_profile'..."
   source ~/.bash_profile;
