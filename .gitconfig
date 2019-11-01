@@ -3,11 +3,11 @@
   co = checkout
   br = branch
   df = diff
-  ps = !git push -u origin $(git rev-parse --abbrev-ref HEAD)
-  fps = !git push -f origin $(git rev-parse --abbrev-ref HEAD)
+  ps = !git push -u origin $(git branch --show-current)
+  fps = !git push -f origin $(git branch --show-current)
   frm = !git checkout master && git pull && git checkout - && git rebase master
   rhh = reset --hard HEAD
-  rhb = !git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
+  rhb = !git reset --hard origin/$(git branch --show-current)
   stashall = stash save --include-untracked
   aaf = !git add . && git amend && git fps
 
