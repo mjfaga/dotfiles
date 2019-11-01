@@ -27,7 +27,7 @@ automatically by script if not already) & curl :
 
 ### Bootstrap script
 
-The bootstrapper script will pull in the latest version of your dotfiels and
+The bootstrapper script will pull in the latest version of your dotfiles and
 simlink/copy the files to your home folder. If you have a dotfiles-local directory sibling,
 configuration in that file will be recognized as well.
 
@@ -50,16 +50,14 @@ set -- -f; source bootstrap.sh
 
 To update later on, just run that command again.
 
-Other things I like to install:
-* [Disk Inventory X](http://www.derlien.com/index.html)
-* Microsoft Office 365 for Mac
-
 ### Sensible macOS defaults
 
-When setting up a new Mac, you may want to set some sensible macOS defaults:
+When setting up a new Mac, you may want to set some sensible macOS defaults. _NOTE: You may
+need to give the terminal app you use to run this script Full Disk Access in order for all
+settings to be successfully changed._
 
 ```bash
-./.macos
+./macos.sh
 ```
 
 ## Feedback
