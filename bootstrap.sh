@@ -8,9 +8,9 @@ function doIt() {
   # Copy system files
   for file in ./{bin,init,.?[a-z]*}; do
     localFile=${file:2}
-    if [ "$localFile" != ".git" ] && [ "$localFile" != ".gitconfig" ] && [ "$localFile" != ".macos" ]; then
+    if [ "$localFile" != ".git" ] && [ "$localFile" != ".gitconfig" ]; then
       echo "Simlinking '$localFile'..."
-      ln -sf "$(pwd)/$localFile" ~/$localFile
+      ln -sfn "$(pwd)/$localFile" ~/$localFile
     fi;
     unset localFile;
   done;
