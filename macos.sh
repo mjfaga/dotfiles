@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-cd "$(dirname "${BASH_SOURCE}")";
-
 git pull origin master;
 
 # Close any open System Preferences panes, to prevent them from overriding
