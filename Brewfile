@@ -103,6 +103,7 @@ cask "visual-studio-code"
 brew "graphviz"
 
 #dev tools
+cask "postgres"
 brew "memcached"
 brew "redis"
 brew "direnv"
