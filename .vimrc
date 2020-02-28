@@ -603,6 +603,8 @@ function! <SID>SynStack()
   echo map(synstack(line('.'), col('.')), 'synIDattr(v:val, "name")')
 endfunc
 
+com! FormatJSON %!python -m json.tool
+
 " CTAGS via Async
 " function! s:CtagsAsync()
 "   let job_id = async#job#start(['atomic-ctags'],
