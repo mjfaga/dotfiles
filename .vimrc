@@ -122,6 +122,12 @@ Plug 'tpope/vim-unimpaired'
 Plug 'vim-scripts/SearchComplete'
 
 """""""""""""""""""""""""""""""""
+" Javascript File Editing
+"""""""""""""""""""""""""""""""""
+" node_modules navigation
+Plug 'moll/vim-node'
+
+"""""""""""""""""""""""""""""""""
 " Ruby File Editing
 """""""""""""""""""""""""""""""""
 " Bundle wrapper
@@ -462,6 +468,9 @@ let g:indentLine_char = '│'
 
 " mxw/vim-jsx
 let g:jsx_ext_required = 0                                                                        " Allow JSX in normal JS files
+
+" moll/vim-node
+autocmd User Node if &filetype == "javascript" | setlocal expandtab | endif
 
 " hail2u/vim-css3-syntax
 augroup VimCSS3Syntax
