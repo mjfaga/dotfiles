@@ -30,3 +30,7 @@ export MANPAGER='less -X';
 
 # Always enable colored `grep` output.
 export GREP_OPTIONS='--color=auto';
+
+if [ -f ~/.exports.local ]; then
+    source ~/.exports.local
+fi
