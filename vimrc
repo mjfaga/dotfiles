@@ -629,3 +629,8 @@ com! FormatJSON %!python -m json.tool
 " augroup END
 "
 " " vim:ft=vim
+
+let $LOCALFILE=expand("~/.vimrc.local")
+if filereadable($LOCALFILE)
+    source $LOCALFILE
+endif
