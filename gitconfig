@@ -10,8 +10,8 @@
   rhb = !git reset --hard origin/$(git branch --show-current)
   stashall = stash save --include-untracked
   aaf = !git add . && git amend && git fps
-	update-submodules = submodule update --init --recursive
-	upgrade-submodules = submodule update --init --remote
+  update-submodules = submodule update --init --recursive
+  upgrade-submodules = submodule update --init --remote
 
   # Colorful master log listing
   l = log --oneline --decorate --graph --date=relative --abbrev-commit --pretty=format:'%C(yellow)%h%Creset - %s %C(red)%d%Creset %Cgreen(%cr BY %ae)%Creset'
@@ -168,7 +168,7 @@
   followTags = true
 
 [pack]
-	useSparse = true
+  useSparse = true
 
 [rebase]
   autosquash = true
