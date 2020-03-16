@@ -10,6 +10,8 @@
   rhb = !git reset --hard origin/$(git branch --show-current)
   stashall = stash save --include-untracked
   aaf = !git add . && git amend && git fps
+	update-submodules = submodule update --init --recursive
+	upgrade-submodules = submodule update --init --remote
 
   # Colorful master log listing
   l = log --oneline --decorate --graph --date=relative --abbrev-commit --pretty=format:'%C(yellow)%h%Creset - %s %C(red)%d%Creset %Cgreen(%cr BY %ae)%Creset'
@@ -80,8 +82,8 @@
 
 [core]
 
-  # Use custom `.gitignore` and `.gitattributes`
-  excludesfile = ~/.gitignore
+  # Use custom `.gitignore_global` and `.gitattributes`
+  excludesfile = ~/.gitignore_global
   attributesfile = ~/.gitattributes
 
   # Don't ignore case; causes issues when projects have case-sensitive imports
