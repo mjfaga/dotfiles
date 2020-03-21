@@ -71,6 +71,7 @@
 
   # List contributors with number of commits
   contributors = shortlog --summary --numbered -e
+  linecontributors = ! "lc() { git ls-tree --name-only -z -r HEAD | xargs -0 -n1 git diff --no-index --numstat /dev/null 2>/dev/null | grep -v '^-' | cut -f 3- | cut -d ' ' -f 3- | xargs -n1 git blame --line-porcelain | grep '^author ' | cut -d ' ' -f 2- | sort | uniq -c | sort -nr; }; lc"
 
 [branch]
   autosetupmerge = always
