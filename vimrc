@@ -266,8 +266,14 @@ set showcmd                                                                     
 set scrolloff=3                                                                                   " Start scrolling three lines before the horizontal window border
 set sidescrolloff=5
 set display+=lastline
-set cursorline                                                                                    " Highlight current line
 set shell=/bin/bash
+
+" highlight current line, but only in active window
+augroup CursorLineOnlyInActiveWindow
+    autocmd!
+    autocmd VimEnter,WinEnter,BufWinEnter * setlocal cursorline
+    autocmd WinLeave * setlocal nocursorline
+augroup END
 
 " Neovim options
 if has('nvim')
