@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+export FZF_DEFAULT_COMMAND="rg --hidden --files"
+export FZF_DEFAULT_OPTS='--preview="rougify -t monokai.sublime {}"'
+
+# FZF Configurations
+bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+
+[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+
+source $(brew --prefix nvm)/nvm.sh
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+if [ -f ~/.bash/plugins.local ]; then
+    source ~/.bash/plugins.local
+fi

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Simple calculator
 function calc() {
   local result="";
@@ -253,6 +255,6 @@ function servssh() {
   servers ${1:-production} | grep scheduler | awk '{print $5}' | xargs -o ssh
 }
 
-if [ -f ~/.functions.local ]; then
-    source ~/.functions.local
+if [ -f ~/.bash/functions.local ]; then
+    source ~/.bash/functions.local
 fi

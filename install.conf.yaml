@@ -6,14 +6,12 @@
 - clean: ['~', '~/.config']
 
 - link:
-    ~/.aliases:
     ~/.bash_profile:
-    ~/.bash_prompt:
+    ~/.bash:
     ~/.bashrc:
+    ~/.config/nvim/init.vim: vimrc
     ~/.curlrc:
     ~/.editorconfig:
-    ~/.exports:
-    ~/.functions:
     ~/.gitattributes:
     ~/.gitconfig:
     ~/.gitignore_global:
@@ -26,9 +24,8 @@
     ~/.vim:
     ~/.vimrc:
     ~/.wgetrc:
-    ~/init: init
     ~/bin: bin
-    ~/.config/nvim/init.vim: vimrc
+    ~/init: init
 
 - create:
   - ~/projects
@@ -36,5 +33,5 @@
 - shell:
   - [git submodule update --init --recursive, Installing submodules]
   - [git update-submodules, Update submodules]
-  - [sh apps.sh, Install apps]
-  - [sh macos.sh, Run macOS configuration]
+  # - [sh apps.sh, Install apps]
+  # - [sh macos.sh, Run macOS configuration]

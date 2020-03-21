@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Easier navigation: .., ..., ...., ....., ~ and -
 alias ..="cd .."
 alias ...="cd ../.."
@@ -166,6 +168,6 @@ alias tunnel_example="ssh -f -L 5433:warehouse-production.cbdirsqswodm.us-east-1
 # pgcli EXAMPLES
 alias pgexample="tunnel_example && pgcli -h localhost -p 5433 database user" # Tunnel needed
 
-if [ -f ~/.aliases.local ]; then
-    source ~/.aliases.local
+if [ -f ~/.bash/aliases.local ]; then
+    source ~/.bash/aliases.local
 fi
