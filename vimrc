@@ -231,6 +231,7 @@ set splitbelow                                                                  
 set backspace=indent,eol,start                                                                    " Let backspace work over anything.
 set lcs=tab:▸\ ,trail:·,eol:¬,nbsp:_                                                              " Show “invisible” characters
 set clipboard=unnamed                                                                             " Use the OS clipboard by default (on versions compiled with `+clipboard`)
+set lazyredraw                                                                                    " skip redrawing screen in some cases 
 "set wildmenu                                                                                      " Enhance command-line completion
 "set esckeys                                                                                       " Allow cursor keys in insert mode
 "set backspace=indent,eol,start                                                                    " Allow backspace in insert mode
