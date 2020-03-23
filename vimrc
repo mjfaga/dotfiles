@@ -33,10 +33,10 @@ Plug 'christoomey/vim-tmux-navigator'
 """""""""""""""""""""""""""""""""
 " Highlight all search pattern matches
 Plug 'haya14busa/incsearch.vim'
-Plug 'scrooloose/nerdtree'
+" Plug 'scrooloose/nerdtree'
 
 " Highlight git changes in nerdtree panel
-Plug 'Xuyuanp/nerdtree-git-plugin'
+" Plug 'Xuyuanp/nerdtree-git-plugin'
 
 " Quick Navigation
 Plug 'Lokaltog/vim-easymotion'
@@ -388,18 +388,49 @@ if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
 endif
 
 " scrooloose/nerdtree
-let g:NERDTreeMapOpenSplit='s'
-let g:NERDTreeMapPreviewSplit='gs'
-let g:NERDTreeMapOpenVSplit='v'
-let g:NERDTreeMapPreviewVSplit='gv'
-let g:NERDTreeShowHidden = 1
-let g:NERDTreeHighlightCursorline = 1
-let g:NERDTreeMinimalUI = 1
-let g:NERDTreeAutoDeleteBuffer = 1
-let g:NERDTreeWinSize = 51
-noremap \ :NERDTreeToggle<CR>
-noremap \| :NERDTreeFind<CR>
-autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif " Automatically close vim when only nerd tree is left open
+" let g:NERDTreeMapOpenSplit='s'
+" let g:NERDTreeMapPreviewSplit='gs'
+" let g:NERDTreeMapOpenVSplit='v'
+" let g:NERDTreeMapPreviewVSplit='gv'
+" let g:NERDTreeShowHidden = 1
+" let g:NERDTreeHighlightCursorline = 1
+" let g:NERDTreeMinimalUI = 1
+" let g:NERDTreeAutoDeleteBuffer = 1
+" let g:NERDTreeWinSize = 51
+" noremap \ :NERDTreeToggle<CR>
+" noremap \| :NERDTreeFind<CR>
+" autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif " Automatically close vim when only nerd tree is left open
+
+" netrw
+function! ToggleVExplorer()
+    if exists("t:expl_buf_num")
+        let expl_win_num = bufwinnr(t:expl_buf_num)
+        let cur_win_num = winnr()
+
+        if expl_win_num != -1
+            while expl_win_num != cur_win_num
+                exec "wincmd w"
+                let cur_win_num = winnr()
+            endwhile
+
+            close
+        endif
+
+        unlet t:expl_buf_num
+    else
+         Vexplore
+         let t:expl_buf_num = bufnr("%")
+    endif
+endfunction
+noremap \ :call ToggleVExplorer() <CR>
+" let g:netrw_banner=0        " disable annoying banner
+let g:netrw_winsize = 18    " width in percent
+let g:netrw_browse_split=4  " open in prior window
+let g:netrw_altv=1          " open splits to the right
+let g:netrw_liststyle=3     " tree view
+" ret g:netrw_list_hide=netrw_gitignore#Hide()
+" let g:netrw_list_hide.=',\(^\|\s\s\)\zs\.\S\+'
+" check: |netrw-browse-maps| for more mappings
 
 " scrooloose/nerdcommenter
 let g:NERDSpaceDelims = 1
