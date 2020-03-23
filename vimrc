@@ -605,6 +605,15 @@ if &diff
 endif
 
 """""""""""""""""""""""""""""""""
+" PERSISTENT UNDO
+"""""""""""""""""""""""""""""""""
+" Keep undo history across sessions, by storing in file.
+if has('persistent_undo')
+  set undodir=~/.vim/backups
+  set undofile
+endif
+
+"""""""""""""""""""""""""""""""""
 " Troubleshooting
 """""""""""""""""""""""""""""""""
 " Show which highlight groups apply to the item under the cursor
