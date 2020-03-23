@@ -78,6 +78,7 @@ Plug 'groenewege/vim-less'
 Plug 'jparise/vim-graphql'
 Plug 'vim-scripts/nginx.vim'
 Plug 'StanAngeloff/php.vim'
+Plug 'tpope/vim-markdown'
 
 """""""""""""""""""""""""""""""""
 " General File Editing
@@ -481,6 +482,9 @@ let g:jsx_ext_required = 0                                                      
 
 " moll/vim-node
 autocmd User Node if &filetype == "javascript" | setlocal expandtab | endif
+
+" tpope/vim-markdown
+let g:markdown_syntax_conceal = 0
 
 " hail2u/vim-css3-syntax
 augroup VimCSS3Syntax
