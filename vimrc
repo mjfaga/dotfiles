@@ -397,6 +397,7 @@ let g:NERDTreeHighlightCursorline = 1
 let g:NERDTreeMinimalUI = 1
 let g:NERDTreeAutoDeleteBuffer = 1
 let g:NERDTreeWinSize = 51
+let NERDTreeQuitOnOpen = 1
 noremap \ :NERDTreeToggle<CR>
 noremap \| :NERDTreeFind<CR>
 autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif " Automatically close vim when only nerd tree is left open
