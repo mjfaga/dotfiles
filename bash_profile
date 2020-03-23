@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
+source ~/.bash/functions
 source ~/.bash/path
 source ~/.bash/prompt
 source ~/.bash/settings
 source ~/.bash/autocompletion
 source ~/.bash/aliases
-source ~/.bash/functions
 source ~/.bash/plugins
 
 # For stuff that you don't want commited
