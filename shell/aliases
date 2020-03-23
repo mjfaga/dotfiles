@@ -150,7 +150,7 @@ alias ssha="eval \"$(ssh-agent -s)\" && ssh-add"
 
 alias specs="bundle exec rspec --options ~/.myrspec"
 
-alias vim="nvim"
+# alias vim="nvim"
 alias shutupvim="rm ~/.vim/swaps/*.swp"
 
 # Starting our rails servers
