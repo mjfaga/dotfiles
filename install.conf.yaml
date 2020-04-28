@@ -12,6 +12,7 @@
     ~/.config/nvim/init.vim: vimrc
     ~/.curlrc:
     ~/.editorconfig:
+    ~/.gemrc:
     ~/.gitattributes:
     ~/.gitconfig:
     ~/.gitignore_global:
