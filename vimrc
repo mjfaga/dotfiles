@@ -206,9 +206,9 @@ call plug#end()
 """""""""""""""""""""""""""""""""
 " VIM SETTINGS
 """""""""""""""""""""""""""""""""
-if has('autocmd')
-  filetype plugin indent on                                                                       " Enable filetype detection, filetype-specific indenting/plugins
-endif
+
+filetype plugin indent on                                                                         " Enable filetype detection, filetype-specific indenting/plugins
+
 if has('syntax') && !exists('g:syntax_on')
   syntax enable                                                                                   " Enable syntax highlighting
 endif
@@ -232,7 +232,9 @@ set splitbelow                                                                  
 set backspace=indent,eol,start                                                                    " Let backspace work over anything.
 set lcs=tab:▸\ ,trail:·,eol:¬,nbsp:_                                                              " Show “invisible” characters
 set clipboard=unnamed                                                                             " Use the OS clipboard by default (on versions compiled with `+clipboard`)
-set lazyredraw                                                                                    " skip redrawing screen in some cases 
+set lazyredraw                                                                                    " skip redrawing screen in some cases
+"set autochdir                                                                                     " automatically set current directory to directory of last opened file
+"set wildmode=longest,list                                                                         " tab completion for files/bufferss
 "set wildmenu                                                                                      " Enhance command-line completion
 "set esckeys                                                                                       " Allow cursor keys in insert mode
 "set backspace=indent,eol,start                                                                    " Allow backspace in insert mode
