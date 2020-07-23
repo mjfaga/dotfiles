@@ -159,6 +159,7 @@ Plug 'w0rp/ale'
 Plug 'prettier/vim-prettier', {
   \ 'do': 'yarn install',
   \ 'for': ['javascript', 'typescript', 'css', 'less', 'scss', 'json', 'graphql', 'markdown'] }
+Plug 'OmniSharp/omnisharp-vim'
 
 """""""""""""""""""""""""""""""""
 " File Visualation Helpers
@@ -500,6 +501,18 @@ augroup END
 let g:closetag_filenames = '*.html,*.xhtml,*.phtml,*.html.erb,*.html.slim'
 let g:closetag_xhtml_filenames = '*.xhtml,*.jsx,*html.erb,*.html.slim'
 
+" OmniSharp/omnisharp-vim
+" Use the stdio OmniSharp-roslyn server
+let g:OmniSharp_server_stdio = 1
+" Timeout in seconds to wait for a response from the server
+let g:OmniSharp_timeout = 5
+" Don't autoselect first omnicomplete option, show options even if there is only
+" one (so the preview documentation is accessible). Remove 'preview' if you
+" don't want to see any documentation whatsoever.
+set completeopt=longest,menuone,preview
+" Update semantic highlighting after all text changes
+let g:OmniSharp_highlight_types = 3
+
 " w0rp/ale configurations
 " https://github.com/w0rp/ale#5xii-how-can-i-check-jsx-files-with-both-stylelint-and-eslint
 augroup FiletypeGroup
@@ -507,7 +520,7 @@ augroup FiletypeGroup
     au BufNewFile,BufRead *.jsx set filetype=javascript.jsx
 augroup END
 
-let g:ale_linters = {'jsx': ['stylelint', 'eslint']}
+let g:ale_linters = {'jsx': ['stylelint', 'eslint'], 'cs': ['OmniSharp']}
 let g:ale_linter_aliases = {'jsx': 'css'}
 
 " prettier/vim-prettier
