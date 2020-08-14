@@ -9,6 +9,9 @@ fi
 
 export EDITOR=$VISUAL
 
+# TODO: Remove once libraries are updated
+export RUBYOPT='-W:no-deprecated -W:no-experimental'
+
 # Enable persistent REPL history for `node`.
 NODE_REPL_HISTORY_FILE=~/.node_history;
 # Allow 32³ entries; the default is 1000.
