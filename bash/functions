@@ -269,6 +269,21 @@ function servssh() {
   servers ${1:-production} | grep scheduler | awk '{print $5}' | xargs -o ssh
 }
 
+function repeat() {
+  local runCommand=${1} 
+
+  if [ $# -eq 0 ] ; then
+    echo "Must provide a command to repeat!";
+    return 1;
+  fi
+
+  while true
+  do
+    eval "$runCommand";
+    sleep "${2-5}";
+  done
+}
+
 if [ -f ~/.bash/functions.local ]; then
     source ~/.bash/functions.local
 fi
