@@ -106,6 +106,7 @@ Plug 'tpope/vim-repeat'
 
 " Git wrapper
 Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-rhubarb'
 
 " Single/Multiline statement toggle
 Plug 'andrewradev/splitjoin.vim'
@@ -472,6 +473,10 @@ let g:investigate_use_dash=1
 
 " mileszs/ack.vim
 let g:ackprg = 'rg --hidden --vimgrep'                                                            " Use the 'silver surfer' when grepping
+
+
+" tpope/vim-rhubarb
+let g:github_enterprise_urls = ['https://github.csnzoo.com']
 
 " gcmt/taboo.vim
 let g:taboo_tab_format = " %W - %f%m "
