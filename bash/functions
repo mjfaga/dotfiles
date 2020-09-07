@@ -284,10 +284,11 @@ function repeat() {
   done
 }
 
+function go() {
+  open "https://$(git remotes | grep fetch | awk '{print $2}' | cut -c5- | sed "s/:/\//")"
+}
+
 if [ -f ~/.bash/functions.local ]; then
     source ~/.bash/functions.local
 fi
 
-function go() {
-  open "https://$(git remotes | grep fetch | awk '{print $2}' | cut -c5- | sed "s/:/\//")"
-}
