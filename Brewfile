@@ -84,6 +84,7 @@ brew "fzf"
 brew "ripgrep"
 brew "nvm"
 brew "yarn", args: ["ignore-dependencies"]
+brew "autojump"
 
 # Applications
 cask "google-chrome"
