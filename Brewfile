@@ -85,6 +85,8 @@ brew "ripgrep"
 brew "nvm"
 brew "yarn", args: ["ignore-dependencies"]
 brew "autojump"
+brew "bat"
+brew "eth-p/software/bat-extras"
 
 # Applications
 cask "google-chrome"
