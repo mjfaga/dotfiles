@@ -1,6 +1,7 @@
 [alias]
   st = status
   co = checkout
+  cf = !git commit --fixup
   br = branch
   df = diff
   ps = !git push -u origin $(git branch --show-current)
