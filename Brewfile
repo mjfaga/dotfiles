@@ -106,6 +106,7 @@ cask "bettertouchtool"
 cask "evernote"
 cask "visual-studio-code"
 brew "graphviz"
+brew "notion"
 
 #dev tools
 cask "postgres"
