@@ -113,6 +113,7 @@ brew "memcached"
 brew "redis"
 brew "direnv"
 brew "heroku/brew/heroku"
+cask "docker"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"
