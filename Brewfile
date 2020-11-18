@@ -112,3 +112,8 @@ brew "thoughtbot/formulae/parity"
 
 # Matrix console screen saver
 brew "cmatrix"
+
+# Wayfair stuff
+brew "php@7.2"
+brew "composer"
+brew "kubectl"
