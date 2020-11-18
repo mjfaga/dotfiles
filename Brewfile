@@ -39,29 +39,12 @@ brew "bramstein/webfonttools/sfnt2woff"
 brew "bramstein/webfonttools/sfnt2woff-zopfli"
 brew "woff2" # requires Java
 
-# Install some CTF tools; see https://github.com/ctfs/write-ups.
-brew "bfg"
-brew "aircrack-ng"
-brew "binutils"
-brew "binwalk"
-brew "cifer"
-brew "fcrackzip"
-brew "foremost"
-brew "httpie"
-brew "netpbm"
-brew "nmap"
-brew "pngcheck"
-brew "sqlmap"
-brew "tcpflow"
-brew "tcpreplay"
-brew "tcptrace"
-brew "ucspi-tcp" # `tcpserver` etc.
-brew "xpdf"
-brew "xz"
-
 # Install other useful binaries.
 brew "openssl"
 brew "ack"
+brew "netpbm"
+brew "xz"
+brew "httpie"
 brew "git"
 brew "git-lfs"
 brew "shellcheck"
