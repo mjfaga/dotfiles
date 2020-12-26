@@ -212,3 +212,6 @@
 [include]
 
   path = ~/.gitconfig.local
+
+[parity]
+	primaryBranchName = main
