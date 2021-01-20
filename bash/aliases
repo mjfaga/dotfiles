@@ -168,8 +168,8 @@ alias tunnel_example="ssh -f -L 5433:warehouse-production.cbdirsqswodm.us-east-1
 # pgcli EXAMPLES
 alias pgexample="tunnel_example && pgcli -h localhost -p 5433 database user" # Tunnel needed
 
+alias links="(ls ~/.config/yarn/link; ls ~/.config/yarn/link/@*)"
+
 if [ -f ~/.bash/aliases.local ]; then
     source ~/.bash/aliases.local
 fi
-
-alias links="(ls ~/.config/yarn/link; ls ~/.config/yarn/link/@*)"
