@@ -528,7 +528,7 @@ let g:ale_linter_aliases = {'jsx': 'css'}
 
 " prettier/vim-prettier
 let g:prettier#autoformat = 0
-autocmd BufWritePre *.js,*.js.erb,*.es6,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.graphql PrettierAsync
+autocmd BufWritePre *.js,*.js.erb,*.es6,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.graphql,*.md PrettierAsync
 " autocmd FileType javascript set formatprg=prettier-eslint\ --stdin
 let g:prettier#config#config_precedence = 'prefer-file'
 
