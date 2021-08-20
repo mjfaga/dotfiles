@@ -19,6 +19,8 @@ if [ -f ~/.bash/plugins.local ]; then
     source ~/.bash/plugins.local
 fi
 
+eval "$(jenv init -)"
+
 # Always run this last
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm

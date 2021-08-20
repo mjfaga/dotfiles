@@ -7,6 +7,7 @@ tap "homebrew/bundle"
 tap "homebrew/cask"
 tap "homebrew/core"
 tap "thoughtbot/formulae"
+tap "AdoptOpenJDK/openjdk"
 
 # Install GNU core utilities (those that come with OS X are outdated).
 # Don’t forget to add `$(brew --prefix coreutils)/libexec/gnubin` to `$PATH`.
@@ -83,6 +84,7 @@ brew "jq"
 brew "fzf"
 brew "ripgrep"
 brew "nvm"
+brew "maven"
 brew "yarn", args: ["ignore-dependencies"]
 brew "autojump"
 brew "bat"
@@ -115,6 +117,7 @@ brew "redis"
 brew "direnv"
 brew "heroku/brew/heroku"
 cask "docker"
+cask "adoptopenjdk/openjdk/adoptopenjdk11"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"

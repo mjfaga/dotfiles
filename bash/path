@@ -8,6 +8,7 @@ path_append "$HOME/.rvm/bin"
 path_prepend "/usr/local/opt/php@7.2/bin"
 path_prepend "/usr/local/opt/php@7.2/sbin"
 path_prepend "$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin"
+path_prepend "$HOME/.jenv/bin"
 
 if [ -f ~/.bash/path.local ]; then
     source ~/.bash/path.local
