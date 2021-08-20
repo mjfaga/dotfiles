@@ -110,6 +110,7 @@ cask "visual-studio-code"
 cask "graphiql"
 brew "graphviz"
 brew "notion"
+brew "pandoc"
 
 #dev tools
 cask "postgres"
