@@ -107,6 +107,7 @@ cask "dropbox"
 cask "bettertouchtool"
 cask "evernote"
 cask "visual-studio-code"
+cask "graphiql"
 brew "graphviz"
 brew "notion"
 
