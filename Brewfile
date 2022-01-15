@@ -89,7 +89,6 @@ brew "yarn", args: ["ignore-dependencies"]
 brew "autojump"
 brew "bat"
 brew "eth-p/software/bat-extras"
-brew "thefuck"
 
 # Applications
 cask "google-chrome"

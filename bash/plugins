@@ -3,8 +3,6 @@
 export FZF_DEFAULT_COMMAND="rg --hidden --files"
 export FZF_DEFAULT_OPTS='--preview="rougify -t monokai.sublime {}"'
 
-eval "$(thefuck --alias)"
-
 # FZF Configurations
 bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
 bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
