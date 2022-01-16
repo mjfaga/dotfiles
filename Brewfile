@@ -61,6 +61,7 @@ brew "xpdf"
 brew "xz"
 
 # Install other useful binaries.
+brew "openssl"
 brew "ack"
 brew "git"
 brew "git-lfs"
