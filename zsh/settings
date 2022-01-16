@@ -2,58 +2,64 @@
 
 # Make vim the default editor.
 if  [ -n "$NVIM_LISTEN_ADDRESS" ]; then
-  export VISUAL="nvr -cc split --remote-wait +'set bufhidden=wipe'"
+  VISUAL="nvr -cc split --remote-wait +'set bufhidden=wipe'"
 else
-  export VISUAL="nvim"
+  VISUAL="nvim"
 fi
 
-export EDITOR=$VISUAL
+EDITOR=$VISUAL
 
 # TODO: Remove once libraries are updated
-export RUBYOPT='-W:no-deprecated -W:no-experimental'
+RUBYOPT='-W:no-deprecated -W:no-experimental'
 
 # Enable persistent REPL history for `node`.
 NODE_REPL_HISTORY_FILE=~/.node_history;
 # Allow 32³ entries; the default is 1000.
 NODE_REPL_HISTORY_SIZE='32768';
 
-# Increase Bash history size. Allow 32³ entries; the default is 500.
-export HISTSIZE='32768';
-export HISTFILESIZE="${HISTSIZE}";
-# Omit duplicates and commands that begin with a space from history.
-export HISTCONTROL='ignoreboth';
+# Increase history size. Allow 32³ entries; the default is 500.
+HISTSIZE='32768';
+
+# Save history to a file
+HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history
+
+# More data in history file
+setopt EXTENDED_HISTORY
+# share history across multiple zsh sessions
+setopt SHARE_HISTORY
+# append to history
+setopt APPEND_HISTORY
+# adds commands as they are typed, not at shell exit
+setopt INC_APPEND_HISTORY
+# do not store duplications
+setopt HIST_IGNORE_DUPS
+# removes blank lines from history
+setopt HIST_REDUCE_BLANKS
+# confirm history substitution command before executing it
+setopt HIST_VERIFY
+
+# enable zsh correction when mistyping prompts
+setopt CORRECT
+setopt CORRECT_ALL
 
 # Case-insensitive globbing (used in pathname expansion)
-shopt -s nocaseglob;
+setopt NO_CASE_GLOB
 
-# Append to the Bash history file, rather than overwriting it
-shopt -s histappend;
-
-# Autocorrect typos in path names when using `cd`
-shopt -s cdspell;
+# Automatically navigate to paths without typing `cd`
+setopt AUTO_CD
 
 # Prefer US English and use UTF-8.
-export LANG='en_US.UTF-8';
-export LC_ALL='en_US.UTF-8';
+LANG='en_US.UTF-8';
+LC_ALL='en_US.UTF-8';
 
 # Highlight section titles in manual pages.
-export LESS_TERMCAP_md="${yellow}";
+LESS_TERMCAP_md="${yellow}";
 
 # Don’t clear the screen after quitting a manual page.
-export MANPAGER='less -X';
+MANPAGER='less -X';
 
 # Always enable colored `grep` output.
-export GREP_OPTIONS='--color=auto';
-
-# save and reload history immediately on a new prompt command
-export PROMPT_COMMAND="history -a; history -c; history -r;"
-
-# Enable some Bash 4 features when possible:
-# * `autocd`, e.g. `**/qux` will enter `./foo/bar/baz/qux`
-# * Recursive globbing, e.g. `echo **/*.txt`
-for option in autocd globstar; do
-  shopt -s "$option" 2> /dev/null;
-done;
+GREP_OPTIONS='--color=auto';
 
 if [ -f ~/.bash/settings.local ]; then
     source ~/.bash/settings.local
