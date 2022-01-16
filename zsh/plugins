@@ -5,7 +5,6 @@ export FZF_DEFAULT_OPTS='--preview="bat --style=numbers --color=always --line-ra
 
 # # FZF Configurations
 # bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
-# bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
