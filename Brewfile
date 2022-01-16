@@ -84,6 +84,7 @@ brew "jq"
 brew "fzf"
 brew "ripgrep"
 brew "nvm"
+brew "asdf"
 brew "maven"
 brew "yarn", args: ["ignore-dependencies"]
 brew "autojump"

@@ -17,6 +17,12 @@ if [ -f ~/.bash/plugins.local ]; then
     source ~/.bash/plugins.local
 fi
 
+# asdf configurations
+. /usr/local/opt/asdf/libexec/asdf.sh
+. $HOME/.asdf/plugins/java/set-java-home.bash
+# . $HOME/.asdf/completions/asdf.bash
+
+
 # Always run this last
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm

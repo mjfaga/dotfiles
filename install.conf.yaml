@@ -6,6 +6,7 @@
 - clean: ['~', '~/.config']
 
 - link:
+    ~/.asdfrc:
     ~/.bash_profile:
     ~/.bash:
     ~/.bashrc:
@@ -21,6 +22,7 @@
     ~/.inputrc:
     ~/.myrspec:
     ~/.screenrc:
+    ~/.tool-versions:
     ~/.tmux.conf:
     ~/.vim:
     ~/.vimrc:
