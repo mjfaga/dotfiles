@@ -22,6 +22,6 @@
 # # Add `killall` tab completion for common apps
 # complete -o "nospace" -W "Contacts Calendar Dock Finder Mail Safari iTunes SystemUIServer Terminal Twitter" killall;
 
-if [ -f ~/.bash/autocompletion.local ]; then
-    source ~/.bash/autocompletion.local
+if [ -f ~/.zsh/autocompletion.local ]; then
+    source ~/.zsh/autocompletion.local
 fi

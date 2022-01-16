@@ -61,6 +61,6 @@ MANPAGER='less -X';
 # Always enable colored `grep` output.
 GREP_OPTIONS='--color=auto';
 
-if [ -f ~/.bash/settings.local ]; then
-    source ~/.bash/settings.local
+if [ -f ~/.zsh/settings.local ]; then
+    source ~/.zsh/settings.local
 fi

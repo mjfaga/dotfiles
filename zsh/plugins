@@ -9,6 +9,6 @@ export FZF_DEFAULT_OPTS='--preview="rougify -t monokai.sublime {}"'
 
 # [ -f /usr/local/etc/profile.d/autojump.sh ] && . /usr/local/etc/profile.d/autojump.sh
 
-if [ -f ~/.bash/plugins.local ]; then
-    source ~/.bash/plugins.local
+if [ -f ~/.zsh/plugins.local ]; then
+    source ~/.zsh/plugins.local
 fi
