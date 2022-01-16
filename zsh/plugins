@@ -3,10 +3,19 @@
 export FZF_DEFAULT_COMMAND="rg --hidden --files"
 export FZF_DEFAULT_OPTS='--preview="bat --style=numbers --color=always --line-range :500 {}"'
 
-# # FZF Configurations
-# bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
-
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# # FZF Configurations
+fzf-file-open-widget() {
+  local output
+  output=$(__fsel) && vim "${output:0:-1}"
+
+  local ret=$?
+  zle reset-prompt
+  return $ret
+}
+zle     -N   fzf-file-open-widget
+bindkey '\C-f' fzf-file-open-widget
 
 
 if [ -f ~/.zsh/plugins.local ]; then
