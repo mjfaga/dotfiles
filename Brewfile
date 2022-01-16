@@ -87,7 +87,6 @@ brew "ripgrep"
 brew "asdf"
 brew "maven"
 brew "yarn", args: ["ignore-dependencies"]
-brew "autojump"
 brew "bat"
 brew "eth-p/software/bat-extras"
 

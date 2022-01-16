@@ -9,7 +9,6 @@ export FZF_DEFAULT_OPTS='--preview="bat --style=numbers --color=always --line-ra
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# [ -f /usr/local/etc/profile.d/autojump.sh ] && . /usr/local/etc/profile.d/autojump.sh
 
 if [ -f ~/.zsh/plugins.local ]; then
     source ~/.zsh/plugins.local

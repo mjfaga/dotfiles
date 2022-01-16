@@ -9,8 +9,6 @@ bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
-[ -f /usr/local/etc/profile.d/autojump.sh ] && . /usr/local/etc/profile.d/autojump.sh
-
 # asdf configurations
 . /usr/local/opt/asdf/libexec/asdf.sh
 . $HOME/.asdf/plugins/java/set-java-home.bash
