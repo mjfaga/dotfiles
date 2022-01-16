@@ -7,8 +7,8 @@
 
 - link:
     ~/.asdfrc:
-    ~/.bash_profile:
     ~/.bash:
+    ~/.bash_profile:
     ~/.bashrc:
     ~/.config/nvim/init.vim: vimrc
     ~/.curlrc:
@@ -22,11 +22,14 @@
     ~/.inputrc:
     ~/.myrspec:
     ~/.screenrc:
-    ~/.tool-versions:
     ~/.tmux.conf:
+    ~/.tool-versions:
     ~/.vim:
     ~/.vimrc:
     ~/.wgetrc:
+    ~/.zprofile:
+    ~/.zsh:
+    ~/.zshrc:
     ~/bin: bin
     ~/init: init
 

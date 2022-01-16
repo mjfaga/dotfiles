@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+path_prepend "$HOME/bin";
+path_prepend "/usr/local/sbin"
+path_prepend "/usr/local/opt/coreutils/libexec/gnubin"
+path_prepend "/usr/local/opt/gnu-sed/libexec/gnubin"
+path_prepend "/usr/local/opt/php@7.2/bin"
+path_prepend "/usr/local/opt/php@7.2/sbin"
+path_prepend "$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin"
+
+if [ -f ~/.bash/path.local ]; then
+    source ~/.bash/path.local
+fi

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+export FZF_DEFAULT_COMMAND="rg --hidden --files"
+export FZF_DEFAULT_OPTS='--preview="rougify -t monokai.sublime {}"'
+
+# FZF Configurations
+bind -x '"\C-f": FZF_FILE=$(fzf) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+bind -x '"\C-e": FZF_FILE=$("rg" . | fzf -d: -n2 --preview="echo {} | cut -d: -f1 | xargs rougify -t monokai.sublime" | cut -d: -f1) && [[ -e $FZF_FILE ]] && vim $FZF_FILE;'
+
+source $(brew --prefix nvm)/nvm.sh
+
+[ -f /usr/local/etc/profile.d/autojump.sh ] && . /usr/local/etc/profile.d/autojump.sh
+
+if [ -f ~/.bash/plugins.local ]; then
+    source ~/.bash/plugins.local
+fi
+
+# asdf configurations
+. /usr/local/opt/asdf/libexec/asdf.sh
+. $HOME/.asdf/plugins/java/set-java-home.bash
+# . $HOME/.asdf/completions/asdf.bash
+
+
+# Always run this last
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
