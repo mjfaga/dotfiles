@@ -21,6 +21,7 @@
     ~/.ignore:
     ~/.inputrc:
     ~/.myrspec:
+    ~/.oh-my-zsh:
     ~/.screenrc:
     ~/.tmux.conf:
     ~/.tool-versions:
