@@ -10,6 +10,11 @@ source ~/.shell/plugins
 source ~/.zsh/plugins
 
 # For stuff that you don't want commited
+if [ -f ~/.zprofile.local ]; then
+  source ~/.zprofile.local
+fi
+
+# For stuff that you don't want commited
 if [ -f ~/.zsh/extra ]; then
   source ~/.zsh/extra
 fi
