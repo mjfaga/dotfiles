@@ -5,6 +5,7 @@ source ~/.shell/path
 source ~/.bash/prompt
 source ~/.shell/settings
 source ~/.bash/settings
+source ~/.shell/autocompletion
 source ~/.bash/autocompletion
 source ~/.shell/aliases
 source ~/.shell/plugins
