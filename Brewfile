@@ -89,6 +89,9 @@ brew "maven"
 brew "yarn", args: ["ignore-dependencies"]
 brew "bat"
 brew "eth-p/software/bat-extras"
+brew "netpbm"
+brew "xz"
+brew "httpie"
 
 # Applications
 cask "google-chrome"
@@ -112,6 +115,7 @@ brew "notion"
 brew "pandoc"
 
 #dev tools
+brew "kubectl"
 cask "postgres"
 brew "memcached"
 brew "redis"
