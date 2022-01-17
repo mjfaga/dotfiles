@@ -1,25 +1,5 @@
 #!/usr/bin/env bash
 
-# Make vim the default editor.
-if  [ -n "$NVIM_LISTEN_ADDRESS" ]; then
-  VISUAL="nvr -cc split --remote-wait +'set bufhidden=wipe'"
-else
-  VISUAL="nvim"
-fi
-
-EDITOR=$VISUAL
-
-# TODO: Remove once libraries are updated
-RUBYOPT='-W:no-deprecated -W:no-experimental'
-
-# Enable persistent REPL history for `node`.
-NODE_REPL_HISTORY_FILE=~/.node_history;
-# Allow 32³ entries; the default is 1000.
-NODE_REPL_HISTORY_SIZE='32768';
-
-# Increase history size. Allow 32³ entries; the default is 500.
-HISTSIZE='32768';
-
 # Save history to a file
 HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history
 
@@ -48,18 +28,9 @@ setopt NO_CASE_GLOB
 # Automatically navigate to paths without typing `cd`
 setopt AUTO_CD
 
-# Prefer US English and use UTF-8.
-LANG='en_US.UTF-8';
-LC_ALL='en_US.UTF-8';
-
-# Highlight section titles in manual pages.
-LESS_TERMCAP_md="${yellow}";
-
-# Don’t clear the screen after quitting a manual page.
-MANPAGER='less -X';
-
-# Always enable colored `grep` output.
-GREP_OPTIONS='--color=auto';
+autoload edit-command-line
+zle -N edit-command-line
+bindkey -M vicmd v edit-command-line
 
 if [ -f ~/.zsh/settings.local ]; then
     source ~/.zsh/settings.local

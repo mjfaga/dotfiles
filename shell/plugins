@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+export FZF_DEFAULT_COMMAND="rg --hidden --files"
+export FZF_DEFAULT_OPTS='--preview="bat --style=numbers --color=always --line-range :500 {}"'
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+if [ -f ~/.shell/plugins.local ]; then
+    source ~/.shell/plugins.local
+fi

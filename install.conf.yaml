@@ -23,6 +23,7 @@
     ~/.myrspec:
     ~/.oh-my-zsh:
     ~/.screenrc:
+    ~/.shell:
     ~/.tmux.conf:
     ~/.tool-versions:
     ~/.vim:

@@ -170,6 +170,6 @@ alias pgexample="tunnel_example && pgcli -h localhost -p 5433 database user" # T
 
 alias links="(ls ~/.config/yarn/link; ls ~/.config/yarn/link/@*)"
 
-if [ -f ~/.zsh/aliases.local ]; then
-    source ~/.zsh/aliases.local
+if [ -f ~/.shell/aliases.local ]; then
+    source ~/.shell/aliases.local
 fi

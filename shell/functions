@@ -288,7 +288,7 @@ function go() {
   open "https://$(git remotes | grep fetch | awk '{print $2}' | cut -c5- | sed "s/:/\//")"
 }
 
-if [ -f ~/.zsh/functions.local ]; then
-    source ~/.zsh/functions.local
+if [ -f ~/.shell/functions.local ]; then
+    source ~/.shell/functions.local
 fi
 
