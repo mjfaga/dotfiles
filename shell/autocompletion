@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-if [ -f ~/.shell/autocompletion.local ]; then
-    source ~/.shell/autocompletion.local
-fi
