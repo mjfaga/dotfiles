@@ -116,6 +116,7 @@ brew "pandoc"
 
 #dev tools
 brew "kubectl"
+brew "lens"
 cask "postgres"
 brew "memcached"
 brew "redis"
