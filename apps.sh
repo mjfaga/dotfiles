@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-git pull origin master;
+git pull origin main;
 
 if ! which brew > /dev/null; then
   echo "Installing Homebrew..."
