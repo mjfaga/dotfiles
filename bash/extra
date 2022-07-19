@@ -1,0 +1,3 @@
+source "/Users/mf929o/.rover/env"
+. "$HOME/.cargo/env"
+

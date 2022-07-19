@@ -19,5 +19,3 @@ fi
 if [ -f ~/.bash/extra ]; then
   source ~/.bash/extra
 fi
-source "$HOME/.cargo/env"
-source "/Users/mf929o/.rover/env"
