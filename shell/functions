@@ -270,7 +270,7 @@ function servssh() {
 }
 
 function repeat() {
-  local runCommand=${1} 
+  local runCommand="${1}"
 
   if [ $# -eq 0 ] ; then
     echo "Must provide a command to repeat!";
