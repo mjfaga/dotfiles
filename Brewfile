@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 tap "bramstein/webfonttools"
-tap "caskroom/cask"
 tap "heroku/brew"
 tap "homebrew/bundle"
 tap "homebrew/cask"
