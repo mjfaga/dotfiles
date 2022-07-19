@@ -17,12 +17,6 @@ brew upgrade
 # Install everything inside Brewfile
 brew bundle
 
-if ! fgrep -q '/usr/local/bin/bash' /etc/shells; then
-  echo "Switch to using brew-installed bash as default shell..."
-  echo '/usr/local/bin/bash' | sudo tee -a /etc/shells;
-  chsh -s /usr/local/bin/bash;
-fi;
-
 if [ ! -f "$HOME/.vim/autoload/plug.vim" ]; then
   echo "Installing Plugged..."
   curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
