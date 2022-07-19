@@ -10,7 +10,7 @@ function virtualenv_info {
 }
 
 PROMPT='
-%F{magenta}%n%f@%F{yellow}%m%f: %B%F{green}%~%f%b$(git_prompt_info)$(git_prompt_short_sha)$(ruby_prompt_info) %{$fg[green]%}[%*]%{$reset_color%}
+%F{magenta}%n%f@%F{yellow}%m%f: %B%F{green}%~%f%b$(git_prompt_info)$(git_prompt_short_sha) $(ruby_prompt_info) %{$fg[green]%}[%*]%{$reset_color%}
 $(virtualenv_info) $(prompt_char) '
 
 ZSH_THEME_GIT_PROMPT_PREFIX=' on %F{magenta}'
