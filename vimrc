@@ -268,6 +268,7 @@ set showmode                                                                    
 set title                                                                                         " Show the filename in the window titlebar
 set showcmd                                                                                       " Show the (partial) command as it’s being typed
 set scrolloff=3                                                                                   " Start scrolling three lines before the horizontal window border
+set signcolumn=yes                                                                                " Always show the signcolumn, otherwise it would shift the text each time diagnostics appear/become resolved
 set sidescrolloff=5
 set display+=lastline
 set shell=/bin/zsh
