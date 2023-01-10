@@ -270,7 +270,7 @@ set showcmd                                                                     
 set scrolloff=3                                                                                   " Start scrolling three lines before the horizontal window border
 set sidescrolloff=5
 set display+=lastline
-set shell=/bin/bash
+set shell=/bin/zsh
 
 " highlight current line, but only in active window
 augroup CursorLineOnlyInActiveWindow
