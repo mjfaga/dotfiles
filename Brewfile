@@ -31,9 +31,6 @@ brew "wget"
 # Install more recent versions of some OS X tools.
 brew "vim" #, args: ["override-system-vi"]
 
-# Install Java
-cask "Java"
-
 # Install font tools.
 brew "bramstein/webfonttools/sfnt2woff"
 brew "bramstein/webfonttools/sfnt2woff-zopfli"
@@ -101,22 +98,18 @@ cask "1password"
 cask "divvy"
 cask "gimp"
 cask "dash"
-cask "alfred"
 cask "licecap"
 cask "iterm2"
 cask "dropbox"
-cask "bettertouchtool"
-cask "evernote"
 cask "visual-studio-code"
 cask "graphiql"
 brew "graphviz"
-brew "notion"
+cask "notion"
 brew "pandoc"
 
 #dev tools
 brew "kubectl"
-brew "lens"
-cask "postgres"
+cask "lens"
 brew "memcached"
 brew "redis"
 brew "direnv"
