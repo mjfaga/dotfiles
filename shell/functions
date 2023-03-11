@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+function pcheck {
+  yarn info $1 version --json
+}
+
 path_remove() {
     PATH=$(echo -n "$PATH" | awk -v RS=: -v ORS=: "\$0 != \"$1\"" | sed 's/:$//')
 }
