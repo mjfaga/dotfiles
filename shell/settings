@@ -12,7 +12,7 @@ export EDITOR=$VISUAL
 set -o vi
 
 # TODO: Remove once libraries are updated
-export RUBYOPT='-W:no-deprecated -W:no-experimental'
+# export RUBYOPT='-W:no-deprecated -W:no-experimental'
 
 # Enable persistent REPL history for `node`.
 NODE_REPL_HISTORY_FILE=~/.node_history;
