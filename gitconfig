@@ -1,11 +1,12 @@
 [alias]
   st = status
+  c = commit --no-verify -m 
   co = checkout
-  cf = !git commit --fixup
+  cf = !git commit --fixup --no-verify
   br = branch
   df = diff
-  ps = !git push -u origin $(git branch --show-current)
-  fps = !git push -f origin $(git branch --show-current)
+  ps = !git push -u origin $(git branch --show-current) --no-verify
+  fps = !git push -f origin $(git branch --show-current) --no-verify
   frm = !git checkout master && git pull && git checkout - && git rebase master
   rhh = reset --hard HEAD
   rhb = !git reset --hard origin/$(git branch --show-current)
@@ -32,7 +33,7 @@
   p = !"git pull; git submodule foreach git pull origin master"
 
   # Clone a repository including all submodules
-  c = clone --recursive
+  # c = clone --recursive
 
   # Switch to a branch, creating it if necessary
   go = "!f() { git checkout -b \"$1\" 2> /dev/null || git checkout \"$1\"; }; f"

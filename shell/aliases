@@ -22,6 +22,7 @@ alias dot="cd ~/projects/dotfiles"
 alias dotl="cd ~/projects/dotfiles-local"
 alias rr='bundle exec rubocop --force-exclusion $(git diff --diff-filter=d --name-only master)'
 alias rs='bundle exec bin/rspec $(git diff --diff-filter=d --name-only master | grep "_spec.rb")'
+alias cb="git br | grep -v main | xargs git br -D"
 
 alias hdeploy="git push heroku master && heroku run rake db:migrate && heroku restart"
 
