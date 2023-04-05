@@ -1,6 +1,6 @@
 [alias]
   st = status
-  c = commit --no-verify -m 
+  c = commit --no-verify -m
   co = checkout
   cf = !git commit --fixup --no-verify
   br = branch
@@ -44,7 +44,7 @@
   remotes = remote -v
 
   # Amend the currently staged files to the latest commit
-  amend = commit --amend --reuse-message=HEAD
+  amend = commit --no-verify --amend --reuse-message=HEAD
 
   # Credit an author on the latest commit
   credit = "!f() { git commit --amend --author \"$1 <$2>\" -C HEAD; }; f"
