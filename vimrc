@@ -386,6 +386,8 @@ onoremap il( :<c-u>normal! F(vi(<cr>
 """""""""""""""""""""""""""""""""
 " PLUGIN MAPPINGS
 """""""""""""""""""""""""""""""""
+let g:copilot_node_command = "~/.asdf/installs/nodejs/17.9.1/bin/node"
+
 " Load matchit.vim, but only if the user hasn't installed a newer version.
 if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
   runtime! macros/matchit.vim
