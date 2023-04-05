@@ -10,6 +10,7 @@
     ~/.bash:
     ~/.bash_profile:
     ~/.bashrc:
+    ~/.config/nvim/coc-settings.json: coc-settings.json
     ~/.config/nvim/init.vim: vimrc
     ~/.curlrc:
     ~/.editorconfig:
