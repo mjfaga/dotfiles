@@ -21,6 +21,7 @@ alias gd="g d"
 alias dot="cd ~/projects/dotfiles"
 alias dotl="cd ~/projects/dotfiles-local"
 alias rr='bundle exec rubocop --force-exclusion $(git diff --diff-filter=d --name-only main)'
+alias rdb='bundle exec database_consistency -c .database_consistency.todo.yml'
 alias rs='bundle exec bin/rspec $(git diff --diff-filter=d --name-only master | grep "_spec.rb")'
 alias cb="git br | grep -v main | xargs git br -D"
 
