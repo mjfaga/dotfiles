@@ -649,6 +649,7 @@ let g:taboo_renamed_tab_format = " %W - :Tab%l]%m "
 " Yggdroot/indentLine
 let g:indentLine_setColors = 1
 let g:indentLine_char = '│'
+let g:vim_json_conceal=0
 
 " mxw/vim-jsx
 let g:jsx_ext_required = 0                                                                        " Allow JSX in normal JS files
