@@ -88,6 +88,7 @@ brew "eth-p/software/bat-extras"
 brew "netpbm"
 brew "xz"
 brew "httpie"
+brew "watchman" # Required for relay compiler
 
 # Applications
 cask "google-chrome"
