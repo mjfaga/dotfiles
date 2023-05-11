@@ -7,6 +7,9 @@ set show-all-if-ambiguous on
 # Immediately add a trailing slash when autocompleting symlinks to directories
 set mark-symlinked-directories on
 
+# Use escape to enter vi mode in shell
+set editing-mode vi
+
 # Use the text that has already been typed as the prefix for searching through
 # commands (i.e. more intelligent Up/Down behavior)
 $if Ruby

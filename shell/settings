@@ -9,6 +9,8 @@ fi
 
 export EDITOR=$VISUAL
 
+set -o vi
+
 # TODO: Remove once libraries are updated
 export RUBYOPT='-W:no-deprecated -W:no-experimental'
 
