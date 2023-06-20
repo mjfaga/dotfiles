@@ -7,6 +7,9 @@ tap "homebrew/cask"
 tap "homebrew/core"
 tap "thoughtbot/formulae"
 tap "AdoptOpenJDK/openjdk"
+tap "homebrew/cask-fonts"
+
+cask "font-hack-nerd-font"
 
 # Install GNU core utilities (those that come with OS X are outdated).
 # Don’t forget to add `$(brew --prefix coreutils)/libexec/gnubin` to `$PATH`.
