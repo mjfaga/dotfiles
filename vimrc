@@ -34,7 +34,7 @@ Plug 'christoomey/vim-tmux-navigator'
 " Highlight all search pattern matches
 Plug 'haya14busa/incsearch.vim'
 
-# file tree navigation
+" file tree navigation
 Plug 'nvim-tree/nvim-web-devicons'
 Plug 'nvim-tree/nvim-tree.lua'
 
