@@ -33,10 +33,10 @@ Plug 'christoomey/vim-tmux-navigator'
 """""""""""""""""""""""""""""""""
 " Highlight all search pattern matches
 Plug 'haya14busa/incsearch.vim'
-Plug 'scrooloose/nerdtree'
 
-" Highlight git changes in nerdtree panel
-Plug 'Xuyuanp/nerdtree-git-plugin'
+# file tree navigation
+Plug 'nvim-tree/nvim-web-devicons'
+Plug 'nvim-tree/nvim-tree.lua'
 
 " Quick Navigation
 Plug 'Lokaltog/vim-easymotion'
@@ -393,20 +393,21 @@ if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
   runtime! macros/matchit.vim
 endif
 
-" scrooloose/nerdtree
-let g:NERDTreeMapOpenSplit='s'
-let g:NERDTreeMapPreviewSplit='gs'
-let g:NERDTreeMapOpenVSplit='v'
-let g:NERDTreeMapPreviewVSplit='gv'
-let g:NERDTreeShowHidden = 1
-let g:NERDTreeHighlightCursorline = 1
-let g:NERDTreeMinimalUI = 1
-let g:NERDTreeAutoDeleteBuffer = 1
-let g:NERDTreeWinSize = 51
-let NERDTreeQuitOnOpen = 1
-noremap \ :NERDTreeToggle<CR>
-noremap \| :NERDTreeFind<CR>
-autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif " Automatically close vim when only nerd tree is left open
+" nvim-tree/nvim-tree.lua
+lua << EOF
+  -- disable netrw at the very start of your init.lua
+  vim.g.loaded_netrw = 1
+  vim.g.loaded_netrwPlugin = 1
+
+  -- set termguicolors to enable highlight groups
+  vim.opt.termguicolors = true
+
+  -- empty setup using defaults
+  require("nvim-tree").setup()
+EOF
+noremap \ :NvimTreeToggle<CR>
+noremap \| :NvimTreeFindFile<CR>
+" TODO: autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif " Automatically close vim when only nerd tree is left open
 
 " scrooloose/nerdcommenter
 let g:NERDSpaceDelims = 1
