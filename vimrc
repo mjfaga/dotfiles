@@ -68,7 +68,6 @@ Plug 'slim-template/vim-slim'
 Plug 'avakhov/vim-yaml'
 Plug 'othree/html5.vim'
 Plug 'pangloss/vim-javascript'
-Plug 'leafgarland/typescript-vim'
 Plug 'mxw/vim-jsx'
 Plug 'styled-components/vim-styled-components', { 'branch': 'main' }
 Plug 'hail2u/vim-css3-syntax'
@@ -77,7 +76,6 @@ Plug 'groenewege/vim-less'
 Plug 'jparise/vim-graphql'
 Plug 'vim-scripts/nginx.vim'
 Plug 'StanAngeloff/php.vim'
-Plug 'tpope/vim-markdown'
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && yarn install' }
 
 """""""""""""""""""""""""""""""""
@@ -658,9 +656,6 @@ let g:jsx_ext_required = 0                                                      
 
 " moll/vim-node
 autocmd User Node if &filetype == "javascript" | setlocal expandtab | endif
-
-" tpope/vim-markdown
-let g:markdown_syntax_conceal = 0
 
 " hail2u/vim-css3-syntax
 augroup VimCSS3Syntax
