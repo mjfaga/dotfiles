@@ -5,6 +5,9 @@
   "prettier.bracketSpacing": false,
   "prettier.proseWrap": "always",
   "prettier.singleQuote": true,
+  "markdownlint.config": {
+    "line_length": false
+  },
   "languageserver": {
     "dockerfile": {
       "command": "docker-langserver",
