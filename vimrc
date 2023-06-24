@@ -418,7 +418,8 @@ let g:airline#extensions#ale#enabled = 1
 nnoremap <Leader>d :Dash<CR>
 
 " iamcco/markdown-preview.nvim
-let g:mkdp_auto_start = 1
+" let g:mkdp_auto_start = 1
+nmap <leader>m <Plug>MarkdownPreviewToggle
 
 " janko-m/vim-test
 nmap <silent> <leader>t :TestNearest<CR>
