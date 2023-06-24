@@ -1,6 +1,6 @@
 {
   "coc.preferences.formatOnSave": true,
-  "[css][markdown]": {"coc.preferences.formatOnSave": true},
+  "[css][markdown][ruby]": { "coc.preferences.formatOnSave": true },
   "prettier.printWidth": 100,
   "prettier.bracketSpacing": false,
   "prettier.proseWrap": "always",
@@ -8,6 +8,9 @@
   "markdownlint.config": {
     "line_length": false
   },
+  "solargraph.autoformat": true,
+  "solargraph.formatting": true,
+  "eslint.autoFixOnSave": true,
   "languageserver": {
     "dockerfile": {
       "command": "docker-langserver",
@@ -22,7 +25,13 @@
     "graphql": {
       "command": "graphql-lsp",
       "args": ["server", "-m", "stream"],
-      "filetypes": ["javascript", "javascriptreact", "typescript", "typescriptreact", "graphql"]
+      "filetypes": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact",
+        "graphql"
+      ]
     },
     "kotlin": {
       "command": "~/lsp/kotlin/server/bin/kotlin-language-server",

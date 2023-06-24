@@ -152,12 +152,6 @@ Plug 'alvan/vim-closetag'
 Plug 'mattn/emmet-vim'
 
 """""""""""""""""""""""""""""""""
-" File Linting
-"""""""""""""""""""""""""""""""""
-Plug 'w0rp/ale'
-Plug 'OmniSharp/omnisharp-vim'
-
-"""""""""""""""""""""""""""""""""
 " File Visualation Helpers
 """""""""""""""""""""""""""""""""
 Plug 'Yggdroot/indentLine'
@@ -684,11 +678,6 @@ augroup FiletypeGroup
     autocmd!
     au BufNewFile,BufRead *.jsx set filetype=javascript.jsx
 augroup END
-
-let g:ale_linters = {'jsx': ['stylelint', 'eslint'], 'cs': ['OmniSharp']}
-let g:ale_linter_aliases = {'jsx': 'css'}
-let g:ale_fixers = {'ruby': ['rubocop'] }
-let g:ale_fix_on_save = 1
 
 " junegunn/fzf
 nnoremap <leader>f :FZF!<cr>
