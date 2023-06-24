@@ -210,9 +210,11 @@
 
   linenumber = true
 
+[parity]
+
+	primaryBranchName = main
+
 [include]
 
   path = ~/.gitconfig.local
 
-[parity]
-	primaryBranchName = main
