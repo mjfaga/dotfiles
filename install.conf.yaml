@@ -37,10 +37,10 @@
     ~/init: init
 
 - create:
-  - ~/projects
+    - ~/projects
 
 - shell:
-  - [git submodule update --init --recursive, Installing submodules]
-  - [git update-submodules, Update submodules]
+    - [git submodule update --init --recursive, Installing submodules]
+    - [git update-submodules, Update submodules]
   # - [sh apps.sh, Install apps]
   # - [sh macos.sh, Run macOS configuration]
