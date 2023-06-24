@@ -329,9 +329,6 @@ cabbrev Wq wq
 """""""""""""""""""""""""""""""""
 let mapleader = ","
 
-" restart eslint_d
-nnoremap <leader>es :Tnew <bar> :T node_modules/.bin/eslint_d stop && exit<CR>
-
 " Edit ~/.vimrc file
 nnoremap <leader>ev :vsplit $MYVIMRC<cr>
 
