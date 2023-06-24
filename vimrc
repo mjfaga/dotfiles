@@ -159,7 +159,6 @@ Plug 'mattn/emmet-vim'
 " File Linting
 """""""""""""""""""""""""""""""""
 Plug 'w0rp/ale'
-Plug 'prettier/vim-prettier', { 'do': 'yarn install' }
 Plug 'OmniSharp/omnisharp-vim'
 
 """""""""""""""""""""""""""""""""
@@ -699,12 +698,6 @@ let g:ale_linters = {'jsx': ['stylelint', 'eslint'], 'cs': ['OmniSharp']}
 let g:ale_linter_aliases = {'jsx': 'css'}
 let g:ale_fixers = {'ruby': ['rubocop'] }
 let g:ale_fix_on_save = 1
-
-" prettier/vim-prettier
-let g:prettier#autoformat = 0
-autocmd BufWritePre *.js,*.js.erb,*.es6,*.jsx,*.mjs,*.ts,*.tsx,*.css,*.less,*.scss,*.json,*.graphql,*.md PrettierAsync
-" autocmd FileType javascript set formatprg=prettier-eslint\ --stdin
-let g:prettier#config#config_precedence = 'prefer-file'
 
 " junegunn/fzf
 nnoremap <leader>f :FZF!<cr>
