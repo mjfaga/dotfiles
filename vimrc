@@ -80,6 +80,7 @@ Plug 'jparise/vim-graphql'
 Plug 'vim-scripts/nginx.vim'
 Plug 'StanAngeloff/php.vim'
 Plug 'tpope/vim-markdown'
+Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && yarn install' }
 
 """""""""""""""""""""""""""""""""
 " General File Editing
@@ -423,6 +424,9 @@ let g:airline#extensions#ale#enabled = 1
 
 " rizzatti/dash.vim
 nnoremap <Leader>d :Dash<CR>
+
+" iamcco/markdown-preview.nvim
+let g:mkdp_auto_start = 1
 
 " janko-m/vim-test
 nmap <silent> <leader>t :TestNearest<CR>
