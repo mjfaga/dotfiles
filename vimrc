@@ -26,8 +26,6 @@ Plug 'mileszs/ack.vim'
 Plug 'junegunn/fzf'
 Plug 'junegunn/fzf.vim'
 
-Plug 'christoomey/vim-tmux-navigator'
-
 """""""""""""""""""""""""""""""""
 " File Navigation
 """""""""""""""""""""""""""""""""
