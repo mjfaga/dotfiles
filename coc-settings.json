@@ -1,9 +1,41 @@
 {
-  "markdownlint.config": {
-    "line_length": false
-  },
-  "eslint.autoFixOnSave": true,
+  "coc.preferences.formatOnSave": true,
+  "[css][markdown]": {"coc.preferences.formatOnSave": true},
+  "prettier.printWidth": 100,
+  "prettier.bracketSpacing": false,
+  "prettier.proseWrap": "always",
+  "prettier.singleQuote": true,
   "languageserver": {
+    "dockerfile": {
+      "command": "docker-langserver",
+      "filetypes": ["dockerfile"],
+      "args": ["--stdio"]
+    },
+    "golang": {
+      "command": "gopls",
+      "rootPatterns": ["go.mod"],
+      "filetypes": ["go"]
+    },
+    "graphql": {
+      "command": "graphql-lsp",
+      "args": ["server", "-m", "stream"],
+      "filetypes": ["javascript", "javascriptreact", "typescript", "typescriptreact", "graphql"]
+    },
+    "kotlin": {
+      "command": "~/lsp/kotlin/server/bin/kotlin-language-server",
+      "filetypes": ["kotlin"]
+    },
+    "csharp-ls": {
+      "command": "csharp-ls",
+      "filetypes": ["cs"],
+      "rootPatterns": ["*.csproj", ".vim/", ".git/", ".hg/"]
+    },
+    "terraform": {
+      "command": "terraform-ls",
+      "args": ["serve"],
+      "filetypes": ["terraform", "tf"],
+      "initializationOptions": {}
+    },
     "sql": {
       "module": "/path/to/node_modules/sql-language-server/dist/bin/cli.js",
       "args": ["up", "--method", "node-ipc"],
@@ -13,16 +45,6 @@
       "command": "bash-language-server",
       "args": ["start"],
       "filetypes": ["sh"]
-    },
-    "dockerfile": {
-      "command": "docker-langserver",
-      "filetypes": ["dockerfile"],
-      "args": ["--stdio"]
-    },
-    "graphql": {
-      "command": "graphql-lsp",
-      "args": ["server", "-m", "stream"],
-      "filetypes": ["typescript", "typescriptreact", "graphql"]
     }
   }
 }
