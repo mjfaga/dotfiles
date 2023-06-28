@@ -28,6 +28,7 @@
     ~/.oh-my-zsh:
     ~/.screenrc:
     ~/.shell:
+    ~/.ssh/config: ssh/config
     ~/.tool-versions:
     ~/.vim:
     ~/.vimrc:
