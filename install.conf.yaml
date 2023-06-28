@@ -10,14 +10,16 @@
     ~/.bash:
     ~/.bash_profile:
     ~/.bashrc:
+    ~/.bundle/config: bundle/config
     ~/.config/nvim/coc-settings.json: coc-settings.json
     ~/.config/nvim/init.vim: vimrc
     ~/.curlrc:
     ~/.editorconfig:
+    ~/.gem/credentials: gem/credentials
     ~/.gemrc:
     ~/.gitattributes:
-    ~/.gitconfig:
     ~/.gitconfig.secret:
+    ~/.gitconfig:
     ~/.gitignore_global:
     ~/.gvimrc:
     ~/.ignore:

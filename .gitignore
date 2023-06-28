@@ -1,3 +1,5 @@
 *.local
 vim/backups
 gitconfig.secret
+gem/credentials
+bundle/config
