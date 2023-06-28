@@ -82,12 +82,14 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   ```sh
   ---
   :rubygems_api_key: <get from 1Password>
+  :github: Bearer <get from 1Password>
   ```
 
 - [ ] Create a `bundle/config` file in this repo:
 
   ```sh
   ---
+  BUNDLE_HTTPS://RUBYGEMS__PKG__GITHUB__COM/HUNTCLUB/: "mjfaga:<get from 1Password>"
   BUNDLE_GEMS__GRAPHQL__PRO: "<get from 1Password">
   ```
 
