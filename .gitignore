@@ -1,2 +1,3 @@
 *.local
 vim/backups
+gitconfig.secret

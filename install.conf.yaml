@@ -17,6 +17,7 @@
     ~/.gemrc:
     ~/.gitattributes:
     ~/.gitconfig:
+    ~/.gitconfig.secret:
     ~/.gitignore_global:
     ~/.gvimrc:
     ~/.ignore:
