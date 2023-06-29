@@ -35,6 +35,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:CocInstall coc-tsserver`
   - [ ] `:CocInstall coc-json`
   - [ ] `:CocInstall coc-markdownlint`
+  - [ ] `:CocInstall coc-prettier`
   - [ ] `:CocInstall coc-eslint`
   - [ ] `gem install solargraph`, then `:CocInstall coc-solargraph`
 - [ ] Download [Raycast](https://api.raycast.app/v2/download)
@@ -55,6 +56,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] OneDrive
 - [ ] Run `xcode-select --install`
 - [ ] Sign into 1Password
+
   - [ ] [Turn on the SSH agent](https://blog.1password.com/git-commit-signing/?utm_source=google&utm_medium=cpc&utm_campaign=18388341772&utm_content=&utm_term=&gclid=Cj0KCQiAx6ugBhCcARIsAGNmMbhUaZJ4RXEhaEf1q5nWzB5lxcL_rA1uzkVCgIw_KkTXmTqXwabTlIUaAs4xEALw_wcB&gclsrc=aw.ds)
         for github key signing
   - [ ] Put signing key into `.gitconfig.secret`:
@@ -83,6 +85,9 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 - [ ] Dropbox
   - [ ] Disable Preferences -> Import -> Enable camera uploads
 - [ ] Iterm
+  - [ ] General ->
+    - [ ] Window ->
+      - [ ] Uncheck "Adjust window when changing font size"
   - [ ] Preferences ->
     - [ ] Appearance ->
       - [ ] General ->
@@ -93,6 +98,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
       - [ ] Keys -> Left Option Key = Esc+
       - [ ] Terminal -> Check "Unlimited scrollback"
       - [ ] General -> Working Directory -> Select "Reuse previous session's directory"
+      - [ ] Text -> Non-ASCII Font -> 3270 Nerd Font, "Regular", size 13
 - [ ] Dash
   - [ ] Load license
   - [ ] Set up sync folder to Dropbox
