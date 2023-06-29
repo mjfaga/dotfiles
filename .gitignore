@@ -3,3 +3,4 @@ vim/backups
 gitconfig.secret
 gem/credentials
 bundle/config
+zsh/extra
