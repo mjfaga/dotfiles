@@ -8,8 +8,9 @@
   "markdownlint.config": {
     "line_length": false
   },
-  "solargraph.autoformat": true,
+  "solargraph.diagnostics": true,
   "solargraph.formatting": true,
+  "solargraph.autoformat": true,
   "eslint.autoFixOnSave": true,
   "languageserver": {
     "dockerfile": {
