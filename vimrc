@@ -156,7 +156,6 @@ Plug 'mattn/emmet-vim'
 """""""""""""""""""""""""""""""""
 Plug 'Yggdroot/indentLine'
 Plug 'machakann/vim-highlightedyank'
-Plug 'levouh/tint.nvim'
 
 """""""""""""""""""""""""""""""""
 " External Integrations
@@ -396,14 +395,6 @@ EOF
 noremap \ :NvimTreeToggle<CR>
 noremap \| :NvimTreeFindFile<CR>
 " TODO: autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif " Automatically close vim when only nerd tree is left open
-
-" levouh/tint.nvim
-lua << EOF
-  -- empty setup using defaults
-  require("tint").setup({
-    tint = -60
-  })
-EOF
 
 " scrooloose/nerdcommenter
 let g:NERDSpaceDelims = 1
