@@ -1,12 +1,12 @@
 [alias]
   st = status
-  c = commit --no-verify -m
+  c = commit -m
   co = checkout
-  cf = !git commit --fixup --no-verify
+  cf = !git commit --fixup
   br = branch
   df = diff
-  ps = !git push -u origin $(git branch --show-current) --no-verify
-  fps = !git push -f origin $(git branch --show-current) --no-verify
+  ps = !git push -u origin $(git branch --show-current)
+  fps = !git push -f origin $(git branch --show-current)
   frm = !git checkout master && git pull && git checkout - && git rebase master
   rhh = reset --hard HEAD
   rhb = !git reset --hard origin/$(git branch --show-current)
@@ -44,7 +44,7 @@
   remotes = remote -v
 
   # Amend the currently staged files to the latest commit
-  amend = commit --no-verify --amend --reuse-message=HEAD
+  amend = commit --amend --reuse-message=HEAD
 
   # Credit an author on the latest commit
   credit = "!f() { git commit --amend --author \"$1 <$2>\" -C HEAD; }; f"
