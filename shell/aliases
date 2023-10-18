@@ -22,6 +22,7 @@ alias dotl="cd ~/projects/dotfiles-local"
 alias rr='bundle exec rubocop --force-exclusion $(git diff --diff-filter=d --name-only main)'
 alias rdb='bundle exec database_consistency -c .database_consistency.todo.yml'
 alias rs='bundle exec bin/rspec $(git diff --diff-filter=d --name-only master | grep "_spec.rb")'
+alias rgql='bundle exec rake graphql:dump_schema'
 alias gbd="git br | grep -v main | grep -v \"\\*\"| xargs git br -D"
 
 # Detect which `ls` flavor is in use
