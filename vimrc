@@ -255,6 +255,7 @@ set noerrorbells                                                                
 "set nostartofline                                                                                 " Don’t reset cursor to start of line when moving around.
 set ruler                                                                                         " Show the cursor position
 "set shortmess=atI                                                                                 " Don’t show the intro message when starting Vim
+set cuc
 set showmode                                                                                      " Show the current mode
 set title                                                                                         " Show the filename in the window titlebar
 set showcmd                                                                                       " Show the (partial) command as it’s being typed
