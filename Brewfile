@@ -111,7 +111,8 @@ cask "graphiql"
 brew "graphviz"
 cask "notion"
 brew "pandoc"
-brew "spotify"
+cask "spotify"
+cask "postman"
 
 #dev tools
 brew "kubectl"
