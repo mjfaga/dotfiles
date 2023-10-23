@@ -56,6 +56,7 @@ brew "xz"
 
 # Install other useful binaries.
 cask "font-hack-nerd-font"
+brew "inigo_cli"
 brew "cmake"
 brew "pkg-config"
 brew "openssl"
