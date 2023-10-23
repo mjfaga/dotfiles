@@ -7,6 +7,7 @@ tap "homebrew/cask"
 tap "homebrew/core"
 tap "thoughtbot/formulae"
 tap "homebrew/cask-fonts"
+tap "inigolabs/homebrew-tap"
 
 cask "font-hack-nerd-font"
 
@@ -59,6 +60,7 @@ brew "xpdf"
 brew "xz"
 
 # Install other useful binaries.
+brew "inigo_cli"
 brew "cmake"
 brew "pkg-config"
 brew "openssl"
