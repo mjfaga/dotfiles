@@ -60,6 +60,8 @@ brew "xpdf"
 brew "xz"
 
 # Install other useful binaries.
+brew "cmake"
+brew "pkg-config"
 brew "openssl"
 brew "ack"
 brew "git"
