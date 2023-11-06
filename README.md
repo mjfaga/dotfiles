@@ -117,6 +117,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 - [ ] Install Office 365
 - [ ] Install [Disk Inventory X](http://www.derlien.com/index.html)
 - [ ] Install [Postgres App](https://postgresapp.com/downloads.html)
+- [ ] Install [Postico App](https://eggerapps.at/postico2/)
 - [ ] Run `kubectl completion bash > /usr/local/etc/bash_completion.d/kubectl` if kubernetes is
       installed
 - [ ] Create finder "open in" shortcuts:
