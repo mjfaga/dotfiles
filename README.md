@@ -38,6 +38,13 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:CocInstall coc-prettier`
   - [ ] `:CocInstall coc-eslint`
   - [ ] `gem install solargraph`, then `:CocInstall coc-solargraph`
+- [ ] Install
+      [Github Copilot](https://docs.github.com/en/copilot/getting-started-with-github-copilot?tool=vimneovim)
+
+  - [ ] `git clone https://github.com/github/copilot.vim ~/.config/nvim/pack/github/start/copilot.vim`
+  - [ ] `:Copilot setup`
+  - [ ] `:Copilot enable`
+
 - [ ] Download [Raycast](https://api.raycast.app/v2/download)
   - [ ] System Preferences -> Keyboard -> Shortcuts -> Spotlight and disable the keyboard shortcut.
   - [ ] Configure Cmd + Space as Raycast trigger
