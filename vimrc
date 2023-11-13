@@ -121,6 +121,9 @@ Plug 'tpope/vim-unimpaired'
 " Autocomplete for search
 Plug 'vim-scripts/SearchComplete'
 
+" Prefab integration
+Plug 'prefab-cloud/prefab.nvim'
+
 """""""""""""""""""""""""""""""""
 " Javascript File Editing
 """""""""""""""""""""""""""""""""
@@ -375,6 +378,13 @@ onoremap il( :<c-u>normal! F(vi(<cr>
 " PLUGIN MAPPINGS
 """""""""""""""""""""""""""""""""
 let g:copilot_node_command = "~/.asdf/installs/nodejs/18.15.0/bin/node"
+
+" Prefab
+lua << EOF
+require("prefab").setup({
+    opt_in = {extractString = true}
+})
+EOF
 
 " Load matchit.vim, but only if the user hasn't installed a newer version.
 if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
