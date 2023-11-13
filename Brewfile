@@ -93,6 +93,7 @@ brew "netpbm"
 brew "xz"
 brew "httpie"
 brew "watchman" # Required for relay compiler
+brew "tailspin"
 
 # Applications
 cask "google-chrome"
