@@ -384,6 +384,23 @@ lua << EOF
 require("prefab").setup({
     opt_in = {extractString = true}
 })
+
+vim.keymap.set('n', '<CR>', function()
+
+    vim.lsp.codelens.run()
+
+    pcall(function()
+        vim.lsp.inlay_hint.enable(0, false)
+        vim.lsp.inlay_hint.enable(0, true)
+    end)
+
+end, {buffer = 0})
+
+vim.keymap.set('n', 'K', function()
+
+    vim.lsp.buf.hover()
+
+end, {buffer = 0})
 EOF
 
 " Load matchit.vim, but only if the user hasn't installed a newer version.
