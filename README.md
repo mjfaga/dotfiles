@@ -158,6 +158,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 
   - Open Get Info for this new app and drag the vim-icon.svg from this repo.
   - Keep the cmd pressed and drag to the Finder toolbar. Done.
+  - For any `rails` + `heroku` repos, install [parity](https://github.com/thoughtbot/parity)
 
 ## Feedback
 
