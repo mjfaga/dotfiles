@@ -71,6 +71,7 @@ Plug 'pangloss/vim-javascript'
 Plug 'mxw/vim-jsx'
 Plug 'styled-components/vim-styled-components', { 'branch': 'main' }
 Plug 'hail2u/vim-css3-syntax'
+Plug 'hashivim/vim-terraform'
 Plug 'ap/vim-css-color'
 Plug 'groenewege/vim-less'
 Plug 'jparise/vim-graphql'
