@@ -10,7 +10,7 @@
   frm = !git checkout master && git pull && git checkout - && git rebase master
   rhh = reset --hard HEAD
   rhb = !git reset --hard origin/$(git branch --show-current)
-  stashall = stash save --include-untracked
+  stashall = stash save --include-untracked --keep-index
   aaf = !git add . && git amend && git fps
   update-submodules = submodule update --init --recursive
   upgrade-submodules = submodule update --init --remote
