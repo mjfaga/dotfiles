@@ -12,6 +12,8 @@ fzf-file-open-widget() {
 zle     -N   fzf-file-open-widget
 bindkey '\C-f' fzf-file-open-widget
 
+eval "$(gh copilot alias -- zsh)"
+
 if [ -f ~/.zsh/plugins.local ]; then
     source ~/.zsh/plugins.local
 fi

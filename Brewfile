@@ -116,6 +116,7 @@ cask "spotify"
 cask "postman"
 
 #dev tools
+brew "gh"
 brew "kubectl"
 cask "lens"
 brew "memcached"

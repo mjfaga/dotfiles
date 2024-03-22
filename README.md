@@ -45,6 +45,10 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:Copilot setup`
   - [ ] `:Copilot enable`
 
+- [ ] Install Github CLI w/copilot
+  - [ ] `gh auth login`
+  - [ ] `gh extension install github/gh-copilot`
+  - [ ] `gh extension upgrade gh-copilot`
 - [ ] Download [Raycast](https://api.raycast.app/v2/download)
   - [ ] System Preferences -> Keyboard -> Shortcuts -> Spotlight and disable the keyboard shortcut.
   - [ ] Configure Cmd + Space as Raycast trigger
