@@ -35,6 +35,9 @@ export MANPAGER='less -X';
 # Always enable colored `grep` output.
 export GREP_OPTIONS='--color=auto';
 
+export PGUSER="postgres"
+export PGHOST="localhost"
+
 if [ -f ~/.shell/settings.local ]; then
     source ~/.shell/settings.local
 fi
