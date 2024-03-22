@@ -100,6 +100,9 @@ Plug 'tpope/vim-endwise'
 " Keybindings for surrounding stuff
 Plug 'tpope/vim-surround'
 
+" move arguments sideways
+Plug 'AndrewRadev/sideways.vim'
+
 " Extend the . repeat command for other plugin functions
 Plug 'tpope/vim-repeat'
 
@@ -443,6 +446,10 @@ nnoremap <Leader>d :Dash<CR>
 " iamcco/markdown-preview.nvim
 " let g:mkdp_auto_start = 1
 nmap <leader>m <Plug>MarkdownPreviewToggle
+
+" AndrewRadev/sideways.vim
+nnoremap <c-h> :SidewaysLeft<cr>
+nnoremap <c-l> :SidewaysRight<cr>
 
 " janko-m/vim-test
 nmap <silent> <leader>t :TestNearest<CR>
