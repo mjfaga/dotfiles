@@ -117,6 +117,7 @@ cask "postman"
 
 #dev tools
 brew "gh"
+brew "ngrok/ngrok/ngrok"
 brew "kubectl"
 cask "lens"
 brew "memcached"
