@@ -414,15 +414,20 @@ endif
 
 " nvim-tree/nvim-tree.lua
 lua << EOF
+  -- NOTE: This breaks fugitive.vim GBrowse Functionality
+  -- opting for disable_netrw + hijack_netrw options below
   -- disable netrw at the very start of your init.lua
-  vim.g.loaded_netrw = 1
-  vim.g.loaded_netrwPlugin = 1
+  -- vim.g.loaded_netrw = 1
+  -- vim.g.loaded_netrwPlugin = 1
 
   -- set termguicolors to enable highlight groups
   vim.opt.termguicolors = true
 
   -- empty setup using defaults
-  require("nvim-tree").setup()
+  require("nvim-tree").setup({
+    disable_netrw = false,
+    hijack_netrw = true
+  })
 EOF
 noremap \ :NvimTreeToggle<CR>
 noremap \| :NvimTreeFindFile<CR>
