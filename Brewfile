@@ -6,7 +6,6 @@ tap "homebrew/bundle"
 tap "homebrew/cask"
 tap "homebrew/core"
 tap "thoughtbot/formulae"
-tap "AdoptOpenJDK/openjdk"
 tap "homebrew/cask-fonts"
 
 cask "font-hack-nerd-font"
