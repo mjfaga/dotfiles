@@ -38,6 +38,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:CocInstall coc-prettier`
   - [ ] `:CocInstall coc-eslint`
   - [ ] `gem install solargraph`, then `:CocInstall coc-solargraph`
+- [ ] Run `xcode-select --install`
 - [ ] Install
       [Github Copilot](https://docs.github.com/en/copilot/getting-started-with-github-copilot?tool=vimneovim)
 
@@ -45,83 +46,88 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:Copilot setup`
   - [ ] `:Copilot enable`
 
-- [ ] Install Github CLI w/copilot
+- [ ] Install
+      [Github CLI w/copilot](https://docs.github.com/en/copilot/managing-copilot/configure-personal-settings/installing-github-copilot-in-the-cli)
   - [ ] `gh auth login`
   - [ ] `gh extension install github/gh-copilot`
   - [ ] `gh extension upgrade gh-copilot`
-- [ ] Download [Raycast](https://api.raycast.app/v2/download)
+- [ ] Raycast
   - [ ] System Preferences -> Keyboard -> Shortcuts -> Spotlight and disable the keyboard shortcut.
   - [ ] Configure Cmd + Space as Raycast trigger
   - [ ] Mark all setup tasks completed
-  - [ ] Configure hotkeys
-    - [ ] Left Half: Ctrl + Shift + Cmd + Left Arrow
-    - [ ] Right Half: Ctrl + Shift + Cmd + Right Arrow
-    - [ ] Maximize: Ctrl + Option + Cmd + Up Arrow
-    - [ ] Lock Screen: Cmd + L
-    - [ ] Clipboard History: Shift + Cmd + V
-    - [ ] AI chat shortcut: Option + Cmd + A
+  - [ ] Enable Cloud Sync
+- [ ] Arc Browser
+  - [ ] Sign into account + enable sidebar sync
+  - [ ] General
+    - [ ] Check "Automatically update my Arc"
+  - [ ] Profiles
+    - [ ] Passwords
+      - [ ] Settings
+        - [ ] Disable "Offer to save passwords and passkeys"
+  - [ ] Max
+    - [ ] Enable All
+  - [ ] Advanced
+    - [ ] Enable "Restore windows from previous session"
+    - [ ] Enable "Show full URL when Toolbar is enabled"
+  - [ ] Chrome Extensions
+    - [ ] [Refined Github](https://chromewebstore.google.com/detail/refined-github/hlepfoohegkhhmjieoechaddaejaokhf?pli=1)
+      - [ ] Options -> Features -> Disable "update-pr-from-base-branch"
 - [ ] Sign into google accounts to enable contact sync
 - [ ] Open Photos to sync to iCloud
 - [ ] MacOS App Store
   - [ ] Xcode
   - [ ] OneDrive
-- [ ] Run `xcode-select --install`
 - [ ] Sign into 1Password
 
   - [ ] [Turn on the SSH agent](https://blog.1password.com/git-commit-signing/?utm_source=google&utm_medium=cpc&utm_campaign=18388341772&utm_content=&utm_term=&gclid=Cj0KCQiAx6ugBhCcARIsAGNmMbhUaZJ4RXEhaEf1q5nWzB5lxcL_rA1uzkVCgIw_KkTXmTqXwabTlIUaAs4xEALw_wcB&gclsrc=aw.ds)
         for github key signing
   - [ ] Put signing key into `.gitconfig.secret`:
 
-  ```sh
-  [user]
-    signingkey = <value here>
-  ```
+    ```sh
+    [user]
+      signingkey = <value here>
+    ```
 
-- [ ] Create a `gem/credential` file in this repo:
+  - [ ] Create a `gem/credential` file in this repo:
 
-  ```sh
-  ---
-  :rubygems_api_key: <get from 1Password>
-  ```
+    ```sh
+    ---
+    :rubygems_api_key: <get from 1Password>
+    :github: Bearer <get from 1Password>
+    ```
 
-- [ ] Create a `bundle/config` file in this repo:
+  - [ ] Create a `bundle/config` file in this repo:
 
-  ```sh
-  ---
-  BUNDLE_GEMS__GRAPHQL__PRO: "<get from 1Password">
-  ```
+    ```sh
+    ---
+    BUNDLE_HTTPS://RUBYGEMS__PKG__GITHUB__COM/HUNTCLUB/: "mjfaga:<get from 1Password>"
+    BUNDLE_GEMS__GRAPHQL__PRO: "<get from 1Password">
+    ```
 
-- [ ] Open chrome and sign-in/configure
-- [ ] Download Arc Beta (personal url in 1Password)
+  - [ ] Install Browser Extensions
+
+- [ ] Install [1Password CLI](https://support.1password.com/command-line-getting-started/)
 - [ ] Dropbox
   - [ ] Disable Preferences -> Import -> Enable camera uploads
 - [ ] Iterm
   - [ ] General ->
     - [ ] Window ->
       - [ ] Uncheck "Adjust window when changing font size"
-  - [ ] Preferences ->
-    - [ ] Appearance ->
-      - [ ] General ->
-        - [ ] Theme = Minimal
-      - [ ] Tabs ->
-        - [ ] Check "Preserve window size when tab bar shows or hides"
-    - [ ] Profiles ->
-      - [ ] Keys -> Left Option Key = Esc+
-      - [ ] Terminal -> Check "Unlimited scrollback"
-      - [ ] General -> Working Directory -> Select "Reuse previous session's directory"
-      - [ ] Text -> Non-ASCII Font -> 3270 Nerd Font, "Regular", size 13
-- [ ] Dash
-  - [ ] Load license
-  - [ ] Set up sync folder to Dropbox
-  - [ ] Preferences -> General ->
-    - [ ] check "Launch Dash at login”
-    - [ ] Global Search Shortcut = Shift + Cmd + D
+  - [ ] Appearance ->
+    - [ ] General ->
+      - [ ] Theme = Minimal
+    - [ ] Tabs ->
+      - [ ] Check "Preserve window size when tab bar shows or hides"
+  - [ ] Profiles ->
+    - [ ] Keys -> Left Option Key = Esc+
+    - [ ] Terminal -> Check "Unlimited scrollback"
+    - [ ] General -> Working Directory -> Select "Reuse previous session's directory"
+    - [ ] Text -> Non-ASCII Font -> Hack Nerd Font Mono, "Regular", size 13
 - [ ] Display - turn on schedule for nightshift -> sunset to sunrise
 - [ ] System Preferences -> Displays -> set up arrangement and menu bar
 - [ ] Install Office 365
 - [ ] Install [Disk Inventory X](http://www.derlien.com/index.html)
 - [ ] Install [Postgres App](https://postgresapp.com/downloads.html)
-- [ ] Install [Postico App](https://eggerapps.at/postico2/)
 - [ ] Run `kubectl completion bash > /usr/local/etc/bash_completion.d/kubectl` if kubernetes is
       installed
 - [ ] Create finder "open in" shortcuts:
@@ -162,8 +168,8 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 
   - Open Get Info for this new app and drag the vim-icon.svg from this repo.
   - Keep the cmd pressed and drag to the Finder toolbar. Done.
-  - For any `rails` + `heroku` repos, install [parity](https://github.com/thoughtbot/parity)
-  - Install [Remarkable desktop app](https://my.remarkable.com/device/desktop)
+
+- [ ] For any `rails` + `heroku` repos, configure [parity](https://github.com/thoughtbot/parity)
 
 ## Feedback
 
