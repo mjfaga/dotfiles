@@ -124,7 +124,6 @@ brew "redis"
 brew "direnv"
 brew "heroku/brew/heroku"
 cask "docker"
-cask "adoptopenjdk/openjdk/adoptopenjdk11"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"
