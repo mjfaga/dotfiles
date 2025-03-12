@@ -3,12 +3,9 @@
 tap "bramstein/webfonttools"
 tap "heroku/brew"
 tap "homebrew/bundle"
-tap "homebrew/cask"
-tap "homebrew/core"
 tap "thoughtbot/formulae"
-tap "homebrew/cask-fonts"
-
-cask "font-hack-nerd-font"
+tap "inigolabs/homebrew-tap"
+tap "eth-p/software"
 
 # Install GNU core utilities (those that come with OS X are outdated).
 # Don’t forget to add `$(brew --prefix coreutils)/libexec/gnubin` to `$PATH`.
@@ -59,6 +56,7 @@ brew "xpdf"
 brew "xz"
 
 # Install other useful binaries.
+cask "font-hack-nerd-font"
 brew "cmake"
 brew "pkg-config"
 brew "openssl"
@@ -95,6 +93,8 @@ brew "watchman" # Required for relay compiler
 brew "tailspin"
 
 # Applications
+cask "raycast"
+cask "arc"
 cask "google-chrome"
 cask "brave-browser"
 cask "firefox"
@@ -102,7 +102,6 @@ cask "slack"
 cask "1password"
 cask "divvy"
 cask "gimp"
-cask "dash"
 cask "licecap"
 cask "iterm2"
 cask "dropbox"
@@ -113,10 +112,13 @@ cask "notion"
 brew "pandoc"
 cask "spotify"
 cask "postman"
+cask "remarkable"
+cask "postico"
+cask "tuple"
 
 #dev tools
 brew "gh"
-brew "ngrok/ngrok/ngrok"
+cask "ngrok"
 brew "kubectl"
 cask "lens"
 brew "memcached"
