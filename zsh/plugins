@@ -3,7 +3,7 @@
 # # FZF Configurations
 fzf-file-open-widget() {
   local output
-  output=$(__fsel) && vim "${output:0:-1}" < /dev/tty
+  output=$(__fzf_select) && vim "${output:0:-1}" < /dev/tty
 
   local ret=$?
   zle reset-prompt
