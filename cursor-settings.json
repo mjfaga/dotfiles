@@ -1,0 +1,20 @@
+{
+    "window.commandCenter": 1,
+    "files.autoSave": "onFocusChange",
+    "editor.tabSize": 2,
+    "editor.renderWhitespace": "trailing",
+    "redhat.telemetry.enabled": false,
+    "cursor.cpp.enablePartialAccepts": true,
+    "terminal.external.osxExec": "iTerm.app",
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "eslint.format.enable": true,
+    "rubyLsp.formatter": "rubocop",
+    "editor.formatOnPaste": true,
+    "diffEditor.codeLens": true,
+    "vim.enableNeovim": true,
+    "vim.neovimPath": "/opt/homebrew/bin/nvim",
+    "vim.smartRelativeLine": true,
+    "vim.vimrc.enable": true,
+    "vim.vimrc.path": "~/.vimrc"
+}

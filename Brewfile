@@ -93,6 +93,7 @@ brew "watchman" # Required for relay compiler
 brew "tailspin"
 
 # Applications
+cask "cursor"
 cask "raycast"
 cask "arc"
 cask "google-chrome"

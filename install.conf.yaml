@@ -14,6 +14,7 @@
     ~/.config/nvim/coc-settings.json: coc-settings.json
     ~/.config/nvim/init.vim: vimrc
     ~/.curlrc:
+    ~/.cursor:
     ~/.editorconfig:
     ~/.gem/credentials: gem/credentials
     ~/.gemrc:
@@ -38,6 +39,8 @@
     ~/.zshrc:
     ~/bin: bin
     ~/init: init
+    ~/Library/Application Support/Cursor/User/settings.json: cursor-settings.json
+    ~/Library/Application Support/Cursor/User/keybindings.json: cursor-keybindings.json
 
 - create:
     - ~/projects
