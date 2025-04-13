@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../src/client/index.ts"],"names":[],"mappings":"","sourcesContent":["export { BrowserClient, ReactNativeClient } from './web-client';\nexport { NodeClient } from './node-client';\nexport { CoreClient } from './core-client';\n"]}

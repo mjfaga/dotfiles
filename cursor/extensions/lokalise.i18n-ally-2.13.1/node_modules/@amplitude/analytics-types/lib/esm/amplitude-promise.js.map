@@ -1,0 +1,1 @@
+{"version":3,"file":"amplitude-promise.js","sourceRoot":"","sources":["../../src/amplitude-promise.ts"],"names":[],"mappings":"","sourcesContent":["export interface AmplitudeReturn<T> {\n  promise: Promise<T>;\n}\n"]}

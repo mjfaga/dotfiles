@@ -1,0 +1,1 @@
+{"version":3,"file":"utm.js","sourceRoot":"","sources":["../../src/utm.ts"],"names":[],"mappings":"","sourcesContent":["export interface UTMData {\n  utm_source?: string;\n  utm_medium?: string;\n  utm_campaign?: string;\n  utm_term?: string;\n  utm_content?: string;\n}\n"]}

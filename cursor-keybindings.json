@@ -3,5 +3,13 @@
   {
     "key": "ctrl+alt+v",
     "command": "toggleVim"
+  },
+  {
+    "key": "cmd+g cmd+e",
+    "command": "workbench.action.focusActiveEditorGroup"
+  },
+  {
+    "key": "cmd+i",
+    "command": "composerMode.agent"
   }
 ]

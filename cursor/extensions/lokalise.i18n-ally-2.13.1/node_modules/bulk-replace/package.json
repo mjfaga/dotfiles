@@ -1,0 +1,22 @@
+{
+  "name": "bulk-replace",
+  "version": "0.0.1",
+  "description": "Bulk replace items in a string from an object.",
+  "main": "bulk-replace.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/jeresig/node-bulk-replace.git"
+  },
+  "keywords": [
+    "string",
+    "replace"
+  ],
+  "author": "John Resig <jeresig@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jeresig/node-bulk-replace/issues"
+  }
+}

@@ -1,0 +1,1 @@
+{"version":3,"file":"result.js","sourceRoot":"","sources":["../../src/result.ts"],"names":[],"mappings":"","sourcesContent":["import { Event } from './event';\n\nexport interface Result {\n  event: Event;\n  code: number;\n  message: string;\n}\n"]}

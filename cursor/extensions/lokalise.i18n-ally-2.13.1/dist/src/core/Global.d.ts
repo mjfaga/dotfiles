@@ -1,0 +1,58 @@
+import { Event, ExtensionContext, ConfigurationChangeEvent, TextDocument } from 'vscode';
+import { Framework } from '../frameworks/base';
+import { Reviews } from './Review';
+import { DirStructure, OptionalFeatures, KeyStyle } from './types';
+import { LocaleLoader } from './loaders/LocaleLoader';
+import { DetectionResult } from '~/core/types';
+export declare class Global {
+    private static _loaders;
+    private static _rootpath;
+    private static _enabled;
+    private static _currentWorkspaceFolder;
+    static context: ExtensionContext;
+    static enabledFrameworks: Framework[];
+    static reviews: Reviews;
+    private static _onDidChangeRootPath;
+    private static _onDidChangeEnabled;
+    private static _onDidChangeLoader;
+    static readonly onDidChangeRootPath: Event<string>;
+    static readonly onDidChangeEnabled: Event<boolean>;
+    static readonly onDidChangeLoader: Event<LocaleLoader>;
+    static init(context: ExtensionContext): Promise<void>;
+    static resetCache(): void;
+    private static _cacheUsageMatchRegex;
+    static getUsageMatchRegex(languageId?: string, filepath?: string): RegExp[];
+    static requestKeyStyle(): Promise<KeyStyle>;
+    static interpretRefactorTemplates(keypath: string, args?: string[], document?: TextDocument, detection?: DetectionResult): string[];
+    static isLanguageIdSupported(languageId: string): boolean;
+    static getSupportLangGlob(): string;
+    static getNamespaceDelimiter(): string;
+    static get derivedKeyRules(): RegExp[];
+    static getDocumentSelectors(): {
+        scheme: string;
+        language: "vue" | "json" | "php" | "html" | "dart" | "ejs" | "erb" | "haml" | "slim" | "svelte" | "xml" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "vue-html" | "ruby" | "html.erb" | "js.erb" | "handlebars" | "blade";
+    }[];
+    static get enabledParserExts(): string;
+    static get dirStructure(): import("./types").DirStructureAuto;
+    static getPathMatchers(dirStructure: DirStructure): {
+        regex: RegExp;
+        matcher: string;
+    }[];
+    static hasFeatureEnabled(name: keyof OptionalFeatures): boolean;
+    static get namespaceEnabled(): boolean;
+    static get localesPaths(): string[] | undefined;
+    static get rootpath(): string;
+    private static initLoader;
+    private static updateRootPath;
+    static update(e?: ConfigurationChangeEvent): Promise<void>;
+    private static unloadAll;
+    static get loader(): LocaleLoader;
+    static get enabledParsers(): import("../parsers/base").Parser[];
+    static getMatchedParser(ext: string): import("../parsers/base").Parser | undefined;
+    static get enabled(): boolean;
+    private static setEnabled;
+    static get allLocales(): string[];
+    static get visibleLocales(): string[];
+    static getVisibleLocales(locales: string[]): string[];
+    static getExtractionFrameworksByLang(languageId: string): Framework[];
+}

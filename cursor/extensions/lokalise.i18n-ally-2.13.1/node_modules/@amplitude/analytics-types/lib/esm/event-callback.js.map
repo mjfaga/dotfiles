@@ -1,0 +1,1 @@
+{"version":3,"file":"event-callback.js","sourceRoot":"","sources":["../../src/event-callback.ts"],"names":[],"mappings":"","sourcesContent":["import { Result } from './result';\n\nexport type EventCallback = (result: Result) => void;\n"]}

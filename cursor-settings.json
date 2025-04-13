@@ -16,5 +16,10 @@
     "vim.neovimPath": "/opt/homebrew/bin/nvim",
     "vim.smartRelativeLine": true,
     "vim.vimrc.enable": true,
-    "vim.vimrc.path": "~/.vimrc"
+    "workbench.colorTheme": "Spinel",
+    "vim.neovimUseConfigFile": true,
+    "vim.leader": ",",
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "editor.inlayHints.maximumLength": 2000,
+    "typescript.experimental.expandableHover": true
 }

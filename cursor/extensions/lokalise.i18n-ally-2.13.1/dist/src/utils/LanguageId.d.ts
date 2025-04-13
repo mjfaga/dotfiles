@@ -1,0 +1,25 @@
+export declare const LanguageIdExtMap: {
+    javascript: string;
+    typescript: string;
+    javascriptreact: string;
+    typescriptreact: string;
+    vue: string;
+    'vue-html': string;
+    json: string;
+    html: string;
+    dart: string;
+    php: string;
+    ejs: string;
+    ruby: string;
+    erb: string;
+    'html.erb': string;
+    'js.erb': string;
+    haml: string;
+    slim: string;
+    handlebars: string;
+    blade: string;
+    svelte: string;
+    xml: string;
+};
+export declare type LanguageId = keyof typeof LanguageIdExtMap;
+export declare function getExtOfLanguageId(id: LanguageId): string;

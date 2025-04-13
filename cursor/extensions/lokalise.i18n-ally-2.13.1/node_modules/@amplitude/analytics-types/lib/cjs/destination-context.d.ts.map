@@ -1,0 +1,1 @@
+{"version":3,"file":"destination-context.d.ts","sourceRoot":"","sources":["../../src/destination-context.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,KAAK,EAAE,MAAM,SAAS,CAAC;AAChC,OAAO,EAAE,aAAa,EAAE,MAAM,kBAAkB,CAAC;AAEjD,MAAM,WAAW,kBAAkB;IACjC,KAAK,EAAE,KAAK,CAAC;IACb,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,aAAa,CAAC;IACxB,OAAO,EAAE,MAAM,CAAC;CACjB"}

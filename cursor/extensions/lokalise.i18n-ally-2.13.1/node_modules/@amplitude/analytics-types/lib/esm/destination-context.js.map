@@ -1,0 +1,1 @@
+{"version":3,"file":"destination-context.js","sourceRoot":"","sources":["../../src/destination-context.ts"],"names":[],"mappings":"","sourcesContent":["import { Event } from './event';\nimport { EventCallback } from './event-callback';\n\nexport interface DestinationContext {\n  event: Event;\n  attempts: number;\n  callback: EventCallback;\n  timeout: number;\n}\n"]}
