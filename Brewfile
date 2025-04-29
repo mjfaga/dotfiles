@@ -93,7 +93,6 @@ brew "tailspin"
 brew "duckdb"
 
 # Applications
-cask "quicken"
 cask "zed"
 brew "television"
 cask "cleanshot"
