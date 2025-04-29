@@ -70,8 +70,12 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
     - [ ] Enable "Restore windows from previous session"
     - [ ] Enable "Show full URL when Toolbar is enabled"
   - [ ] Chrome Extensions
+    - [ ] [1Password](https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa?hl=en)
+    - [ ] [React Dev Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi?hl=en)
+    - [ ] [Relay Dev Tools](https://chromewebstore.google.com/detail/relay-developer-tools/ncedobpgnmkhcmnnkcimnobpfepidadl?hl=en)
     - [ ] [Refined Github](https://chromewebstore.google.com/detail/refined-github/hlepfoohegkhhmjieoechaddaejaokhf?pli=1)
       - [ ] Options -> Features -> Disable "update-pr-from-base-branch"
+    - [ ] [Vimium](https://chromewebstore.google.com/detail/vimium/dbepggeogbaibhgnhhndojpepiihcmeb?hl=en)
 - [ ] Sign into google accounts to enable contact sync
 - [ ] Open Photos to sync to iCloud
 - [ ] MacOS App Store
@@ -103,8 +107,6 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
     BUNDLE_HTTPS://RUBYGEMS__PKG__GITHUB__COM/HUNTCLUB/: "mjfaga:<get from 1Password>"
     BUNDLE_GEMS__GRAPHQL__PRO: "<get from 1Password">
     ```
-
-  - [ ] Install Browser Extensions
 
 - [ ] Install [1Password CLI](https://support.1password.com/command-line-getting-started/)
 - [ ] Dropbox
