@@ -2,7 +2,6 @@
 
 tap "bramstein/webfonttools"
 tap "heroku/brew"
-tap "homebrew/bundle"
 tap "thoughtbot/formulae"
 tap "inigolabs/homebrew-tap"
 tap "eth-p/software"
