@@ -92,7 +92,6 @@ brew "watchman" # Required for relay compiler
 brew "tailspin"
 
 # Applications
-cask "quicken"
 cask "zed"
 cask "cursor"
 cask "raycast"
