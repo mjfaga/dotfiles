@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-git pull origin master;
+git pull origin main;
 
 # Close any open System Preferences panes, to prevent them from overriding
 # settings we’re about to change
