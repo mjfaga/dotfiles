@@ -13,6 +13,8 @@
     ~/.bundle/config: bundle/config
     ~/.config/nvim/coc-settings.json: coc-settings.json
     ~/.config/nvim/init.vim: vimrc
+    ~/.config/zed/settings.json: zed/settings.json
+    ~/.config/zed/keymap.json: zed/keymap.json
     ~/.curlrc:
     ~/.cursor:
     ~/.editorconfig:
