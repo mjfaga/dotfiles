@@ -8,6 +8,7 @@ source ~/.zsh/settings
 source ~/.shell/aliases
 source ~/.shell/plugins
 source ~/.zsh/plugins
+source ~/.shell/final
 
 # For stuff that you don't want commited
 if [ -f ~/.zprofile.local ]; then
