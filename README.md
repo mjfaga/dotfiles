@@ -30,6 +30,11 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 
 - [ ] Run fzf key bindings install: `$(brew --prefix)/opt/fzf/install` (Note: Don't update shell
       configurations)
+- [ ] Configure Clean Shot
+  - [ ] Navigate to **System Settings** -> **Keyboard** -> **Keyboard shortcuts** and uncheck all
+        options
+  - [ ] Open Preferences
+    - [ ] Check **Start at Login**
 - [ ] Configure CocConfig
   - [ ] `:CocInstall coc-html`
   - [ ] `:CocInstall coc-tsserver`
