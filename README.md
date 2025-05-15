@@ -114,6 +114,8 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
     ```
 
 - [ ] Install [1Password CLI](https://support.1password.com/command-line-getting-started/)
+- [ ] Zed
+  - [ ] Configure Github Language service access token in projects
 - [ ] Dropbox
   - [ ] Disable Preferences -> Import -> Enable camera uploads
 - [ ] Iterm

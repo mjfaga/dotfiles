@@ -7,6 +7,19 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "agent": {
+    "always_allow_tool_actions": true,
+    "model_parameters": [],
+    "default_model": {
+      "provider": "copilot_chat",
+      "model": "gpt-4.1"
+    },
+    "version": "2"
+  },
+  "auto_install_extensions": {
+    "dockerfile": true,
+    "mcp-server-github": true
+  },
   "autosave": "on_focus_change",
   "tabs": {
     "git_status": false
@@ -40,5 +53,40 @@
   "terminal": {
     "copy_on_select": true,
     "option_as_meta": true
+  },
+  "jupyter": {
+    "kernel_selections": {
+      "ruby": "ruby3"
+    }
+  },
+  "languages": {
+    "JavaScript": {
+      "format_on_save": "prettier"
+    },
+    "TypeScript": {
+      "format_on_save": "prettier"
+    },
+    "Markdown": {
+      "format_on_save": "prettier"
+    },
+    "Ruby": {
+      "language_servers": ["solargraph", "ruby-lsp", "rubocop"],
+      "formatter": {
+        "external": {
+          "command": "bundle",
+          "arguments": [
+            "exec",
+            "rubocop",
+            "--server",
+            "--fail-level",
+            "error",
+            "--autocorrect",
+            "--stdin",
+            "corrected.rb",
+            "--stderr"
+          ]
+        }
+      }
+    }
   }
 }
