@@ -121,6 +121,7 @@ cask "tuple"
 
 #dev tools
 brew "gh"
+brew "awscli"
 cask "ngrok"
 brew "kubectl"
 cask "lens"
