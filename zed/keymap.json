@@ -17,5 +17,50 @@
     "bindings": {
       // "j k": ["workspace::SendKeystrokes", "escape"]
     }
+  },
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      // Put key bindings here if you want them to work in normal & visual mode.
+    }
+  },
+  {
+    "context": "vim_mode == normal && !menu",
+    "bindings": {
+      // Put key bindings here if you want them to work in normal mode.
+      ", w": "workspace::Save"
+    }
+  },
+  {
+    "context": "vim_mode == visual",
+    "bindings": {
+      // Vim mode comes with shortcuts to surround the selection in normal mode (ys), but it doesn't have a shortcut to add surrounds in visual mode. By default, shift-s substitutes the selection (erases the text and enters insert mode). To use shift-s to add surrounds in visual mode, you can add the following object to your keymap.
+      "shift-s": ["vim::PushAddSurrounds", {}]
+    }
+  },
+  {
+    "context": "vim_mode == insert",
+    "bindings": {
+      // "j k": "vim::NormalBefore" // In insert mode, make jk escape to normal mode.
+    }
+  },
+  // By default, you can navigate between the different files open in the editor with shortcuts like ctrl+w followed by one of hjkl to move to the left, down, up, or right, respectively.
+  // But you cannot use the same shortcuts to move between all the editor docks (the terminal, project panel, assistant panel, ...). If you want to use the same shortcuts to navigate to the docks, you can add the following key bindings to your user keymap.
+  {
+    "context": "Dock",
+    "bindings": {
+      "ctrl-w h": "workspace::ActivatePaneLeft",
+      "ctrl-w l": "workspace::ActivatePaneRight",
+      "ctrl-w k": "workspace::ActivatePaneUp",
+      "ctrl-w j": "workspace::ActivatePaneDown"
+    }
+  },
+  {
+    "context": "EmptyPane || SharedScreen",
+    "bindings": {
+      // Put key bindings here (in addition to the context above) if you want them to
+      // work when no editor exists.
+      "ctrl-f": "file_finder::Toggle"
+    }
   }
 ]
