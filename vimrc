@@ -381,7 +381,7 @@ onoremap il( :<c-u>normal! F(vi(<cr>
 """""""""""""""""""""""""""""""""
 " PLUGIN MAPPINGS
 """""""""""""""""""""""""""""""""
-let g:copilot_node_command = "~/.asdf/installs/nodejs/23.11.0/bin/node"
+let g:copilot_node_command = "~/.asdf/installs/nodejs/22.11.0/bin/node"
 
 " Prefab
 lua << EOF
