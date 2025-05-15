@@ -27,12 +27,32 @@
     }
   },
   {
+    "context": "vim_mode == normal && !menu && (extension == js || extension == ts || extension == jsx || extension == tsx)",
+    "bindings": {
+      // Javascript/Typscript/React language only
+      // Put key bindings here if you want them to work in normal mode
+      ", t": ["task::Spawn", { "task_name": "Node Single Test" }],
+      ", shift-t": ["task::Spawn", { "task_name": "Node Full File Test" }]
+    }
+  },
+  {
+    "context": "vim_mode == normal && !menu && extension == rb",
+    "bindings": {
+      // Ruby language only
+      // Put key bindings here if you want them to work in normal mode
+      ", t": ["task::Spawn", { "task_name": "Rails Single Test" }],
+      ", shift-t": ["task::Spawn", { "task_name": "Rails Full File Test" }]
+    }
+  },
+  {
     "context": "vim_mode == normal && !menu",
     "bindings": {
       // Put key bindings here if you want them to work in normal mode.
       ", w": "workspace::Save",
       "alt-k": "editor::MoveLineUp",
-      "alt-j": "editor::MoveLineDown"
+      "alt-j": "editor::MoveLineDown",
+      ", f": "file_finder::Toggle",
+      "\\": "workspace::CloseAllDocks"
     }
   },
   {

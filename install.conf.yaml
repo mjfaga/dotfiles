@@ -15,6 +15,7 @@
     ~/.config/nvim/init.vim: vimrc
     ~/.config/zed/settings.json: zed/settings.json
     ~/.config/zed/keymap.json: zed/keymap.json
+    ~/.config/zed/tasks.json: zed/tasks.json
     ~/.curlrc:
     ~/.cursor:
     ~/.editorconfig:
