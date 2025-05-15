@@ -20,5 +20,25 @@
     "mode": "system",
     "light": "One Light",
     "dark": "One Dark"
+  },
+  "git_status": true,
+  "git": {
+    "inline_blame": {
+      "enabled": true,
+      "show_commit_summary": true,
+      "min_column": 80
+    }
+  },
+  "indent_guides": {
+    "enabled": true,
+    "coloring": "indent_aware"
+  },
+  "inlay_hints": {
+    "enabled": true
+  },
+  "tab_size": 2,
+  "terminal": {
+    "copy_on_select": true,
+    "option_as_meta": true
   }
 }
