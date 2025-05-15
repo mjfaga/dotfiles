@@ -90,5 +90,11 @@
         }
       }
     }
+  },
+  "language_models": {
+    "bedrock": {
+      "authentication_method": "named_profile",
+      "profile": "tooling-ai-coding-assistant"
+    }
   }
 }
