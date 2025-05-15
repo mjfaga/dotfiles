@@ -30,7 +30,9 @@
     "context": "vim_mode == normal && !menu",
     "bindings": {
       // Put key bindings here if you want them to work in normal mode.
-      ", w": "workspace::Save"
+      ", w": "workspace::Save",
+      "alt-k": "editor::MoveLineUp",
+      "alt-j": "editor::MoveLineDown"
     }
   },
   {
