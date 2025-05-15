@@ -39,6 +39,7 @@
     ~/.vimrc:
     ~/.wgetrc:
     ~/.zprofile:
+    ~/.zprofile.local:
     ~/.zsh:
     ~/.zshrc:
     ~/bin: bin
