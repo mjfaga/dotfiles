@@ -22,6 +22,8 @@
     "context": "VimControl && !menu",
     "bindings": {
       // Put key bindings here if you want them to work in normal & visual mode.
+      ", c c": "vim::ToggleComments",
+      ", c u": "vim::ToggleComments"
     }
   },
   {
