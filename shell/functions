@@ -292,7 +292,27 @@ function go() {
   open "https://$(git remotes | grep fetch | awk '{print $2}' | cut -c5- | sed "s/:/\//")"
 }
 
+function update_repos() {
+  for dir in */; do
+    # Check if the item is a directory
+    if [ -d "$dir" ]; then
+      # Navigate into the directory
+      cd "$dir"
+
+      # Check if it's a git repository
+      if [ -d ".git" ]; then
+        echo "Pulling updates in $dir"
+        git pull
+      else
+        echo "$dir is not a git repository."
+      fi
+
+      # Navigate back to the parent directory
+      cd ..
+    fi
+  done
+}
+
 if [ -f ~/.shell/functions.local ]; then
     source ~/.shell/functions.local
 fi
-
