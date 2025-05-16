@@ -23,7 +23,13 @@
     "bindings": {
       // Put key bindings here if you want them to work in normal & visual mode.
       ", c c": "vim::ToggleComments",
-      ", c u": "vim::ToggleComments"
+      ", c u": "vim::ToggleComments",
+      // =============================================================
+      // Ideally, these would be global. For now, they are copied
+      // TODO: Figure out how to exclude vim_mode == insert from these
+      // =============================================================
+      "\\": "workspace::CloseAllDocks",
+      "shift-t shift-t": "workspace::NewTerminal"
     }
   },
   {
@@ -63,8 +69,7 @@
       ", w": "workspace::Save",
       "alt-k": "editor::MoveLineUp",
       "alt-j": "editor::MoveLineDown",
-      ", f": "file_finder::Toggle",
-      "\\": "workspace::CloseAllDocks"
+      ", f": "file_finder::Toggle"
     }
   },
   {
@@ -88,7 +93,28 @@
       "ctrl-w h": "workspace::ActivatePaneLeft",
       "ctrl-w l": "workspace::ActivatePaneRight",
       "ctrl-w k": "workspace::ActivatePaneUp",
-      "ctrl-w j": "workspace::ActivatePaneDown"
+      "ctrl-w j": "workspace::ActivatePaneDown",
+      // =============================================================
+      // Ideally, these would be global. For now, they are copied
+      // TODO: Figure out how to exclude vim_mode == insert from these
+      // =============================================================
+      "\\": "workspace::CloseAllDocks",
+      "shift-t shift-t": "workspace::NewTerminal"
+    }
+  },
+  {
+    "context": "Terminal",
+    "bindings": {
+      "ctrl-w h": "workspace::ActivatePaneLeft",
+      "ctrl-w l": "workspace::ActivatePaneRight",
+      "ctrl-w k": "workspace::ActivatePaneUp",
+      "ctrl-w j": "workspace::ActivatePaneDown",
+      // =============================================================
+      // Ideally, these would be global. For now, they are copied
+      // TODO: Figure out how to exclude vim_mode == insert from these
+      // =============================================================
+      "\\": "workspace::CloseAllDocks",
+      "shift-t shift-t": "workspace::NewTerminal"
     }
   },
   {
@@ -96,7 +122,13 @@
     "bindings": {
       // Put key bindings here (in addition to the context above) if you want them to
       // work when no editor exists.
-      "ctrl-f": "file_finder::Toggle"
+      ", f": "file_finder::Toggle",
+      // =============================================================
+      // Ideally, these would be global. For now, they are copied
+      // TODO: Figure out how to exclude vim_mode == insert from these
+      // =============================================================
+      "\\": "workspace::CloseAllDocks",
+      "shift-t shift-t": "workspace::NewTerminal"
     }
   }
 ]
