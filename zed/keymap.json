@@ -67,8 +67,8 @@
     "bindings": {
       // Put key bindings here if you want them to work in normal mode.
       ", w": "workspace::Save",
-      "alt-k": "editor::MoveLineUp",
-      "alt-j": "editor::MoveLineDown",
+      "ctrl-k": "editor::MoveLineUp",
+      "ctrl-j": "editor::MoveLineDown",
       ", f": "file_finder::Toggle"
     }
   },
