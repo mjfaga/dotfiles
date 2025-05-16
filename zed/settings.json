@@ -34,6 +34,9 @@
     "light": "One Light",
     "dark": "One Dark"
   },
+  "features": {
+    "edit_prediction_provider": "copilot"
+  },
   "git_status": true,
   "git": {
     "inline_blame": {
