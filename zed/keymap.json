@@ -31,8 +31,14 @@
     "bindings": {
       // Javascript/Typscript/React language only
       // Put key bindings here if you want them to work in normal mode
-      ", t": ["task::Spawn", { "task_name": "Node Single Test" }],
-      ", shift-t": ["task::Spawn", { "task_name": "Node Full File Test" }]
+      ", t": [
+        "task::Spawn",
+        { "task_name": "Node Single Test", "reveal_target": "center" }
+      ],
+      ", shift-t": [
+        "task::Spawn",
+        { "task_name": "Node Full File Test", "reveal_target": "center" }
+      ]
     }
   },
   {
@@ -40,8 +46,14 @@
     "bindings": {
       // Ruby language only
       // Put key bindings here if you want them to work in normal mode
-      ", t": ["task::Spawn", { "task_name": "Rails Single Test" }],
-      ", shift-t": ["task::Spawn", { "task_name": "Rails Full File Test" }]
+      ", t": [
+        "task::Spawn",
+        { "task_name": "Rails Single Test", "reveal_target": "center" }
+      ],
+      ", shift-t": [
+        "task::Spawn",
+        { "task_name": "Rails Full File Test", "reveal_target": "center" }
+      ]
     }
   },
   {
