@@ -94,6 +94,7 @@ brew "tailspin"
 # Applications
 cask "quicken"
 cask "zed"
+brew "television"
 cask "cleanshot"
 cask "cursor"
 cask "raycast"

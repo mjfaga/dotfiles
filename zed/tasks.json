@@ -66,5 +66,12 @@
     "label": "Rails Full File Test",
     "command": "bin/rails test $ZED_FILE",
     "tags": ["ruby-test"]
+  },
+  {
+    "label": "file_finder",
+    "command": "zed \"$(tv files)\"",
+    "hide": "always",
+    "allow_concurrent_runs": true,
+    "use_new_terminal": true
   }
 ]

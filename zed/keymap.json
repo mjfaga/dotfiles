@@ -69,7 +69,10 @@
       ", w": "workspace::Save",
       "ctrl-k": "editor::MoveLineUp",
       "ctrl-j": "editor::MoveLineDown",
-      ", f": "file_finder::Toggle"
+      ", f": [
+        "task::Spawn",
+        { "task_name": "file_finder", "reveal_target": "center" }
+      ]
     }
   },
   {
@@ -122,7 +125,10 @@
     "bindings": {
       // Put key bindings here (in addition to the context above) if you want them to
       // work when no editor exists.
-      ", f": "file_finder::Toggle",
+      ", f": [
+        "task::Spawn",
+        { "task_name": "file_finder", "reveal_target": "center" }
+      ],
       // =============================================================
       // Ideally, these would be global. For now, they are copied
       // TODO: Figure out how to exclude vim_mode == insert from these
