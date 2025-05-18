@@ -41,8 +41,7 @@
   "git": {
     "inline_blame": {
       "enabled": true,
-      "show_commit_summary": true,
-      "min_column": 80
+      "show_commit_summary": true
     }
   },
   "indent_guides": {
