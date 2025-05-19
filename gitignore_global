@@ -53,3 +53,5 @@ desktop.ini
 .idea
 .iml
 *.sublime-workspace
+
+.zed
