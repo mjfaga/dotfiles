@@ -26,7 +26,11 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   asdf plugin add ruby https://github.com/asdf-vm/asdf-ruby.git
   asdf plugin add java https://github.com/halcyon/asdf-java.git
   asdf plugin add python https://github.com/asdf-community/asdf-python.git
+  asdf plugin add yarn https://github.com/twuni/asdf-yarn
+  asdf plugin add rust https://github.com/asdf-community/asdf-rust.git
   ```
+
+  - [ ] Install `asdf` versions based on ~/.tool-versions
 
 - [ ] Run fzf key bindings install: `$(brew --prefix)/opt/fzf/install` (Note: Don't update shell
       configurations)
