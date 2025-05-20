@@ -101,3 +101,8 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 source ~/.zprofile;
+
+# unclear why compdef blows up when I put this in the shell/plugins, so leaving it here for now
+# 1password cli completion
+eval "$(op completion zsh)"; compdef _op op
+
