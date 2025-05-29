@@ -72,6 +72,10 @@
       ", f": [
         "task::Spawn",
         { "task_name": "file_finder", "reveal_target": "center" }
+      ],
+      "cmd-p": [
+        "task::Spawn",
+        { "task_name": "file_finder", "reveal_target": "center" }
       ]
     }
   },
@@ -126,6 +130,10 @@
       // Put key bindings here (in addition to the context above) if you want them to
       // work when no editor exists.
       ", f": [
+        "task::Spawn",
+        { "task_name": "file_finder", "reveal_target": "center" }
+      ],
+      "cmd-p": [
         "task::Spawn",
         { "task_name": "file_finder", "reveal_target": "center" }
       ],
