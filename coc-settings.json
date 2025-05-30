@@ -59,5 +59,8 @@
       "args": ["start"],
       "filetypes": ["sh"]
     }
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
   }
 }
