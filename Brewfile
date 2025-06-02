@@ -90,6 +90,7 @@ brew "xz"
 brew "httpie"
 brew "watchman" # Required for relay compiler
 brew "tailspin"
+brew "duckdb"
 
 # Applications
 cask "quicken"
