@@ -120,7 +120,7 @@
       // Ideally, these would be global. For now, they are copied
       // TODO: Figure out how to exclude vim_mode == insert from these
       // =============================================================
-      "\\": "workspace::CloseAllDocks",
+      // "\\": "workspace::CloseAllDocks",
       "shift-t shift-t": "workspace::NewTerminal"
     }
   },
