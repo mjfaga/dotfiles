@@ -39,6 +39,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
         options
   - [ ] Open Preferences
     - [ ] Check **Start at Login**
+    - [ ] **Export Location** -> `~/Downloads/Screenshots`
 - [ ] Configure CocConfig
   - [ ] `:CocInstall coc-html`
   - [ ] `:CocInstall coc-tsserver`
