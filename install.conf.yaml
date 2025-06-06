@@ -5,6 +5,15 @@
 
 - clean: ['~', '~/.config']
 
+- shell:
+    - command: sudo rm -rf ~/Downloads
+      description: 'Remove existing Downloads directory'
+
+- create:
+    - ~/projects
+    # ensuire the Downloads directory exists to link it to ~/Downloads in shell commands
+    - ~/Library/Mobile Documents/com~apple~CloudDocs/Downloads
+
 - link:
     ~/.asdfrc:
     ~/.bash:
@@ -42,9 +51,7 @@
     ~/.zshrc:
     ~/bin: bin
     ~/init: init
-
-- create:
-    - ~/projects
+    ~/Downloads: ~/Library/Mobile Documents/com~apple~CloudDocs/Downloads
 
 - shell:
     - [git submodule update --init --recursive, Installing submodules]
