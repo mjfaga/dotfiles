@@ -129,6 +129,7 @@ brew "redis"
 brew "direnv"
 brew "heroku/brew/heroku"
 cask "docker"
+brew "gpg" # For asdf yarn plugin
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"
