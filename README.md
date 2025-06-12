@@ -129,6 +129,8 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
     ```
 
 - [ ] Install [1Password CLI](https://support.1password.com/command-line-getting-started/)
+- [ ] Slack -> Sign into all active accounts
+- [ ] Notion -> Sign into all active accounts
 - [ ] Zed
   - [ ] Configure Github Language service access token in projects
 - [ ] Dropbox
