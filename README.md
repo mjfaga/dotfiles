@@ -38,8 +38,17 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] Navigate to **System Settings** -> **Keyboard** -> **Keyboard shortcuts** and uncheck all
         options
   - [ ] Open Preferences
-    - [ ] Check **Start at Login**
-    - [ ] **Export Location** -> `~/Downloads/Screenshots`
+    - [ ] General
+      - [ ] Check **Start at Login**
+      - [ ] **Export Location** -> `~/Downloads/Screenshots`
+      - [ ] After Capture
+        - [ ] Check **Screenshot** + **Recording** options for 'Copy file to Clipboard'
+      - [ ] Wallpaper
+        - [ ] Plain color (use default color)
+      - [ ] Quick Access
+        - [ ] **Enable** Auto Close
+      - [ ] Screenshots
+        - [ ] Check Freeze Screen when taking a screenshot
 - [ ] Configure CocConfig
   - [ ] `:CocInstall coc-html`
   - [ ] `:CocInstall coc-tsserver`
