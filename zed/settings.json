@@ -12,7 +12,7 @@
     "model_parameters": [],
     "default_model": {
       "provider": "openai",
-      "model": "gpt-4o"
+      "model": "o3"
     },
     "version": "2"
   },
