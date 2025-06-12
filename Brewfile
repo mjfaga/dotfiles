@@ -4,7 +4,6 @@ tap "bramstein/webfonttools"
 tap "heroku/brew"
 tap "thoughtbot/formulae"
 tap "inigolabs/homebrew-tap"
-tap "eth-p/software"
 
 # Install GNU core utilities (those that come with OS X are outdated).
 # Don’t forget to add `$(brew --prefix coreutils)/libexec/gnubin` to `$PATH`.
@@ -84,7 +83,7 @@ brew "asdf"
 brew "maven"
 brew "yarn", args: ["ignore-dependencies"]
 brew "bat"
-brew "eth-p/software/bat-extras"
+brew "bat-extras"
 brew "netpbm"
 brew "xz"
 brew "httpie"
@@ -117,7 +116,6 @@ cask "notion"
 brew "pandoc"
 cask "spotify"
 cask "postman"
-cask "remarkable"
 cask "postico"
 cask "tuple"
 

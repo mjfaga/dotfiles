@@ -91,6 +91,7 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 - [ ] MacOS App Store
   - [ ] Xcode
   - [ ] OneDrive
+  - [ ] Remarkable
 - [ ] Sign into 1Password
 
   - [ ] [Turn on the SSH agent](https://blog.1password.com/git-commit-signing/?utm_source=google&utm_medium=cpc&utm_campaign=18388341772&utm_content=&utm_term=&gclid=Cj0KCQiAx6ugBhCcARIsAGNmMbhUaZJ4RXEhaEf1q5nWzB5lxcL_rA1uzkVCgIw_KkTXmTqXwabTlIUaAs4xEALw_wcB&gclsrc=aw.ds)
