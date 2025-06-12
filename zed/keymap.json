@@ -83,7 +83,9 @@
     "context": "vim_mode == visual",
     "bindings": {
       // Vim mode comes with shortcuts to surround the selection in normal mode (ys), but it doesn't have a shortcut to add surrounds in visual mode. By default, shift-s substitutes the selection (erases the text and enters insert mode). To use shift-s to add surrounds in visual mode, you can add the following object to your keymap.
-      "shift-s": ["vim::PushAddSurrounds", {}]
+      "shift-s": ["vim::PushAddSurrounds", {}],
+      "ctrl-k": "editor::MoveLineUp",
+      "ctrl-j": "editor::MoveLineDown"
     }
   },
   {
