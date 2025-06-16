@@ -235,3 +235,5 @@
   path = ~/.gitconfig.local
   path = ~/.gitconfig.secret
 
+[init]
+  defaultBranch = main
