@@ -34,7 +34,7 @@ preview_command = "aws s3 ls s3://{0}"
 # Dotfiles
 [[cable_channel]]
 name = "my-dotfiles"
-source_command = "fd -t f . $HOME/.config"
+source_command = "fd -t f . $HOME/projects/dotfiles"
 preview_command = ":files:"
 
 # Shell history
