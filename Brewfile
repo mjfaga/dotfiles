@@ -120,6 +120,7 @@ cask "postman"
 cask "postico"
 cask "tuple"
 cask "signal"
+cask "discord"
 
 #dev tools
 brew "gh"
