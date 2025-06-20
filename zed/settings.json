@@ -11,8 +11,8 @@
     "always_allow_tool_actions": true,
     "model_parameters": [],
     "default_model": {
-      "provider": "openai",
-      "model": "o3"
+      "provider": "zed.dev",
+      "model": "claude-3-7-sonnet"
     },
     "version": "2"
   },
