@@ -119,6 +119,7 @@ cask "spotify"
 cask "postman"
 cask "postico"
 cask "tuple"
+cask "signal"
 
 #dev tools
 brew "gh"
