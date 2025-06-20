@@ -18,7 +18,12 @@
   },
   "auto_install_extensions": {
     "dockerfile": true,
-    "mcp-server-github": true
+    "mcp-server-github": true,
+    "html": true,
+    "ruby": true,
+    "graphql": true,
+    "relay": true,
+    "postgres-language-server": true
   },
   "autosave": "on_focus_change",
   "tabs": {
