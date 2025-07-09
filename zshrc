@@ -106,3 +106,6 @@ source ~/.zprofile;
 # 1password cli completion
 eval "$(op completion zsh)"; compdef _op op
 
+# Disable zsh autocorrection
+unsetopt CORRECT
+unsetopt CORRECT_ALL
