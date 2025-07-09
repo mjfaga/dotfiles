@@ -35,6 +35,7 @@
   {
     "context": "vim_mode == normal && !menu && (extension == js || extension == ts || extension == jsx || extension == tsx)",
     "bindings": {
+      "shift-r": "pane::RevealInProjectPanel",
       // Javascript/Typscript/React language only
       // Put key bindings here if you want them to work in normal mode
       ", t": [
