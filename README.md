@@ -58,18 +58,11 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:CocInstall coc-eslint`
   - [ ] `gem install solargraph`, then `:CocInstall coc-solargraph`
 - [ ] Run `xcode-select --install`
-- [ ] Install
-      [Github Copilot](https://docs.github.com/en/copilot/getting-started-with-github-copilot?tool=vimneovim)
-
-  - [ ] `git clone https://github.com/github/copilot.vim ~/.config/nvim/pack/github/start/copilot.vim`
-  - [ ] `:Copilot setup`
-  - [ ] `:Copilot enable`
-
-- [ ] Install
-      [Github CLI w/copilot](https://docs.github.com/en/copilot/managing-copilot/configure-personal-settings/installing-github-copilot-in-the-cli)
+- [ ] Install [Anthropic Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup)
+  - [ ] `npm install -g @anthropic-ai/claude-code`
+  - [ ] Run `claude` and login/set up API token
+- [ ] Log into [Github CLI](https://cli.github.com/)
   - [ ] `gh auth login`
-  - [ ] `gh extension install github/gh-copilot`
-  - [ ] `gh extension upgrade gh-copilot`
 - [ ] Raycast
   - [ ] System Preferences -> Keyboard -> Shortcuts -> Spotlight and disable the keyboard shortcut.
   - [ ] Configure Cmd + Space as Raycast trigger
