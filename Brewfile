@@ -122,6 +122,7 @@ cask "tuple"
 cask "signal"
 cask "discord"
 cask "warp"
+brew "rover"
 
 #dev tools
 brew "gh"
