@@ -121,6 +121,7 @@ cask "postico"
 cask "tuple"
 cask "signal"
 cask "discord"
+cask "warp"
 
 #dev tools
 brew "gh"
