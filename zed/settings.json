@@ -54,7 +54,11 @@
     "coloring": "indent_aware"
   },
   "inlay_hints": {
-    "enabled": true
+    "enabled": true,
+    "toggle_on_modifiers_press": {
+      "alt": true,
+      "control": true
+    }
   },
   "tab_size": 2,
   "terminal": {
