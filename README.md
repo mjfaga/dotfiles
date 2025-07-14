@@ -61,6 +61,9 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 - [ ] Install [Anthropic Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup)
   - [ ] `npm install -g @anthropic-ai/claude-code`
   - [ ] Run `claude` and login/set up API token
+  - [ ] Install MCP servers
+    - [ ] Context7 for live development doc querying:
+          `claude mcp add --transport http context7 https://mcp.context7.com/mcp`
 - [ ] Log into [Github CLI](https://cli.github.com/)
   - [ ] `gh auth login`
 - [ ] Raycast
