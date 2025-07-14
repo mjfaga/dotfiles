@@ -123,6 +123,7 @@ cask "signal"
 cask "discord"
 cask "warp"
 brew "rover"
+brew "block-goose-cli"
 
 #dev tools
 brew "gh"

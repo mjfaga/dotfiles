@@ -22,6 +22,10 @@
     ~/.bundle/config: bundle/config
     ~/.config/nvim/coc-settings.json: coc-settings.json
     ~/.config/nvim/init.vim: vimrc
+    ~/.config/goose/config.yaml: goose/config.yaml
+    ~/.config/goose/permission.yaml: goose/permission.yaml
+    ~/.config/goose/memory: goose/memory
+    ~/.config/goose/recipes: goose/recipes
     ~/.config/zed/settings.json: zed/settings.json
     ~/.config/zed/keymap.json: zed/keymap.json
     ~/.config/zed/tasks.json: zed/tasks.json
