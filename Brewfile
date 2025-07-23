@@ -124,6 +124,7 @@ cask "discord"
 cask "warp"
 brew "rover"
 brew "block-goose-cli"
+cask "notion-calendar"
 
 #dev tools
 brew "gh"
