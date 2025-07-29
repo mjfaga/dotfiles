@@ -82,7 +82,6 @@ brew "fd"
 brew "ripgrep"
 brew "asdf"
 brew "maven"
-brew "yarn", args: ["ignore-dependencies"]
 brew "bat"
 brew "bat-extras"
 brew "netpbm"
