@@ -16,13 +16,17 @@
     }
   },
   "agent": {
+    "play_sound_when_agent_done": true,
+    "inline_assistant_model": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-latest"
+    },
     "always_allow_tool_actions": true,
     "model_parameters": [],
     "default_model": {
-      "provider": "zed.dev",
-      "model": "claude-3-7-sonnet"
-    },
-    "version": "2"
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-latest"
+    }
   },
   "auto_install_extensions": {
     "dockerfile": true,
