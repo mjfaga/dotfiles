@@ -10,6 +10,7 @@
     "context": "Workspace",
     "bindings": {
       // "shift shift": "file_finder::Toggle"
+      "alt-i": "editor::ToggleInlayHints"
     }
   },
   {
