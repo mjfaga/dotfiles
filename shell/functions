@@ -273,11 +273,11 @@ function servssh() {
   servers ${1:-production} | grep scheduler | awk '{print $5}' | xargs -o ssh
 }
 
-function repeat() {
+function repeat_cmd() {
   local runCommand="${1}"
 
   if [ $# -eq 0 ] ; then
-    echo "Must provide a command to repeat!";
+    echo "Must provide a command to repeat_cmd!";
     return 1;
   fi
 
