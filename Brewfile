@@ -135,6 +135,7 @@ brew "redis"
 brew "direnv"
 brew "heroku/brew/heroku"
 brew "awscli"
+cask "gcloud-cli"
 cask "docker"
 brew "gpg" # For asdf yarn plugin
 
