@@ -2,7 +2,13 @@
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-eval "$(tv init zsh)"
+# Wrap tv init to handle any compdef calls gracefully
+if command -v tv &> /dev/null; then
+  # Ensure compdef is available before initializing tv
+  autoload -Uz compinit
+  compinit -u
+  eval "$(tv init zsh)"
+fi
 
 export FZF_CTRL_T_COMMAND="rg --hidden --files"
 export FZF_DEFAULT_COMMAND="rg --hidden --files"
