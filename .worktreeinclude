@@ -1,0 +1,27 @@
+# Environment files
+.env
+.env.*
+.env.local
+.env.local*
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.envrc
+
+# Credentials and secrets
+*.pem
+*.key
+credentials.json
+*-credentials.json
+secrets.json
+config/master.key
+config/credentials/*.key
+
+# Claude Code local settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Package manager configs (may contain auth tokens)
+.npmrc
+.yarnrc
