@@ -74,6 +74,9 @@ plugins=(git asdf direnv)
 
 source $ZSH/oh-my-zsh.sh
 
+# Override oh-my-zsh git plugin's gco alias with our smarter worktree-aware function
+unalias gco 2>/dev/null
+
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
