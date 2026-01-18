@@ -88,6 +88,7 @@ brew "netpbm"
 brew "xz"
 brew "httpie"
 brew "watchman" # Required for relay compiler
+brew "watch"
 brew "tailspin"
 brew "duckdb"
 
@@ -122,6 +123,7 @@ cask "warp"
 brew "rover"
 brew "block-goose-cli"
 cask "notion-calendar"
+brew "harlequin"
 
 #dev tools
 brew "gh"
@@ -134,8 +136,12 @@ brew "direnv"
 brew "heroku/brew/heroku"
 brew "awscli"
 cask "gcloud-cli"
-cask "docker"
+cask "docker-desktop"
+brew "docker-buildx"
 brew "gpg" # For asdf yarn plugin
+brew "vercel-cli"
+brew "flyctl"
+brew "neonctl"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"
