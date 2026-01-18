@@ -8,14 +8,24 @@
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
   "context_servers": {
-    "Context7": {
-      "source": "custom",
+    "browsermcp": {
+      "enabled": true,
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"],
+      "args": ["@browsermcp/mcp@latest"]
+    },
+    "mcp-server-context7": {
+      "enabled": true,
       "settings": {}
+    },
+    "mcp-server-github": {
+      "enabled": true,
+      "settings": {
+        "github_personal_access_token": "GITHUB_PERSONAL_ACCESS_TOKEN"
+      }
     }
   },
   "agent": {
+    "default_profile": "write",
     "play_sound_when_agent_done": true,
     "inline_assistant_model": {
       "provider": "anthropic",
@@ -84,13 +94,16 @@
   },
   "languages": {
     "JavaScript": {
-      "format_on_save": "prettier"
+      "formatter": "prettier",
+      "format_on_save": "on"
     },
     "TypeScript": {
-      "format_on_save": "prettier"
+      "formatter": "prettier",
+      "format_on_save": "on"
     },
     "Markdown": {
-      "format_on_save": "prettier"
+      "formatter": "prettier",
+      "format_on_save": "on"
     },
     "Ruby": {
       "language_servers": ["solargraph", "ruby-lsp", "rubocop"],
