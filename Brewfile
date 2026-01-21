@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 tap "bramstein/webfonttools"
+tap "hashicorp/tap"
 tap "heroku/brew"
 tap "thoughtbot/formulae"
 tap "inigolabs/homebrew-tap"
@@ -142,6 +143,7 @@ brew "gpg" # For asdf yarn plugin
 brew "vercel-cli"
 brew "flyctl"
 brew "neonctl"
+brew "hashicorp/tap/terraform"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"
