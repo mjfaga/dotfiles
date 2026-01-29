@@ -19,6 +19,15 @@ NODE_REPL_HISTORY_FILE=~/.node_history;
 # Allow 32³ entries; the default is 1000.
 NODE_REPL_HISTORY_SIZE='32768';
 
+# Ensure Homebrew's node is unlinked to prevent conflicts with asdf-nodejs.
+# Homebrew node is installed as a dependency of other packages (vercel-cli, neonctl, etc.)
+# but its npm has prefix=/opt/homebrew baked in, which breaks asdf's npm wrapper.
+# This silently unlinks node if it's linked, ensuring global npm installs go to the right place.
+if [ -L /opt/homebrew/bin/npm ]; then
+  brew unlink node >/dev/null 2>&1 || true
+fi
+
+
 # Increase Bash history size. Allow 32³ entries; the default is 500.
 export HISTSIZE='32768';
 
