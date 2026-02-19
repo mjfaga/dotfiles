@@ -25,3 +25,9 @@ fi;
 
 # Remove outdated versions from the cellar.
 brew cleanup
+
+if ! command -v claude &> /dev/null; then
+    echo "Installing Claude Code..."
+
+    npm install -g @anthropic-ai/claude-code
+fi

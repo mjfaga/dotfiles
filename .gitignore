@@ -1,4 +1,5 @@
 *.local
+.claude/**
 vim/backups
 gitconfig.secret
 gem/credentials

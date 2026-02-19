@@ -1,1 +1,2 @@
 path_prepend "${ASDF_DATA_DIR:-$HOME/.asdf}/shims"
+path_prepend "$HOME/.local/bin"

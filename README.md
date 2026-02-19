@@ -57,17 +57,17 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `:CocInstall coc-prettier`
   - [ ] `:CocInstall coc-eslint`
   - [ ] `gem install solargraph`, then `:CocInstall coc-solargraph`
+  - [ ] `npm install -g bash-language-server` (required for Bash LSP support in VIM)
 - [ ] Run `xcode-select --install`
 - [ ] Install [Anthropic Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup)
   - [ ] `npm install -g @anthropic-ai/claude-code`
   - [ ] Run `claude` and login/set up API token
-  - [ ] Install MCP servers
-    - [ ] Context7 for live development doc querying:
-          `claude mcp add --transport http context7 https://mcp.context7.com/mcp`
+  - [ ] See `dotfiles-local` for MCP server and config setup
 - [ ] Log into [Github CLI](https://cli.github.com/)
   - [ ] `gh auth login`
-- [ ] Raycast
-  - [ ] System Preferences -> Keyboard -> Shortcuts -> Spotlight and disable the keyboard shortcut.
+- [ ] Install [AgentSessions](https://github.com/jazzyalex/agent-sessions)
+- [ ] Raycast [ ] System Preferences -> Keyboard -> Shortcuts -> Spotlight and disable the keyboard
+      shortcut.
   - [ ] Configure Cmd + Space as Raycast trigger
   - [ ] Mark all setup tasks completed
   - [ ] Enable Cloud Sync
