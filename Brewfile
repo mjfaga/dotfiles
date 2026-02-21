@@ -139,6 +139,7 @@ brew "awscli"
 cask "aws-vpn-client"
 cask "gcloud-cli"
 cask "docker-desktop"
+cask "android-studio"
 brew "docker-buildx"
 brew "gpg" # For asdf yarn plugin
 brew "vercel-cli"
