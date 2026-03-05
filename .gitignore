@@ -1,5 +1,9 @@
 *.local
-.claude/**
+# Claude Code - local/ephemeral files
+.claude/settings.local.json
+.claude/plans/
+.claude/todos/
+.claude/hooks/
 vim/backups
 gitconfig.secret
 gem/credentials
