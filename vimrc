@@ -757,6 +757,9 @@ autocmd BufNewFile,BufRead *.json setfiletype json syntax=javascript
 " Treat .md files as Markdown
 autocmd BufNewFile,BufRead *.md setlocal filetype=markdown
 
+" Don't treat .env files as shell scripts
+autocmd BufNewFile,BufRead .env,.env.* setfiletype dotenv
+
 " Strip trailing whitespace when saving files
 function! StripTrailingWhitespace()
   let save_cursor = getpos(".")
