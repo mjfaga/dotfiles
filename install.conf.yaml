@@ -21,6 +21,7 @@
     ~/.bashrc:
     ~/.bundle/config: bundle/config
     ~/.config/nvim/coc-settings.json: coc-settings.json
+    ~/.config/nvim/filetype.lua: nvim/filetype.lua
     ~/.config/nvim/init.vim: vimrc
     ~/.config/goose/config.yaml: goose/config.yaml
     ~/.config/goose/permission.yaml: goose/permission.yaml

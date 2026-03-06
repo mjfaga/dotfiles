@@ -9,3 +9,6 @@ gitconfig.secret
 gem/credentials
 bundle/config
 zsh/extra
+# Managed by internal-slackbot repo
+bin/agent-context-sync
+bin/agent-context-sync-bundle.js
