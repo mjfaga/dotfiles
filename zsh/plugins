@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 
-# # FZF Configurations
-fzf-file-open-widget() {
-  local output
-  output=$(__fzf_select) && vim "${output:0:-1}" < /dev/tty
+# FZF Configurations
+if [[ "$TERM_PROGRAM" == "WarpTerminal" ]]; then
+  ff() { local file; file=$(fzf) && [[ -e "$file" ]] && vim "$file"; }
+else
+  fzf-file-open-widget() {
+    local output
+    output=$(__fzf_select) && vim "${output:0:-1}" < /dev/tty
 
-  local ret=$?
-  zle reset-prompt
-  return $ret
-}
-zle     -N   fzf-file-open-widget
-bindkey '\C-f' fzf-file-open-widget
+    local ret=$?
+    zle reset-prompt
+    return $ret
+  }
+  zle     -N   fzf-file-open-widget
+  bindkey '\C-f' fzf-file-open-widget
+fi
 
 if [ -f ~/.zsh/plugins.local ]; then
     source ~/.zsh/plugins.local
