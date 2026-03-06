@@ -63,6 +63,7 @@ brew "ack"
 brew "git"
 brew "git-lfs"
 brew "shellcheck"
+brew "bash-language-server"
 brew "imagemagick" #, args:['with-webp']
 brew "neovim"
 brew "p7zip"
