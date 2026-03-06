@@ -51,7 +51,7 @@ brew "tcpflow"
 brew "tcpreplay"
 brew "tcptrace"
 brew "ucspi-tcp" # `tcpserver` etc.
-brew "xpdf"
+brew "poppler"
 brew "xz"
 
 # Install other useful binaries.
