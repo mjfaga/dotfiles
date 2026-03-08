@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # FZF Configurations
-ff() { local file; file=$(fzf) && [[ -e "$file" ]] && vim "$file"; }
+,f() { local file; file=$(fzf) && [[ -e "$file" ]] && vim "$file"; }
 
 if [[ "$TERM_PROGRAM" != "WarpTerminal" ]]; then
   fzf-file-open-widget() {
