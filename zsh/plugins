@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # FZF Configurations
-if [[ "$TERM_PROGRAM" == "WarpTerminal" ]]; then
-  ff() { local file; file=$(fzf) && [[ -e "$file" ]] && vim "$file"; }
-else
+ff() { local file; file=$(fzf) && [[ -e "$file" ]] && vim "$file"; }
+
+if [[ "$TERM_PROGRAM" != "WarpTerminal" ]]; then
   fzf-file-open-widget() {
     local output
     output=$(__fzf_select) && vim "${output:0:-1}" < /dev/tty
