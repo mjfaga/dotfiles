@@ -23,17 +23,6 @@
       "rootPatterns": ["go.mod"],
       "filetypes": ["go"]
     },
-    "graphql": {
-      "command": "graphql-lsp",
-      "args": ["server", "-m", "stream"],
-      "filetypes": [
-        "javascript",
-        "javascriptreact",
-        "typescript",
-        "typescriptreact",
-        "graphql"
-      ]
-    },
     "kotlin": {
       "command": "~/lsp/kotlin/server/bin/kotlin-language-server",
       "filetypes": ["kotlin"]
