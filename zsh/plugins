@@ -2,6 +2,11 @@
 
 # FZF Configurations
 ,f() { local file; file=$(fzf) && [[ -e "$file" ]] && vim "$file"; }
+,e() {
+  local match
+  match=$(FZF_DEFAULT_COMMAND=: fzf --ansi --disabled --bind "change:reload:rg --column --line-number --color always {q} || true" --preview 'bat --color=always --highlight-line {2} {1} 2>/dev/null || head -100 {1}' --preview-window 'right:50%' --delimiter ':' --nth '1,4..')
+  [[ -n "$match" ]] && vim "+$(echo "$match" | cut -d: -f2)" "$(echo "$match" | cut -d: -f1)"
+}
 
 if [[ "$TERM_PROGRAM" != "WarpTerminal" ]]; then
   fzf-file-open-widget() {
