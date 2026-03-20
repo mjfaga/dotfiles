@@ -14,3 +14,4 @@ bin/agent-context-sync
 bin/agent-context-sync-bundle.js
 bin/claude-retro-ingest
 bin/claude-retro-report
+bin/claude-require-agents-md
