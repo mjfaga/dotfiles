@@ -63,6 +63,10 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
   - [ ] `npm install -g @anthropic-ai/claude-code`
   - [ ] Run `claude` and login/set up API token
   - [ ] See `dotfiles-local` for MCP server and config setup
+- [ ] Install OpenAI Codex CLI
+  - [ ] `npm install -g @openai/codex`
+  - [ ] `codex login`
+  - [ ] Re-run [dotfiles-local](https://www.github.com/mjfaga/dotfiles-local) install to wire `~/.codex/config.toml` and `~/.codex/rules/default.rules`
 - [ ] Log into [Github CLI](https://cli.github.com/)
   - [ ] `gh auth login`
 - [ ] Install [AgentSessions](https://github.com/jazzyalex/agent-sessions)
