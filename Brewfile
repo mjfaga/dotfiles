@@ -147,6 +147,7 @@ brew "vercel-cli"
 brew "flyctl"
 brew "neonctl"
 brew "hashicorp/tap/terraform"
+brew "mkcert"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"
