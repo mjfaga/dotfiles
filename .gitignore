@@ -12,6 +12,8 @@ zsh/extra
 # Managed by internal-slackbot repo
 bin/agent-context-sync
 bin/agent-context-sync-bundle.js
+
+bin/worktree-cleanup
 bin/claude-retro-ingest
 bin/claude-retro-report
 bin/claude-require-agents-md
