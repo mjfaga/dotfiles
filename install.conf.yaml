@@ -44,6 +44,7 @@
     ~/.inputrc:
     ~/.myrspec:
     ~/.oh-my-zsh:
+    ~/.pi/agent/extensions/claude-cli-provider: pi/agent/extensions/claude-cli-provider
     ~/.screenrc:
     ~/.shell:
     ~/.ssh/config: ssh/config
