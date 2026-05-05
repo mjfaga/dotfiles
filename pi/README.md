@@ -2,10 +2,19 @@
 
 This directory contains public, non-secret pi customizations managed by dotbot.
 
-## Claude CLI provider
+## Primary model integration
 
-`pi/agent/extensions/claude-cli-provider` registers an experimental `claude-cli` provider for pi.
-It shells out to the local Claude Code CLI using the user's existing Claude Code login and explicitly removes `ANTHROPIC_API_KEY` from the child process environment.
+Pi already supports Anthropic Claude Pro/Max subscription auth directly via `/login`. That built-in Anthropic provider is the fully functional primary integration: it supports pi's normal tool-calling loop, sessions, compaction, thinking levels, images, and model switching.
+
+This repo sets the global pi defaults in `pi/agent/settings.json`:
+
+```json
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-6",
+  "defaultThinkingLevel": "medium"
+}
+```
 
 Install/symlink with:
 
@@ -13,15 +22,27 @@ Install/symlink with:
 ./install
 ```
 
-Then use:
+Authenticate once in pi if needed:
 
-```bash
-pi --provider claude-cli --model sonnet
-pi --provider claude-cli --model haiku -p "Say hello"
+```text
+/login
 ```
 
-Notes:
+Then use pi normally:
 
-- This is for local developer use only.
-- The provider disables Claude CLI tools and MCP servers so file edits continue to go through pi when using pi's normal providers.
-- Because the CLI invocation is text-only and tools are disabled, this provider is best for chat/summarization experiments, not full coding-agent workflows.
+```bash
+pi
+pi -p "Say hello"
+```
+
+## Claude CLI provider experiment
+
+`pi/agent/extensions/claude-cli-provider` is intentionally **not** installed as an auto-discovered extension. It shells out to the Claude Code CLI and is useful only as an experiment for text-only local calls.
+
+It is not suitable as the primary coding provider because Claude CLI does not expose pi's arbitrary tool schemas as model tool calls. A production-quality pi provider needs to stream pi `toolCall` events so pi can execute and record `read`, `edit`, `write`, `bash`, etc. The built-in Anthropic subscription provider already does that.
+
+Manual experiment only:
+
+```bash
+pi --extension ./pi/agent/extensions/claude-cli-provider/index.ts --provider claude-cli --model haiku -p "Say hello"
+```
