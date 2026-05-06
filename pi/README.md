@@ -10,9 +10,16 @@ This repo sets the global pi defaults in `pi/agent/settings.json`:
 
 ```json
 {
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-4-6",
-  "defaultThinkingLevel": "medium"
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.5",
+  "defaultThinkingLevel": "medium",
+  "doubleEscapeAction": "tree",
+  "enabledModels": [
+    "openai-codex/gpt-5.5",
+    "openai-codex/gpt-5.4-mini",
+    "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-opus-4-5"
+  ]
 }
 ```
 
@@ -34,6 +41,25 @@ Then use pi normally:
 pi
 pi -p "Say hello"
 ```
+
+## Keyboard shortcuts
+
+This repo also links `pi/agent/keybindings.json` to `~/.pi/agent/keybindings.json`.
+
+Custom bindings:
+
+- `Alt+N` — new session (`/new`)
+- `Alt+R` — resume picker (`/resume`)
+- `Alt+T` — session tree (`/tree`)
+
+Useful built-in bindings left at pi defaults:
+
+- `Ctrl+L` — model selector
+- `Ctrl+P` / `Shift+Ctrl+P` — cycle scoped models from `enabledModels`
+- `Shift+Tab` — cycle thinking level
+- `Ctrl+O` — collapse/expand tool output
+- `Ctrl+T` — collapse/expand thinking blocks
+- double `Esc` — session tree
 
 ## Claude CLI provider experiment
 

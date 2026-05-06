@@ -2,6 +2,13 @@
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "medium",
+  "doubleEscapeAction": "tree",
+  "enabledModels": [
+    "openai-codex/gpt-5.5",
+    "openai-codex/gpt-5.4-mini",
+    "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-opus-4-5"
+  ],
   "warnings": {
     "anthropicExtraUsage": true
   },

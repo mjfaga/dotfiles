@@ -45,6 +45,7 @@
     ~/.myrspec:
     ~/.oh-my-zsh:
     ~/.pi/agent/settings.json: pi/agent/settings.json
+    ~/.pi/agent/keybindings.json: pi/agent/keybindings.json
     ~/.screenrc:
     ~/.shell:
     ~/.ssh/config: ssh/config
