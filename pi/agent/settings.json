@@ -12,6 +12,7 @@
   "warnings": {
     "anthropicExtraUsage": true
   },
-  "lastChangelogVersion": "0.73.0"
+  "lastChangelogVersion": "0.73.0",
+  "hideThinkingBlock": false,
+  "shellCommandPrefix": "source ~/.pi/agent/shell-init.bash"
 }
-

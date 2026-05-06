@@ -42,6 +42,10 @@ pi
 pi -p "Say hello"
 ```
 
+## Shell initialization
+
+Pi runs tool commands through non-interactive bash. Global settings point `shellCommandPrefix` at `~/.pi/agent/shell-init.bash`, which is managed by private dotfiles-local and enables shared shell aliases/functions for Pi bash tool calls.
+
 ## Keyboard shortcuts
 
 This repo also links `pi/agent/keybindings.json` to `~/.pi/agent/keybindings.json`.
