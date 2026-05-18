@@ -14,5 +14,6 @@
   },
   "hideThinkingBlock": false,
   "enableInstallTelemetry": false,
-  "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true"
+  "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true",
+  "lastChangelogVersion": "0.73.0"
 }
