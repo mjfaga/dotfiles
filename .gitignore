@@ -17,3 +17,4 @@ bin/worktree-cleanup
 bin/claude-retro-ingest
 bin/claude-retro-report
 bin/claude-require-agents-md
+bin/via-pr-digest
