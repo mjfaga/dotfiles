@@ -149,6 +149,7 @@ brew "flyctl"
 brew "neonctl"
 brew "hashicorp/tap/terraform"
 brew "mkcert"
+brew "rtk"
 
 # https://github.com/thoughtbot/parity
 brew "thoughtbot/formulae/parity"

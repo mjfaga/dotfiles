@@ -31,3 +31,10 @@ if ! command -v claude &> /dev/null; then
 
     npm install -g @anthropic-ai/claude-code
 fi
+
+# Wire rtk (https://github.com/rtk-ai/rtk) hooks for Claude Code globally.
+# rtk is installed via Brewfile above; init is idempotent. Restart Claude after.
+if command -v rtk &> /dev/null; then
+    echo "Configuring rtk hooks for Claude Code..."
+    rtk init -g
+fi

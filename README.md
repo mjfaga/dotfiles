@@ -61,10 +61,12 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 - [ ] Run `xcode-select --install`
 - [ ] Install [Anthropic Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup)
   - [ ] `npm install -g @anthropic-ai/claude-code`
+  - [ ] `rtk init -g` to wire [rtk](https://github.com/rtk-ai/rtk) hooks for Claude Code (rtk installed via Brewfile), then restart Claude
   - [ ] Run `claude` and login/set up API token
   - [ ] See `dotfiles-local` for MCP server and config setup
 - [ ] Install OpenAI Codex CLI
   - [ ] `npm install -g @openai/codex`
+  - [ ] `rtk init -g --codex` to wire [rtk](https://github.com/rtk-ai/rtk) hooks for Codex, then restart Codex
   - [ ] `codex login`
   - [ ] Re-run [dotfiles-local](https://www.github.com/mjfaga/dotfiles-local) install to wire `~/.codex/config.toml` and `~/.codex/rules/default.rules`
 - [ ] Log into [Github CLI](https://cli.github.com/)
