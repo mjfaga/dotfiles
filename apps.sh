@@ -32,9 +32,18 @@ if ! command -v claude &> /dev/null; then
     npm install -g @anthropic-ai/claude-code
 fi
 
-# Wire rtk (https://github.com/rtk-ai/rtk) hooks for Claude Code globally.
-# rtk is installed via Brewfile above; init is idempotent. Restart Claude after.
+if ! command -v codex &> /dev/null; then
+    echo "Installing OpenAI Codex CLI..."
+
+    npm install -g @openai/codex
+fi
+
+# Wire rtk (https://github.com/rtk-ai/rtk) hooks globally for both agents.
+# rtk is installed via Brewfile above; init is idempotent. Restart agents after.
 if command -v rtk &> /dev/null; then
     echo "Configuring rtk hooks for Claude Code..."
     rtk init -g
+
+    echo "Configuring rtk hooks for Codex..."
+    rtk init -g --codex
 fi
