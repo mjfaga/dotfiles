@@ -8,6 +8,7 @@ alias .....="cd ../../../.."
 alias -- -="cd -"
 
 # Shortcuts
+alias claudef="claude --model claude-fable-5"
 alias d="cd ~/Documents/Dropbox"
 alias dl="cd ~/Downloads"
 alias p="cd ~/projects"
