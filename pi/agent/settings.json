@@ -1,7 +1,7 @@
 {
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
   "enabledModels": [
     "openai-codex/gpt-5.5",
@@ -15,5 +15,5 @@
   "hideThinkingBlock": false,
   "enableInstallTelemetry": false,
   "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true",
-  "lastChangelogVersion": "0.73.0"
+  "lastChangelogVersion": "0.78.1"
 }
