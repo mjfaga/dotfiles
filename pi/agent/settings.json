@@ -15,5 +15,6 @@
   "hideThinkingBlock": false,
   "enableInstallTelemetry": false,
   "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true",
-  "lastChangelogVersion": "0.78.1"
+  "lastChangelogVersion": "0.80.2",
+  "theme": "dark"
 }
