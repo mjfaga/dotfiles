@@ -18,3 +18,4 @@ bin/claude-retro-ingest
 bin/claude-retro-report
 bin/claude-require-agents-md
 bin/via-pr-digest
+bin/claude-active-sessions
