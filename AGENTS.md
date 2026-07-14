@@ -26,8 +26,11 @@ Private config lives in `~/projects/dotfiles-local` (`mjfaga/dotfiles-local`).
 When editing a symlinked file, check `ls -la` to determine which repo owns it before committing.
 
 ### Commit Discipline
-After modifying, creating, or deleting any file — commit and push immediately without asking.
-Do not batch changes or wait for explicit commit instructions.
+After modifying, creating, or deleting any file — commit and push directly to `main` immediately, without asking. Do not batch changes or wait for explicit commit instructions.
+
+This repo is exempt from the usual global rules that require a PR and a `/review` pass. It is also exempt from the worktree workflow and from the `block-primary-worktree` hook — **edit in place; do not create a worktree here.**
+
+**Stage only the files you changed, by exact path.** Never `git add -A`, `git add .`, `git add -u`, or `git commit -a`. Multiple agent sessions write to this repo concurrently, so a blanket add sweeps another session's unrelated, in-progress work into your commit. Run `git status` before committing and confirm the staged set contains only your intended files. If unrelated changes are present, leave them unstaged.
 
 ### Directory Structure
 - `shell/` — shared shell config (aliases, functions, settings, path, plugins)
