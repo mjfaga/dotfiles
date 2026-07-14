@@ -55,3 +55,7 @@ desktop.ini
 *.sublime-workspace
 
 .zed
+
+# Agent working state #
+#######################
+.pi/todos/
