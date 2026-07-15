@@ -1,7 +1,7 @@
 {
   "defaultProvider": "openai",
   "defaultModel": "gpt-5.6-sol",
-  "defaultThinkingLevel": "low",
+  "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
   "enabledModels": [
     "anthropic/claude-fable-5",
