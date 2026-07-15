@@ -147,7 +147,7 @@ alias afk="/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resource
 # Reload the shell configuration without losing Warp integration
 alias reload="source ~/.zshrc"
 
-alias ssha="eval \"$(ssh-agent -s)\" && ssh-add"
+alias ssha='eval "$(ssh-agent -s)" && ssh-add'
 
 alias specs="bundle exec rspec --options ~/.myrspec"
 
