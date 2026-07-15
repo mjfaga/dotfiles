@@ -27,6 +27,7 @@
     ~/.config/goose/permission.yaml: goose/permission.yaml
     ~/.config/goose/memory: goose/memory
     ~/.config/goose/recipes: goose/recipes
+    ~/.config/mcp/mcp.json: pi/mcp.json
     ~/.config/zed/settings.json: zed/settings.json
     ~/.config/zed/keymap.json: zed/keymap.json
     ~/.config/zed/tasks.json: zed/tasks.json

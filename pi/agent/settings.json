@@ -18,5 +18,8 @@
   "enableInstallTelemetry": false,
   "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true",
   "lastChangelogVersion": "0.80.6",
-  "theme": "dark"
+  "theme": "dark",
+  "packages": [
+    "npm:pi-mcp-adapter"
+  ]
 }

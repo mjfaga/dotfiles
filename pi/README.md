@@ -46,6 +46,18 @@ pi -p "Say hello"
 
 Pi runs tool commands through non-interactive bash. Global settings point `shellCommandPrefix` at `~/.pi/agent/shell-init.bash`, which is managed by private dotfiles-local and enables shared shell aliases/functions for Pi bash tool calls.
 
+## Mermaid MCP
+
+The global Pi settings declare `npm:pi-mcp-adapter` in `packages`. Pi installs the package automatically on startup when it is missing. Dotbot links `pi/mcp.json` to the adapter's shared global config at `~/.config/mcp/mcp.json`, enabling Mermaid's hosted MCP endpoint without authentication.
+
+Apply the configuration with:
+
+```bash
+./install
+```
+
+Restart Pi, then use `/mcp` to inspect the server. Mermaid's core validation and rendering tools work without a token. Do not add Mermaid Chart tokens to this public repository; keep authenticated overrides in private configuration or environment variables.
+
 ## Keyboard shortcuts
 
 This repo also links `pi/agent/keybindings.json` to `~/.pi/agent/keybindings.json`.
