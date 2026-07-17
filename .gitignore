@@ -9,14 +9,16 @@ gitconfig.secret
 gem/credentials
 bundle/config
 zsh/extra
-# Managed by internal-slackbot repo
-bin/agent-context-sync
-bin/agent-context-sync-bundle.js
-
-bin/worktree-cleanup
-bin/claude-retro-ingest
-bin/claude-retro-report
-bin/claude-require-agents-md
-bin/via-pr-digest
-bin/claude-active-sessions
-bin/linx-scrapbook-sync
+# ~/bin is a symlink to this repo's bin/ (see install.conf.yaml), so every script that
+# dotfiles-local (and internal-slackbot) links into ~/bin lands here as an untracked
+# symlink pointing at a private repo. Ignoring bin/ by default means a private script
+# can never be committed to this PUBLIC repo by accident — no per-script maintenance.
+#
+# Scripts that genuinely belong to this repo are explicit exceptions below.
+# Adding a new public script? Add a `!bin/<name>` line (or `git add -f`).
+bin/*
+!bin/bash
+!bin/hermit
+!bin/hermit-stable
+!bin/httpcompression
+!bin/subl
