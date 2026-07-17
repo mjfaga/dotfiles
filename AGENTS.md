@@ -25,6 +25,31 @@ This repo is **public**. Never commit:
 Private config lives in `~/projects/dotfiles-local` (`mjfaga/dotfiles-local`).
 When editing a symlinked file, check `ls -la` to determine which repo owns it before committing.
 
+### `bin/` is a shared drop zone — it is gitignored by default
+
+`install.conf.yaml` maps `~/bin: bin`, so **`~/bin` IS this repo's `bin/` directory**. Anything
+`dotfiles-local` (or `internal-slackbot`) links into `~/bin` physically lands here as an untracked
+symlink pointing into a **private** repo. Committing one leaks the script's existence and the
+private path, permanently, into a public repo.
+
+Because of that, `.gitignore` ignores `bin/*` and allow-lists only this repo's own scripts:
+
+```gitignore
+bin/*
+!bin/bash
+!bin/subl
+```
+
+- **Adding a script that belongs to THIS repo?** Add a `!bin/<name>` exception (or `git add -f`).
+- **Adding a script to `dotfiles-local/bin/`?** Do nothing here — it's ignored automatically.
+- **Never** relax `bin/*` to make a stray file commit. If something in `bin/` is untracked and you
+  didn't put it there, it's almost certainly a private symlink — run
+  `readlink bin/<name>` and check whether it points at `dotfiles-local`.
+
+The failure mode is intentionally lopsided: forgetting a `!` line means a public script silently
+fails to commit (loud, harmless). The old per-script ignore list meant forgetting a line leaked a
+private script (silent, permanent).
+
 ### Commit Discipline
 After modifying, creating, or deleting any file — commit and push directly to `main` immediately, without asking. Do not batch changes or wait for explicit commit instructions.
 
