@@ -15,6 +15,11 @@ Check out the [install.conf.yaml](./install.conf.yaml) for my current configurat
 - [ ] Run [dotfiles](https://www.github.com/mjfaga/dotfiles) configuration
 - [ ] `git clone git@github.com:mjfaga/dotfiles-local.git`
 - [ ] Run [dotfiles-local](https://www.github.com/mjfaga/dotfiles-local) configuration
+- [ ] Work through the per-component setup — each has its own README with manual steps that
+      `./install` can't do (secrets, keychain entries, loading scheduled services):
+  - [ ] [`pi/README.md`](./pi/README.md) — pi agent customizations
+  - [ ] [dotfiles-local component setup](https://github.com/mjfaga/dotfiles-local#component-setup) —
+        Claude/MCP secrets and scheduled services
 - [ ] Reload terminal
 - [ ] `sh apps.sh`
 - [ ] `sh macos.sh`
