@@ -10,7 +10,9 @@
     "anthropic/claude-haiku-4-5",
     "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-5.6-luna",
-    "openai-codex/gpt-5.6-terra"
+    "openai-codex/gpt-5.6-terra",
+    "xai/grok-4.5",
+    "kimi-coding/k3"
   ],
   "warnings": {
     "anthropicExtraUsage": true
@@ -18,7 +20,7 @@
   "hideThinkingBlock": false,
   "enableInstallTelemetry": false,
   "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true",
-  "lastChangelogVersion": "0.80.6",
+  "lastChangelogVersion": "0.80.10",
   "theme": "dark",
   "packages": [
     "npm:pi-mcp-adapter"
