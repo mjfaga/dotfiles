@@ -36,7 +36,10 @@ A missing receipt path is exit `2`. `restore` exits `3` when labels remain in us
 incomplete and should be retried after those references are resolved. Exit `0` means success or
 eligibility, `1` means a read-only eligibility/preflight/finality check failed, and `2` means an
 operational/configuration error; mutating commands report classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`;
-exit `2` reports the operational error on stderr. Multiline PR bodies are edited through a body file. Never let this generic lifecycle replace local land/deploy
+exit `2` reports the operational error on stderr. Finality consumers must check `reason` before
+reading relationship counts. Restore output distinguishes `empty`, `already_restored`, `restored`,
+and `labels_in_use`, and reports both restored and mutated operation counts. Multiline PR bodies are
+edited through a body file. Never let this generic lifecycle replace local land/deploy
 checks.
 
 The generated helper is tested at its immutable public source tag before distribution.

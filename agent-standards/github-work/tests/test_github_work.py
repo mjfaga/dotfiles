@@ -159,7 +159,7 @@ class HelperTests(unittest.TestCase):
             "failure": None,
             "incomplete_sub_issues": 1,
             "open_blockers": 1,
-            "reason": "blockers",
+            "reason": "not_ready",
         })
 
     def test_finality_returns_eligibility_exit_for_missing_classification(self):
@@ -338,6 +338,34 @@ class HelperTests(unittest.TestCase):
             with self.assertRaises(work.WorkError):
                 receipt(str(path))
 
+    def test_receipt_save_maps_os_errors_to_work_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current = receipt(str(Path(directory) / "receipt.json"))
+            with mock.patch.object(work.os, "open", side_effect=PermissionError("denied")):
+                with self.assertRaisesRegex(work.WorkError, "cannot save receipt"):
+                    current.save()
+
+    def test_main_hides_success_output_when_noop_receipt_save_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "targets.json"
+            receipt_path = root / "noop-receipt.json"
+            config_path.write_text(json.dumps(config()), encoding="utf-8")
+            runner = FakeRunner(managed_preflight_responses())
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with mock.patch.object(work.os, "open", side_effect=PermissionError("denied")):
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    result = work.main([
+                        "--config", str(config_path),
+                        "labels", "ensure",
+                        "--repos", "sample-space/sample-app",
+                        "--receipt", str(receipt_path),
+                    ], runner=runner)
+            self.assertEqual(result, 2)
+            self.assertEqual(stdout.getvalue(), "")
+            self.assertIn("cannot save receipt", stderr.getvalue())
+
     def test_restore_marks_operations_and_second_run_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -353,7 +381,9 @@ class HelperTests(unittest.TestCase):
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 work.command_restore(Namespace(receipt=path), second, config(), reloaded)
-            self.assertEqual(json.loads(output.getvalue())["restored_operations"], 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["restored_operations"], 0)
+            self.assertEqual(payload["reason"], "already_restored")
             self.assertEqual(second.calls, [])
 
     def test_restore_rejects_receipt_without_operations(self):
@@ -373,7 +403,9 @@ class HelperTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 result = work.command_restore(Namespace(receipt=path), FakeRunner([]), config(), reloaded)
             self.assertEqual(result, 0)
-            self.assertEqual(json.loads(output.getvalue())["restored_operations"], 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["restored_operations"], 0)
+            self.assertEqual(payload["reason"], "empty")
 
     def test_main_persists_receipt_for_successful_noop_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -445,7 +477,9 @@ class HelperTests(unittest.TestCase):
         with contextlib.redirect_stdout(output):
             result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
         self.assertEqual(result, 3)
-        self.assertEqual(json.loads(output.getvalue())["skipped_labels_in_use"], 1)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["skipped_labels_in_use"], 1)
+        self.assertEqual(payload["reason"], "labels_in_use")
         self.assertEqual(current.data["operations"][0]["status"], "active")
 
     def test_restore_dry_run_simulates_pending_issue_label_removal(self):
@@ -468,8 +502,30 @@ class HelperTests(unittest.TestCase):
         payload = json.loads(output.getvalue())
         self.assertEqual(result, 0)
         self.assertEqual(payload["restored_operations"], 2)
+        self.assertEqual(payload["mutated_operations"], 2)
+        self.assertEqual(payload["reason"], "restored")
         self.assertEqual(payload["skipped_labels_in_use"], 0)
         self.assertTrue(all(operation["status"] == "active" for operation in current.data["operations"]))
+
+    def test_restore_counts_verified_noop_operation_as_restored_not_mutated(self):
+        current = receipt()
+        current.add(
+            "issue-label-added",
+            issue="https://github.com/sample-space/sample-app/issues/9",
+            name="needs-owner",
+        )
+        responses = restore_preflight_responses() + [{"labels": [], "assignees": []}]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(
+                Namespace(receipt="unused"), FakeRunner(responses), config(), current
+            )
+        payload = json.loads(output.getvalue())
+        self.assertEqual(result, 0)
+        self.assertEqual(payload["restored_operations"], 1)
+        self.assertEqual(payload["mutated_operations"], 0)
+        self.assertEqual(payload["reason"], "restored")
+        self.assertEqual(payload["total_operations"], 1)
 
     def test_relationship_restore_fails_on_unknown_error(self):
         current = receipt()

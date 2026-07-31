@@ -118,7 +118,8 @@ class Receipt:
             "operations": [],
         }
         if self.loaded:
-            assert self.path is not None
+            if self.path is None:
+                raise WorkError("loaded receipt has no path")
             if stat.S_IMODE(self.path.stat().st_mode) != 0o600:
                 raise WorkError("existing receipt permissions must be exactly 0600")
             self.data = load_json(self.path)
@@ -189,13 +190,18 @@ class Receipt:
         if not self.path:
             return
         self.validate()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(self.data, indent=2, sort_keys=True) + "\n")
-        temporary.replace(self.path)
-        self.path.chmod(0o600)
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(self.data, indent=2, sort_keys=True) + "\n")
+            temporary.replace(self.path)
+            self.path.chmod(0o600)
+        except OSError as exc:
+            with contextlib.suppress(OSError):
+                temporary.unlink(missing_ok=True)
+            raise WorkError(f"cannot save receipt {self.path}: {exc}") from exc
         self.loaded = True
 
 
@@ -606,7 +612,7 @@ def finality_result(state: dict[str, Any]) -> dict[str, Any]:
         "failure": None,
         "incomplete_sub_issues": incomplete,
         "open_blockers": open_blockers,
-        "reason": "ready" if eligible else "blockers",
+        "reason": "ready" if eligible else "not_ready",
     }
 
 
@@ -739,16 +745,22 @@ def command_restore(
         json_print({
             "already_restored_operations": 0,
             "dry_run": runner.dry_run,
+            "mutated_operations": 0,
+            "reason": "empty",
             "restored_operations": 0,
             "skipped_labels_in_use": 0,
+            "total_operations": 0,
         })
         return 0
     if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
             "dry_run": runner.dry_run,
+            "mutated_operations": 0,
+            "reason": "already_restored",
             "restored_operations": 0,
             "skipped_labels_in_use": 0,
+            "total_operations": len(receipt.data["operations"]),
         })
         return 0
     basic_preflight(runner)
@@ -756,6 +768,7 @@ def command_restore(
         target_for(config, repo)  # Validate that every receipt repository is in the active config.
         repository_preflight(runner, repo)
     restored = 0
+    mutated_operations = 0
     already_restored = 0
     skipped_in_use = 0
     pending_issue_label_removals = {
@@ -825,12 +838,16 @@ def command_restore(
                 mutated = True
         if not runner.dry_run:
             receipt.mark_restored(operation, mutated=mutated)
-        restored += int(mutated)
+        restored += 1
+        mutated_operations += int(mutated)
     json_print({
-        "restored_operations": restored,
         "already_restored_operations": already_restored,
-        "skipped_labels_in_use": skipped_in_use,
         "dry_run": runner.dry_run,
+        "mutated_operations": mutated_operations,
+        "reason": "labels_in_use" if skipped_in_use else "restored",
+        "restored_operations": restored,
+        "skipped_labels_in_use": skipped_in_use,
+        "total_operations": len(receipt.data["operations"]),
     })
     return 3 if skipped_in_use else 0
 
@@ -1053,20 +1070,23 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         )
         if args.command == "restore":
             return command_restore(args, active_runner, config, receipt)
-        if args.command == "labels":
-            result = command_labels_ensure(args, active_runner, config, receipt)
-        elif args.command == "issue-create":
-            result = command_issue_create(args, active_runner, config, receipt)
-        elif args.command == "pr-link":
-            result = command_pr_link(args, active_runner, config, receipt)
-        elif args.command == "assign":
-            result = command_assign(args, active_runner, config, ownership, receipt)
-        elif args.command == "work-graph":
-            result = command_work_graph_create(args, active_runner, config, receipt)
-        else:
-            raise WorkError(f"unsupported command: {args.command}")
-        if result == 0 and not active_runner.dry_run:
-            receipt.save()
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            if args.command == "labels":
+                result = command_labels_ensure(args, active_runner, config, receipt)
+            elif args.command == "issue-create":
+                result = command_issue_create(args, active_runner, config, receipt)
+            elif args.command == "pr-link":
+                result = command_pr_link(args, active_runner, config, receipt)
+            elif args.command == "assign":
+                result = command_assign(args, active_runner, config, ownership, receipt)
+            elif args.command == "work-graph":
+                result = command_work_graph_create(args, active_runner, config, receipt)
+            else:
+                raise WorkError(f"unsupported command: {args.command}")
+            if result == 0 and not active_runner.dry_run:
+                receipt.save()
+        print(captured.getvalue(), end="")
         return result
     except WorkError as exc:
         print(f"error: {exc}", file=sys.stderr)
