@@ -1,0 +1,9 @@
+{
+  "name": "github-work-standard",
+  "version": "1.0.0",
+  "minimum_gh_version": "2.96.0",
+  "schema_version": 1,
+  "adapters": ["generated-modern", "generated-legacy", "plain"],
+  "classification_modes": ["native-type", "managed-label"],
+  "markers": {"begin": "<!-- BEGIN github-work-standard -->", "end": "<!-- END github-work-standard -->"}
+}
