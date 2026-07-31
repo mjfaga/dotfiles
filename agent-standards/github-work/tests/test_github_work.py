@@ -148,6 +148,27 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertFalse(json.loads(output.getvalue())["finality"]["eligible"])
 
+    def test_pr_link_reports_partial_state_when_receipt_write_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current = receipt(str(Path(directory) / "receipt.json"))
+            responses = managed_preflight_responses() + [
+                {"body": "Original body\n", "url": "https://github.com/sample-space/sample-app/pull/2"},
+                work.CommandResult(),
+            ]
+            args = Namespace(
+                pr="https://github.com/sample-space/sample-app/pull/2",
+                issue="sample-space/sample-app#4",
+                mode="refs",
+            )
+            output = io.StringIO()
+            with mock.patch.object(current, "save", side_effect=work.WorkError("cannot save receipt")):
+                with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+                    work.command_pr_link(args, FakeRunner(responses), config(), current)
+            payload = json.loads(output.getvalue())
+            self.assertTrue(payload["partial"])
+            self.assertEqual(payload["before"], "Original body\n")
+            self.assertIn("Refs sample-space/sample-app#4", payload["after"])
+
     def test_pr_template_placeholder_is_replaced(self):
         rendered = work.linked_body("Refs #ISSUE\n", "sample-space/sample-app#3", "refs", "sample-space/sample-app")
         self.assertEqual(rendered, "Refs sample-space/sample-app#3\n")
@@ -310,6 +331,29 @@ class HelperTests(unittest.TestCase):
         edit = next(call[0] for call in runner.calls if call[0][:2] == ["pr", "edit"])
         self.assertIn("--body-file", edit)
 
+    def test_assign_reports_partial_state_when_receipt_write_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current = receipt(str(Path(directory) / "receipt.json"))
+            responses = managed_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                work.CommandResult(),
+                work.CommandResult(),
+            ]
+            args = Namespace(
+                issue="sample-space/sample-app#4",
+                assignee="sample-user",
+                from_ownership_map=False,
+                area=None,
+            )
+            output = io.StringIO()
+            with mock.patch.object(work.os, "open", side_effect=PermissionError("denied")):
+                with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+                    work.command_assign(args, FakeRunner(responses), config(), None, current)
+            self.assertEqual(
+                json.loads(output.getvalue()),
+                {"assignee": "sample-user", "issue": "sample-space/sample-app#4", "partial": True},
+            )
+
     def test_work_graph_preserves_partial_receipt_on_failure(self):
         targets = config(repos=["sample-space/one-app", "sample-space/two-app"])
         responses = [work.CommandResult(stdout="gh version 2.96.0\n"), work.CommandResult()]
@@ -329,9 +373,15 @@ class HelperTests(unittest.TestCase):
             raise work.WorkError("second target failed")
 
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
+        output = io.StringIO()
         with mock.patch.object(work, "command_issue_create", side_effect=create):
-            with self.assertRaises(work.WorkError):
+            with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
                 work.command_work_graph_create(args, runner, targets, current_receipt)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["created_tasks"], 1)
+        self.assertEqual(payload["failed_repo"], "sample-space/two-app")
+        self.assertEqual(payload["issues"][0]["url"], "https://github.com/sample-space/one-app/issues/1")
+        self.assertIsNone(payload["failed_partial"])
         self.assertEqual(len(current_receipt.data["operations"]), 1)
 
     def test_receipt_is_strict_private_and_bound(self):
@@ -543,7 +593,7 @@ class HelperTests(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             result = work.command_restore(
-                Namespace(receipt="unused"), FakeRunner(responses), config(), current
+                Namespace(receipt="unused"), FakeRunner(responses), {"targets": []}, current
             )
         payload = json.loads(output.getvalue())
         self.assertEqual(result, 0)

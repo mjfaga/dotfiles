@@ -198,6 +198,7 @@ class Receipt:
         self.save()
 
     def ensure_saved(self) -> None:
+        """Persist the initial empty receipt; no-op after any operation has been saved."""
         if not self.loaded:
             self.save()
 
@@ -497,7 +498,8 @@ def command_issue_create(
         related_repos.append(parse_issue_url(args.parent)[0])
     if args.blocking:
         related_repos.append(parse_issue_url(args.blocking)[0])
-    mutation_preflight(runner, config, related_repos)
+    if not getattr(args, "preflighted", False):
+        mutation_preflight(runner, config, related_repos)
     kind = args.type.lower()
     if kind not in MANAGED_LABELS:
         raise WorkError("--type must be Bug, Feature, or Task")
@@ -604,11 +606,22 @@ def command_pr_link(
             receipt.ensure_saved()
         json_print({"changed": False, "pr": args.pr, "mode": args.mode})
         return 0
-    with temporary_body(after) as path:
-        runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
-    if not runner.dry_run:
-        receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
-        receipt.ensure_saved()
+    try:
+        with temporary_body(after) as path:
+            runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
+        if not runner.dry_run:
+            receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
+            receipt.ensure_saved()
+    except WorkError:
+        json_print({
+            "after": after,
+            "before": before,
+            "issue": args.issue,
+            "mode": args.mode,
+            "partial": True,
+            "pr": args.pr,
+        })
+        raise
     json_print({"changed": True, "dry_run": runner.dry_run, "pr": args.pr, "mode": args.mode})
     return 0
 
@@ -682,15 +695,23 @@ def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
     if not isinstance(labels, list):
         raise WorkError(f"cannot verify ownership labels in {repo}")
     if NEEDS_OWNER_LABEL[0] not in {item.get("name") for item in labels if isinstance(item, dict)}:
-        runner.run([
-            "label", "create", NEEDS_OWNER_LABEL[0], "--repo", repo,
-            "--color", NEEDS_OWNER_LABEL[1], "--description", NEEDS_OWNER_LABEL[2],
-        ], mutate=True)
+        try:
+            runner.run([
+                "label", "create", NEEDS_OWNER_LABEL[0], "--repo", repo,
+                "--color", NEEDS_OWNER_LABEL[1], "--description", NEEDS_OWNER_LABEL[2],
+            ], mutate=True)
+            if not runner.dry_run:
+                receipt.add("label-created", repo=repo, name=NEEDS_OWNER_LABEL[0])
+        except WorkError:
+            json_print({"action": "create-label", "name": NEEDS_OWNER_LABEL[0], "partial": True, "repo": repo})
+            raise
+    try:
+        runner.run(["issue", "edit", issue, "--add-label", NEEDS_OWNER_LABEL[0]], mutate=True)
         if not runner.dry_run:
-            receipt.add("label-created", repo=repo, name=NEEDS_OWNER_LABEL[0])
-    runner.run(["issue", "edit", issue, "--add-label", NEEDS_OWNER_LABEL[0]], mutate=True)
-    if not runner.dry_run:
-        receipt.add("issue-label-added", issue=issue, name=NEEDS_OWNER_LABEL[0])
+            receipt.add("issue-label-added", issue=issue, name=NEEDS_OWNER_LABEL[0])
+    except WorkError:
+        json_print({"action": "add-label", "issue": issue, "name": NEEDS_OWNER_LABEL[0], "partial": True})
+        raise
 
 
 def command_assign(
@@ -728,10 +749,14 @@ def command_assign(
     validation = runner.run(["api", f"repos/{repo}/assignees/{assignee}"], check=False)
     if validation.returncode != 0:
         raise WorkError(f"not assignable in {repo}: {assignee}")
-    runner.run(["issue", "edit", args.issue, "--add-assignee", assignee], mutate=True)
-    if not runner.dry_run:
-        receipt.add("assignee-added", issue=args.issue, login=assignee)
-        receipt.ensure_saved()
+    try:
+        runner.run(["issue", "edit", args.issue, "--add-assignee", assignee], mutate=True)
+        if not runner.dry_run:
+            receipt.add("assignee-added", issue=args.issue, login=assignee)
+            receipt.ensure_saved()
+    except WorkError:
+        json_print({"assignee": assignee, "issue": args.issue, "partial": True})
+        raise
     json_print({"assigned": True, "dry_run": runner.dry_run, "assignee": assignee})
     return 0
 
@@ -795,7 +820,6 @@ def command_restore(
         return 0
     basic_preflight(runner)
     for repo in sorted(receipt_repositories(receipt)):
-        target_for(config, repo)  # Validate that every receipt repository is in the active config.
         repository_preflight(runner, repo)
     restored = 0
     mutated_operations = 0
@@ -903,13 +927,23 @@ def command_work_graph_create(
             parent=args.umbrella,
             blocking=None,
             assignee=args.assignee,
+            preflighted=True,
         )
         captured = io.StringIO()
         try:
             with contextlib.redirect_stdout(captured):
                 command_issue_create(child_args, runner, config, receipt)
         except WorkError:
-            print(captured.getvalue(), end="")
+            child_output = captured.getvalue().strip()
+            failed_partial = json.loads(child_output) if child_output else None
+            json_print({
+                "created_tasks": len(created),
+                "failed_partial": failed_partial,
+                "failed_repo": repo,
+                "issues": created,
+                "partial": True,
+                "umbrella": args.umbrella,
+            })
             raise
         created.append(json.loads(captured.getvalue()))
     if not runner.dry_run:

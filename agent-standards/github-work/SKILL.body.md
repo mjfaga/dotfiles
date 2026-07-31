@@ -25,8 +25,8 @@ array of `repo`, `area`, and `logins`. The private operator supplies their locat
 under `.github-work/receipts/`; consumer repositories must ignore `.github-work/`,
 `*github-work-targets*`, `*github-work-ownership*`, and `*.github-work-receipt.json*`.
 
-Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep that path
-private and reuse it for compensating `restore`. Use `issue-create` with Feature, Bug, or Task and
+Assign before creating a branch. Every mutating command requires `--receipt PATH`; the path MUST be
+under the private `.github-work/receipts/` directory and reused for compensating `restore`. Use `issue-create` with Feature, Bug, or Task and
 native parent/blocking relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes`
 enforces the read-only finality check before it edits a PR body; run `finality` separately to inspect
 eligibility first. Assignment preserves existing assignees and uses `needs-owner` when an ownership
@@ -36,9 +36,10 @@ A second restore and a receipt from a successful no-op mutation are no-ops. A mi
 exit `2`. `restore` exits `3` when labels remain in use; resolve those references and retry. Restore
 output distinguishes `empty`, `already_restored`, `restored`, and `labels_in_use`, and reports both
 restored and mutated operation counts. Receipts remain compatible across helper releases with the
-same receipt schema; each new operation records the active helper source and private-config digests
-as audit metadata. On interruption or partial failure, recover created work from the receipt and any
-`partial: true` output rather than relying on normal success output.
+same receipt schema even if the repository is later removed from active target configuration. Each
+new operation records the active helper source and private-config digests as audit metadata. On
+interruption or partial failure, recover created work from the receipt and any `partial: true` output;
+partial payloads intentionally accompany a non-zero exit and require reconciliation.
 
 Exit `0` means success or eligibility. Exit `1` means a read-only eligibility, preflight, or finality
 check failed. Exit `2` means an operational or configuration error; mutating commands report
