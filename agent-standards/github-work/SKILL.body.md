@@ -29,18 +29,22 @@ Assign before creating a branch. Every mutating command requires `--receipt PATH
 private and reuse it for compensating `restore`. Use `issue-create` with Feature, Bug, or Task and
 native parent/blocking relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes`
 enforces the read-only finality check before it edits a PR body; run `finality` separately to inspect
-eligibility first. Assignment preserves existing assignees and uses `needs-owner` when an
-ownership lookup has zero or multiple candidates. Save receipts for mutations and use `restore` for
-compensating rollback; a second restore and a receipt from a successful no-op mutation are no-ops.
-A missing receipt path is exit `2`. `restore` exits `3` when labels remain in use, meaning rollback is
-incomplete and should be retried after those references are resolved. Exit `0` means success or
-eligibility, `1` means a read-only eligibility/preflight/finality check failed, and `2` means an
-operational/configuration error; mutating commands report classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`;
-exit `2` reports the operational error on stderr. Finality consumers must check `reason` before
-reading relationship counts. Restore output distinguishes `empty`, `already_restored`, `restored`,
-and `labels_in_use`, and reports both restored and mutated operation counts. Multiline PR bodies are
-edited through a body file. Never let this generic lifecycle replace local land/deploy
-checks.
+eligibility first. Assignment preserves existing assignees and uses `needs-owner` when an ownership
+lookup has zero or multiple candidates.
+
+A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path is
+exit `2`. `restore` exits `3` when labels remain in use; resolve those references and retry. Restore
+output distinguishes `empty`, `already_restored`, `restored`, and `labels_in_use`, and reports both
+restored and mutated operation counts. Receipts remain compatible across helper releases with the
+same receipt schema; their source SHA is audit metadata. On interruption, recover created work from
+the receipt rather than terminal scrollback.
+
+Exit `0` means success or eligibility. Exit `1` means a read-only eligibility, preflight, or finality
+check failed. Exit `2` means an operational or configuration error; mutating commands report
+classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`; exit `2`
+reports the operational error on stderr. Finality consumers must check `reason` (`ready`,
+`not_ready`, or `classification`) before reading relationship counts. Multiline PR bodies are edited
+through a body file. Never let this generic lifecycle replace local land or deployment checks.
 
 The generated helper is tested at its immutable public source tag before distribution.
 

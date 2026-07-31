@@ -322,8 +322,10 @@ class HelperTests(unittest.TestCase):
             current.add("label-created", repo="sample-space/sample-app", name="type:task")
             current.add("pr-body-changed", pr="https://github.com/sample-space/sample-app/pull/1", before="", after="Refs #1\n")
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            upgraded = work.Receipt(str(path), source_sha="c" * 40, config_digest=DIGEST)
+            self.assertEqual(upgraded.data["source_sha"], SOURCE)
             with self.assertRaises(work.WorkError):
-                work.Receipt(str(path), source_sha="c" * 40, config_digest=DIGEST)
+                work.Receipt(str(path), source_sha="c" * 40, config_digest="d" * 64)
             path.chmod(0o644)
             with self.assertRaises(work.WorkError):
                 receipt(str(path))

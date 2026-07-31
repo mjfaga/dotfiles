@@ -124,8 +124,6 @@ class Receipt:
                 raise WorkError("existing receipt permissions must be exactly 0600")
             self.data = load_json(self.path)
             self.validate()
-            if self.data["source_sha"] != source_sha:
-                raise WorkError("receipt source SHA does not match the active helper")
             if self.data["config_digest"] != config_digest:
                 raise WorkError("receipt target-config digest does not match active config")
 
@@ -455,6 +453,8 @@ def command_labels_ensure(
             if not runner.dry_run:
                 receipt.add("label-created", repo=repo, name=name)
             created.append({"repo": repo, "name": name})
+    if not runner.dry_run:
+        receipt.save()
     json_print({"created": created, "created_count": len(created), "unchanged": unchanged, "dry_run": runner.dry_run})
     return 0
 
@@ -516,6 +516,7 @@ def command_issue_create(
     if args.blocking:
         runner.run(["issue", "edit", args.blocking, "--add-blocked-by", created_url], mutate=True)
         receipt.add("relationship-added", relation="blocked-by", source=args.blocking, target=created_url)
+    receipt.save()
     json_print({"url": created_url, "repo": args.repo, "type": args.type})
     return 0
 
@@ -578,12 +579,15 @@ def command_pr_link(
     before = current.get("body") or ""
     after = linked_body(before, args.issue, args.mode, pr_repo)
     if before == after:
+        if not runner.dry_run:
+            receipt.save()
         json_print({"changed": False, "pr": args.pr, "mode": args.mode})
         return 0
     with temporary_body(after) as path:
         runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
     if not runner.dry_run:
         receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
+        receipt.save()
     json_print({"changed": True, "dry_run": runner.dry_run, "pr": args.pr, "mode": args.mode})
     return 0
 
@@ -685,6 +689,8 @@ def command_assign(
         candidates = [candidate for candidate in candidates if not candidate.endswith("[bot]")]
         if len(candidates) != 1:
             add_needs_owner(runner, args.issue, receipt)
+            if not runner.dry_run:
+                receipt.save()
             json_print({"assigned": False, "reason": "zero-matches" if not candidates else "multiple-matches", "candidates": candidates})
             return 0
         assignee = candidates[0]
@@ -694,6 +700,8 @@ def command_assign(
         raise WorkError("bot identities cannot be planned issue owners")
     state = issue_state(runner, args.issue)
     if assignee in issue_assignees(state):
+        if not runner.dry_run:
+            receipt.save()
         json_print({"assigned": False, "reason": "already-assigned", "assignee": assignee})
         return 0
     validation = runner.run(["api", f"repos/{repo}/assignees/{assignee}"], check=False)
@@ -702,6 +710,7 @@ def command_assign(
     runner.run(["issue", "edit", args.issue, "--add-assignee", assignee], mutate=True)
     if not runner.dry_run:
         receipt.add("assignee-added", issue=args.issue, login=assignee)
+        receipt.save()
     json_print({"assigned": True, "dry_run": runner.dry_run, "assignee": assignee})
     return 0
 
@@ -878,6 +887,8 @@ def command_work_graph_create(
         with contextlib.redirect_stdout(captured):
             command_issue_create(child_args, runner, config, receipt)
         created.append(json.loads(captured.getvalue()))
+    if not runner.dry_run:
+        receipt.save()
     json_print({"created_tasks": len(created), "issues": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
     return 0
 
@@ -1070,24 +1081,17 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         )
         if args.command == "restore":
             return command_restore(args, active_runner, config, receipt)
-        captured = io.StringIO()
-        with contextlib.redirect_stdout(captured):
-            if args.command == "labels":
-                result = command_labels_ensure(args, active_runner, config, receipt)
-            elif args.command == "issue-create":
-                result = command_issue_create(args, active_runner, config, receipt)
-            elif args.command == "pr-link":
-                result = command_pr_link(args, active_runner, config, receipt)
-            elif args.command == "assign":
-                result = command_assign(args, active_runner, config, ownership, receipt)
-            elif args.command == "work-graph":
-                result = command_work_graph_create(args, active_runner, config, receipt)
-            else:
-                raise WorkError(f"unsupported command: {args.command}")
-            if result == 0 and not active_runner.dry_run:
-                receipt.save()
-        print(captured.getvalue(), end="")
-        return result
+        if args.command == "labels":
+            return command_labels_ensure(args, active_runner, config, receipt)
+        if args.command == "issue-create":
+            return command_issue_create(args, active_runner, config, receipt)
+        if args.command == "pr-link":
+            return command_pr_link(args, active_runner, config, receipt)
+        if args.command == "assign":
+            return command_assign(args, active_runner, config, ownership, receipt)
+        if args.command == "work-graph":
+            return command_work_graph_create(args, active_runner, config, receipt)
+        raise WorkError(f"unsupported command: {args.command}")
     except WorkError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
