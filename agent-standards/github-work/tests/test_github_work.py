@@ -1376,6 +1376,14 @@ class HelperTests(unittest.TestCase):
             operation = current.data["operations"][0]
             self.assertTrue(operation["restore_unverified"])
             self.assertTrue(operation["restore_fallback_succeeded"])
+            self.assertIn("endpoint unavailable", operation["restore_probe_error"])
+            self.assertEqual(payload["unverified_relationships"], [{
+                "fallback_succeeded": True,
+                "probe_error": operation["restore_probe_error"],
+                "relation": "blocked-by",
+                "source": "https://github.com/sample-space/sample-app/issues/9",
+                "target": "https://github.com/sample-space/sample-app/issues/12",
+            }])
             second_output = io.StringIO()
             with contextlib.redirect_stdout(second_output):
                 second_result = work.command_restore(
@@ -1386,6 +1394,14 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(second_payload["reason"], "already_restored")
             self.assertEqual(second_payload["unverified_relationship_operations"], 0)
             self.assertEqual(second_payload["standing_unverified_operations"], 1)
+            self.assertEqual(second_payload["unverified_relationships"], payload["unverified_relationships"])
+
+    def test_receipt_repositories_excludes_completed_repositories(self):
+        current = receipt()
+        current.add("issue-created", issue="sample-space/completed#1")
+        current.add("issue-created", issue="sample-space/active#2")
+        current.mark_restored(current.data["operations"][0], mutated=False)
+        self.assertEqual(work.receipt_repositories(current), {"sample-space/active"})
 
     def test_restore_records_benign_unverified_fallback_failure(self):
         current = receipt()
@@ -1503,7 +1519,7 @@ class HelperTests(unittest.TestCase):
                     Namespace(receipt=path), FakeRunner(responses), current,
                 )
 
-    def test_restore_skips_issue_usage_when_repository_issues_are_disabled(self):
+    def test_restore_requires_reenabled_issues_before_label_usage_verification(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
@@ -1517,16 +1533,11 @@ class HelperTests(unittest.TestCase):
                 [],
                 work.CommandResult(),
             ]
-            output = io.StringIO()
             runner = FakeRunner(responses)
-            with contextlib.redirect_stdout(output):
-                result = work.command_restore(
-                    Namespace(receipt=path), runner, current,
-                )
-            self.assertEqual(result, 0)
-            self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
-            self.assertFalse(any(call[0][:2] == ["issue", "list"] for call in runner.calls))
-            self.assertTrue(any(call[0][:2] == ["pr", "list"] for call in runner.calls))
+            with self.assertRaisesRegex(work.WorkError, "cannot verify issue read access"):
+                work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertEqual(current.data["operations"][0]["status"], "active")
+            self.assertFalse(any(call[0][:2] == ["label", "delete"] for call in runner.calls))
 
     def test_restore_treats_exact_label_http_404_as_already_deleted(self):
         with tempfile.TemporaryDirectory() as directory:

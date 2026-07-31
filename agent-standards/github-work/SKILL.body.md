@@ -74,13 +74,15 @@ is unavailable for a confirmed live source, restore falls back to the GitHub mut
 mutation. The receipt records whether the fallback command returned success in
 `restore_fallback_succeeded`. Per-run reason and operation counts describe only that invocation;
 `standing_missing_operations` and `standing_unverified_operations` preserve receipt-wide evidence on
-later runs. This state is terminal: confirm the relationship is absent in GitHub because the helper
-could not verify it. For relationship operations, `restore_missing: true` refers to the source
-issue. Receipts remain compatible across helper releases with a supported receipt schema even if the
-repository is later removed from active target configuration. Drain outstanding newer-schema
+later runs. `unverified_relationships` lists each relation, source, target, probe error, and
+fallback outcome. This state is terminal: confirm the relationship is absent in GitHub because the
+helper could not verify it. For relationship operations, `restore_missing: true` refers to the
+source issue. Receipts remain compatible across helper releases with a supported receipt schema even
+if the repository is later removed from active target configuration. Drain outstanding newer-schema
 receipts before pinning an older standard version. Schema-v3 operations require creation and restore
 attribution. Each new operation records the active helper source and private-config digests as audit
-metadata.
+metadata. Label-definition rollback requires issue usage to be readable; re-enable repository Issues
+before retrying when that verification is unavailable.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
