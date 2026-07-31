@@ -110,6 +110,13 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(work.parse_issue_url("https://github.com/sample-space/sample-app/issues/42"), ("sample-space/sample-app", 42))
         self.assertEqual(work.parse_issue_url("sample-space/sample-app#42"), ("sample-space/sample-app", 42))
 
+    def test_issue_state_rejects_non_object_json(self):
+        with self.assertRaisesRegex(work.WorkError, "cannot verify issue state"):
+            work.issue_state(
+                FakeRunner([work.CommandResult(stdout="null")]),
+                "sample-space/sample-app#1",
+            )
+
     def test_parse_issue_url_rejects_invalid(self):
         with self.assertRaises(work.WorkError):
             work.parse_issue_url("#42")
@@ -667,9 +674,9 @@ class HelperTests(unittest.TestCase):
             "logins": ["one-user", "two-user"],
         }]}
         responses = managed_preflight_responses() + [{
-            "labels": [],
+            "labels": [{"name": "needs-owner"}],
             "assignees": [{"login": "existing-user"}],
-        }]
+        }, work.CommandResult()]
         runner = FakeRunner(responses)
         args = Namespace(
             issue="sample-space/sample-app#4",
@@ -682,10 +689,45 @@ class HelperTests(unittest.TestCase):
             work.command_assign(args, runner, config(), ownership, receipt())
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["assignees"], ["existing-user"])
-        self.assertEqual(payload["reason"], "already-assigned")
+        self.assertEqual(payload["candidates"], ["one-user", "two-user"])
+        self.assertEqual(payload["reason"], "existing-owner")
+        self.assertTrue(payload["needs_owner_removed"])
         commands = [call[0] for call in runner.calls]
+        self.assertIn(
+            ["issue", "edit", "sample-space/sample-app#4", "--remove-label", "needs-owner"],
+            commands,
+        )
         self.assertFalse(any("--add-label" in command for command in commands))
         self.assertFalse(any("label" in command and "create" in command for command in commands))
+
+    def test_assign_map_adds_resolved_owner_without_replacing_existing_owner(self):
+        ownership = {"mappings": [{
+            "repo": "sample-space/sample-app",
+            "area": "web",
+            "logins": ["resolved-user"],
+        }]}
+        responses = managed_preflight_responses() + [
+            {"labels": [], "assignees": [{"login": "existing-user"}]},
+            work.CommandResult(),
+            work.CommandResult(),
+        ]
+        runner = FakeRunner(responses)
+        args = Namespace(
+            issue="sample-space/sample-app#4",
+            assignee=None,
+            from_ownership_map=True,
+            area="web",
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            work.command_assign(args, runner, config(), ownership, receipt())
+        payload = json.loads(output.getvalue())
+        self.assertTrue(payload["assigned"])
+        self.assertEqual(payload["assignee"], "resolved-user")
+        self.assertIn(
+            ["issue", "edit", "sample-space/sample-app#4", "--add-assignee", "resolved-user"],
+            [call[0] for call in runner.calls],
+        )
 
     def test_assign_needs_owner_partial_preserves_resolution_context(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1080,6 +1122,30 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(payload["restored_operations"], 0)
             self.assertEqual(payload["reason"], "already_restored")
             self.assertEqual(second.calls, [])
+
+    def test_restore_reapplies_reversibly_removed_issue_label(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "issue-label-removed",
+                issue="sample-space/sample-app#4",
+                name="needs-owner",
+            )
+            responses = restore_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                work.CommandResult(),
+            ]
+            runner = FakeRunner(responses)
+            with contextlib.redirect_stdout(io.StringIO()):
+                work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertIn(
+                [
+                    "issue", "edit", "https://github.com/sample-space/sample-app/issues/4",
+                    "--add-label", "needs-owner",
+                ],
+                [call[0] for call in runner.calls],
+            )
 
     def test_restore_rejects_receipt_without_operations(self):
         current = receipt()

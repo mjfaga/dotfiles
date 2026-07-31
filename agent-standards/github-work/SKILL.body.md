@@ -39,9 +39,12 @@ a private location excluded from source control, such as `.github-work/receipts/
 compensating `restore`. Use `issue-create` with Feature, Bug, or Task and native parent/blocking
 relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes` enforces the read-only
 finality check before it edits a PR body; run `finality` separately to inspect eligibility first.
-Assignment preserves existing assignees and uses `needs-owner` when an unassigned issue's ownership
-lookup has zero or multiple human candidates. A bot-only matched tier remains fail-closed and
-reports its source. An empty `--receipt`, `--title`, `--assignee`, `--area`, `--parent`,
+Assignment preserves existing assignees, adds a uniquely resolved owner when needed, and uses
+`needs-owner` only when an unassigned issue's lookup has zero or multiple human candidates. When an
+issue becomes human-owned, assignment removes a stale `needs-owner` label with a reversible receipt
+operation. Map ambiguity on an owned issue reports `existing-owner`; `already-assigned` results use
+stable `assignee`, `assignees`, and `candidates` keys. A bot-only matched tier remains fail-closed
+and reports its source. An empty `--receipt`, `--title`, `--assignee`, `--area`, `--parent`,
 `--blocking`, or `--body-file`, or `--area` without `--from-ownership-map`, exits `2`. Empty target
 or ownership config exits `2` on commands that consume configuration; `standard-check` ignores both,
 while `restore` audits target config availability and ignores ownership config. Other commands fail

@@ -107,6 +107,7 @@ OPERATION_FIELDS = {
     "relationship-added": {"relation", "source", "target"},
     "pr-body-changed": {"pr", "before", "after"},
     "issue-label-added": {"issue", "name"},
+    "issue-label-removed": {"issue", "name"},
     "assignee-added": {"issue", "login"},
 }
 
@@ -591,10 +592,13 @@ def gh_version(runner: GhRunner) -> tuple[int, int, int]:
 
 
 def issue_state(runner: GhRunner, value: str) -> dict[str, Any]:
-    return runner.json([
+    state = runner.json([
         "issue", "view", value,
         "--json", "url,state,labels,assignees,subIssuesSummary,blockedBy,title,body",
     ])
+    if not isinstance(state, dict):
+        raise WorkError(f"cannot verify issue state: {value}")
+    return state
 
 
 def issue_labels(state: dict[str, Any]) -> set[str]:
@@ -1202,6 +1206,47 @@ def validate_cli_args(args: argparse.Namespace) -> None:
             raise WorkError("--area requires --from-ownership-map")
 
 
+def remove_needs_owner(
+    runner: GhRunner,
+    issue: str,
+    state: dict[str, Any],
+    receipt: Receipt,
+    context: dict[str, Any],
+) -> bool:
+    """Remove a stale needs-owner label and record the reversible mutation."""
+    if NEEDS_OWNER_LABEL[0] not in issue_labels(state):
+        return False
+    try:
+        runner.run(
+            ["issue", "edit", issue, "--remove-label", NEEDS_OWNER_LABEL[0]],
+            mutate=True,
+        )
+    except WorkError:
+        json_print({
+            "action": "remove-label",
+            "issue": issue,
+            "name": NEEDS_OWNER_LABEL[0],
+            "partial": True,
+            "stage": "mutation-result-unknown",
+            **context,
+        })
+        raise
+    if not runner.dry_run:
+        try:
+            receipt.add("issue-label-removed", issue=issue, name=NEEDS_OWNER_LABEL[0])
+        except WorkError:
+            json_print({
+                "action": "remove-label",
+                "issue": issue,
+                "name": NEEDS_OWNER_LABEL[0],
+                "partial": True,
+                "stage": "audit",
+                **context,
+            })
+            raise
+    return not runner.dry_run
+
+
 def command_assign(
     args: argparse.Namespace,
     runner: GhRunner,
@@ -1224,17 +1269,35 @@ def command_assign(
         candidates = [candidate for candidate in candidates if not candidate.endswith("[bot]")]
         state = issue_state(runner, args.issue)
         human_assignees = sorted(
-            assignee for assignee in issue_assignees(state) if not assignee.endswith("[bot]")
+            login for login in issue_assignees(state) if not login.endswith("[bot]")
         )
-        if human_assignees:
+        resolved_assignee = candidates[0] if len(candidates) == 1 else None
+        if human_assignees and (
+            resolved_assignee is None or resolved_assignee in human_assignees
+        ):
+            needs_owner_removed = remove_needs_owner(
+                runner,
+                args.issue,
+                state,
+                receipt,
+                {
+                    "assignee": resolved_assignee,
+                    "assignees": human_assignees,
+                    "candidates": candidates,
+                    "ownership_source": ownership_source,
+                },
+            )
             if not runner.dry_run:
                 receipt.ensure_saved()
             json_print({
                 "assigned": False,
+                "assignee": resolved_assignee,
                 "assignees": human_assignees,
+                "candidates": candidates,
                 "dry_run": runner.dry_run,
+                "needs_owner_removed": needs_owner_removed,
                 "ownership_source": ownership_source,
-                "reason": "already-assigned",
+                "reason": "already-assigned" if resolved_assignee else "existing-owner",
             })
             return 0
         if len(candidates) != 1:
@@ -1259,12 +1322,28 @@ def command_assign(
     if state is None:
         state = issue_state(runner, args.issue)
     if assignee in issue_assignees(state):
+        assignees = sorted(issue_assignees(state))
+        needs_owner_removed = remove_needs_owner(
+            runner,
+            args.issue,
+            state,
+            receipt,
+            {
+                "assignee": assignee,
+                "assignees": assignees,
+                "candidates": [assignee],
+                "ownership_source": ownership_source,
+            },
+        )
         if not runner.dry_run:
             receipt.ensure_saved()
         json_print({
             "assigned": False,
             "assignee": assignee,
+            "assignees": assignees,
+            "candidates": [assignee],
             "dry_run": runner.dry_run,
+            "needs_owner_removed": needs_owner_removed,
             "ownership_source": ownership_source,
             "reason": "already-assigned",
         })
@@ -1298,10 +1377,23 @@ def command_assign(
                 "stage": "audit",
             })
             raise
+    needs_owner_removed = remove_needs_owner(
+        runner,
+        args.issue,
+        state,
+        receipt,
+        {
+            "assignee": assignee,
+            "assignee_added": not runner.dry_run,
+            "candidates": [assignee],
+            "ownership_source": ownership_source,
+        },
+    )
     json_print({
         "assigned": True,
         "assignee": assignee,
         "dry_run": runner.dry_run,
+        "needs_owner_removed": needs_owner_removed,
         "ownership_source": ownership_source,
     })
     return 0
@@ -1398,6 +1490,11 @@ def command_restore(
             state = issue_state(runner, operation["issue"])
             if operation["name"] in issue_labels(state):
                 runner.run(["issue", "edit", operation["issue"], "--remove-label", operation["name"]], mutate=True)
+                mutated = True
+        elif kind == "issue-label-removed":
+            state = issue_state(runner, operation["issue"])
+            if operation["name"] not in issue_labels(state):
+                runner.run(["issue", "edit", operation["issue"], "--add-label", operation["name"]], mutate=True)
                 mutated = True
         elif kind == "relationship-added":
             flag = "--remove-sub-issue" if operation["relation"] == "sub-issue" else "--remove-blocked-by"
