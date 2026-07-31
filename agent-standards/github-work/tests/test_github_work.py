@@ -68,6 +68,14 @@ def managed_preflight_responses(*, labels=None):
     ]
 
 
+def restore_preflight_responses():
+    return [
+        work.CommandResult(stdout="gh version 2.96.0\n"),
+        work.CommandResult(),
+        work.CommandResult(),
+    ]
+
+
 class HelperTests(unittest.TestCase):
     def test_parser_registers_required_commands(self):
         help_text = work.build_parser().format_help()
@@ -134,8 +142,11 @@ class HelperTests(unittest.TestCase):
             issue="sample-space/sample-app#4",
             mode="closes",
         )
-        with self.assertRaisesRegex(work.WorkError, "not eligible for a closing link"):
-            work.command_pr_link(args, FakeRunner(responses), config(), receipt())
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_pr_link(args, FakeRunner(responses), config(), receipt())
+        self.assertEqual(result, 1)
+        self.assertFalse(json.loads(output.getvalue())["finality"]["eligible"])
 
     def test_pr_template_placeholder_is_replaced(self):
         rendered = work.linked_body("Refs #ISSUE\n", "sample-space/sample-app#3", "refs", "sample-space/sample-app")
@@ -144,6 +155,16 @@ class HelperTests(unittest.TestCase):
     def test_finality_blocks_open_relationships(self):
         result = work.finality_result({"blockedBy": [{"state": "OPEN"}], "subIssuesSummary": {"total": 2, "completed": 1}})
         self.assertEqual(result, {"eligible": False, "open_blockers": 1, "incomplete_sub_issues": 1})
+
+    def test_finality_returns_eligibility_exit_for_missing_classification(self):
+        responses = managed_preflight_responses(labels=[])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_finality(
+                Namespace(issue="sample-space/sample-app#4"), FakeRunner(responses), config()
+            )
+        self.assertEqual(result, 1)
+        self.assertFalse(json.loads(output.getvalue())["eligible"])
 
     def test_finality_fails_closed_on_missing_or_malformed_fields(self):
         for state in ({}, {"blockedBy": None, "subIssuesSummary": {}}, {"blockedBy": [], "subIssuesSummary": {"total": "0", "completed": 0}}):
@@ -316,7 +337,7 @@ class HelperTests(unittest.TestCase):
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
             current.add("label-created", repo="sample-space/sample-app", name="type:task")
-            first_responses = managed_preflight_responses() + [[{"name": "type:task"}], [], [], work.CommandResult()]
+            first_responses = restore_preflight_responses() + [[{"name": "type:task"}], [], [], work.CommandResult()]
             first = FakeRunner(first_responses)
             with contextlib.redirect_stdout(io.StringIO()):
                 work.command_restore(Namespace(receipt=path), first, config(), current)
@@ -329,10 +350,56 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(json.loads(output.getvalue())["restored_operations"], 0)
             self.assertEqual(second.calls, [])
 
+    def test_restore_rejects_receipt_without_operations(self):
+        current = receipt()
+        runner = FakeRunner([])
+        with self.assertRaisesRegex(work.WorkError, "receipt records no operations"):
+            work.command_restore(Namespace(receipt="missing"), runner, config(), current)
+        self.assertEqual(runner.calls, [])
+
+    def test_partial_managed_label_restore_can_retry_after_reference_removal(self):
+        current = receipt()
+        for name in ("type:bug", "type:feature", "type:task"):
+            current.add("label-created", repo="sample-space/sample-app", name=name)
+        first_responses = restore_preflight_responses() + [
+            ALL_LABELS,
+            [{"url": "https://github.com/sample-space/sample-app/issues/9"}],
+            [],
+            ALL_LABELS,
+            [],
+            [],
+            work.CommandResult(),
+            ALL_LABELS,
+            [],
+            [],
+            work.CommandResult(),
+        ]
+        with contextlib.redirect_stdout(io.StringIO()):
+            first_result = work.command_restore(
+                Namespace(receipt="unused"), FakeRunner(first_responses), config(), current
+            )
+        self.assertEqual(first_result, 3)
+        self.assertEqual(
+            [operation["status"] for operation in current.data["operations"]],
+            ["restored", "restored", "active"],
+        )
+        second_responses = restore_preflight_responses() + [
+            [{"name": "type:task"}],
+            [],
+            [],
+            work.CommandResult(),
+        ]
+        with contextlib.redirect_stdout(io.StringIO()):
+            second_result = work.command_restore(
+                Namespace(receipt="unused"), FakeRunner(second_responses), config(), current
+            )
+        self.assertEqual(second_result, 0)
+        self.assertTrue(all(operation["status"] == "restored" for operation in current.data["operations"]))
+
     def test_label_restore_skips_labels_that_are_in_use(self):
         current = receipt()
         current.add("label-created", repo="sample-space/sample-app", name="type:task")
-        responses = managed_preflight_responses() + [
+        responses = restore_preflight_responses() + [
             [{"name": "type:task"}],
             [{"url": "https://github.com/sample-space/sample-app/issues/9"}],
             [],
@@ -350,7 +417,7 @@ class HelperTests(unittest.TestCase):
         current.add("label-created", repo="sample-space/sample-app", name="needs-owner")
         current.add("issue-label-added", issue=issue + "#issuecomment-123", name="needs-owner")
         self.assertEqual(current.data["operations"][1]["issue"], issue)
-        responses = managed_preflight_responses() + [
+        responses = restore_preflight_responses() + [
             {"labels": [{"name": "needs-owner"}], "assignees": []},
             [{"name": "needs-owner"}],
             [{"url": issue}],
@@ -370,7 +437,7 @@ class HelperTests(unittest.TestCase):
     def test_relationship_restore_fails_on_unknown_error(self):
         current = receipt()
         current.add("relationship-added", relation="sub-issue", source="sample-space/sample-app#1", target="sample-space/sample-app#2")
-        responses = managed_preflight_responses() + [work.CommandResult(returncode=1, stderr="permission denied")]
+        responses = restore_preflight_responses() + [work.CommandResult(returncode=1, stderr="permission denied")]
         with self.assertRaises(work.WorkError):
             work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
 

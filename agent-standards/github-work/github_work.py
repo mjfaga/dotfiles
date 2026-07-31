@@ -355,11 +355,15 @@ def basic_preflight(runner: GhRunner) -> tuple[int, int, int]:
     return version
 
 
-def target_preflight(runner: GhRunner, target: dict[str, Any]) -> None:
-    repo = target["repo"]
+def repository_preflight(runner: GhRunner, repo: str) -> None:
     available = runner.run(["repo", "view", repo, "--json", "nameWithOwner"], check=False)
     if available.returncode != 0:
         raise WorkError(f"repository unavailable: {repo}")
+
+
+def target_preflight(runner: GhRunner, target: dict[str, Any]) -> None:
+    repo = target["repo"]
+    repository_preflight(runner, repo)
     if target["classification"] == "native-type":
         owner = repo.split("/", 1)[0]
         issue_types = runner.json(["api", f"orgs/{owner}/issue-types"], check=False)
@@ -557,7 +561,8 @@ def command_pr_link(
     if args.mode == "closes":
         finality = finality_result(issue_state(runner, args.issue))
         if not finality["eligible"]:
-            raise WorkError(f"issue is not eligible for a closing link: {finality}")
+            json_print({"changed": False, "finality": finality, "mode": args.mode, "pr": args.pr})
+            return 1
     current = runner.json(["pr", "view", args.pr, "--json", "body,url"])
     if not isinstance(current, dict):
         raise WorkError(f"cannot read pull request: {args.pr}")
@@ -602,7 +607,11 @@ def finality_result(state: dict[str, Any]) -> dict[str, Any]:
 def command_finality(args: argparse.Namespace, runner: GhRunner, config: dict[str, Any]) -> int:
     repo, _ = parse_issue_url(args.issue)
     basic_preflight(runner)
-    target_preflight(runner, target_for(config, repo))
+    try:
+        target_preflight(runner, target_for(config, repo))
+    except EligibilityError as exc:
+        json_print({"eligible": False, "failure": str(exc)})
+        return 1
     result = finality_result(issue_state(runner, args.issue))
     json_print(result)
     return 0 if result["eligible"] else 1
@@ -712,6 +721,8 @@ def command_restore(
     config: dict[str, Any],
     receipt: Receipt,
 ) -> int:
+    if not receipt.data["operations"]:
+        raise WorkError("receipt records no operations")
     if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
@@ -720,7 +731,10 @@ def command_restore(
             "skipped_labels_in_use": 0,
         })
         return 0
-    mutation_preflight(runner, config, receipt_repositories(receipt))
+    basic_preflight(runner)
+    for repo in receipt_repositories(receipt):
+        target_for(config, repo)
+        repository_preflight(runner, repo)
     restored = 0
     already_restored = 0
     skipped_in_use = 0
