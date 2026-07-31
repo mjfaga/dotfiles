@@ -681,6 +681,27 @@ class HelperTests(unittest.TestCase):
             work.command_issue_create(args, runner, config(), receipt())
         self.assertFalse(any(call[0][:2] == ["issue", "create"] for call in runner.calls))
 
+    def test_issue_create_url_encodes_assignee_probe(self):
+        responses = managed_preflight_responses() + [
+            work.CommandResult(returncode=1, stderr="not assignable")
+        ]
+        runner = FakeRunner(responses)
+        args = Namespace(
+            repo="sample-space/sample-app",
+            type="Task",
+            title="Sample",
+            body_file=None,
+            parent=None,
+            blocking=None,
+            assignee="missing/user",
+        )
+        with self.assertRaises(work.WorkError):
+            work.command_issue_create(args, runner, config(), receipt())
+        self.assertIn(
+            ["api", "repos/sample-space/sample-app/assignees/missing%2Fuser"],
+            [call[0] for call in runner.calls],
+        )
+
     def test_assign_ambiguity_adds_needs_owner_not_assignee(self):
         ownership = {"mappings": [{"repo": "sample-space/sample-app", "area": "*", "logins": ["one-user", "two-user"]}]}
         responses = managed_preflight_responses() + [
@@ -1383,6 +1404,32 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(payload["blocked_repositories"][0]["repo"], "sample-space/blocked")
         self.assertEqual(current.data["operations"][0]["status"], "active")
         self.assertEqual(current.data["operations"][1]["status"], "restored")
+
+    def test_restore_skips_blocked_pr_repo_and_compensates_healthy_repo(self):
+        current = receipt()
+        current.add(
+            "pr-body-changed",
+            pr="https://github.com/sample-space/blocked/pull/1",
+            before="Before",
+            after="After",
+        )
+        current.add("issue-created", issue="sample-space/healthy#2")
+        responses = [
+            work.CommandResult(stdout="gh version 2.96.0\n"),
+            work.CommandResult(),
+            work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            work.CommandResult(),
+            work.CommandResult(stdout="[]"),
+            {"state": "CLOSED", "labels": [], "assignees": []},
+        ]
+        output = io.StringIO()
+        runner = FakeRunner(responses)
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(Namespace(receipt="unused"), runner, current)
+        self.assertEqual(result, 3)
+        self.assertEqual(current.data["operations"][0]["status"], "active")
+        self.assertEqual(current.data["operations"][1]["status"], "restored")
+        self.assertFalse(any(call[0][:2] == ["pr", "view"] for call in runner.calls))
 
     def test_restore_requires_issue_read_access_before_replay(self):
         with tempfile.TemporaryDirectory() as directory:

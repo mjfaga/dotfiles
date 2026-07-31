@@ -88,16 +88,17 @@ usage to be readable; re-enable repository Issues before retrying when that veri
 unavailable. A blocked repository remains active while other repositories compensate; restore
 reports it and exits `3` for operator follow-up.
 
-On interruption or partial failure, recover created work from the receipt and any `partial: true`
-output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
-the GitHub mutation succeeded but receipt persistence failed; `mutation-result-unknown` means verify
-live GitHub state. PR-body recovery data is written beside the receipt at the private mode-0600
-`recovery_path`, not stdout. A primary-write failure records errno/detail and tries a mode-0600
-system-temp path. `recovery_fallback_used` is true only when that write succeeds. Recovery payloads
-always include stable primary/fallback attempted-path, errno, and detail keys with nulls where they
-do not apply. `recovery_error` is one of null, `receipt-path-unavailable`, `primary-write-failed`,
-or `primary-and-fallback-write-failed`. If both writes fail, `recovery_path` is null. Delete a
-recovery file after reconciliation.
+Use one receipt path per concurrent worker; receipt writes are atomic but do not coordinate multiple
+writers. On interruption or partial failure, recover created work from the receipt and any `partial:
+true` output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit`
+means the GitHub mutation succeeded but receipt persistence failed; `mutation-result-unknown` means
+verify live GitHub state. PR-body recovery data is written beside the receipt at the private
+mode-0600 `recovery_path`, not stdout. A primary-write failure records errno/detail and tries a
+mode-0600 system-temp path. `recovery_fallback_used` is true only when that write succeeds. Recovery
+payloads always include stable primary/fallback attempted-path, errno, and detail keys with nulls
+where they do not apply. `recovery_error` is one of null, `receipt-path-unavailable`,
+`primary-write-failed`, or `primary-and-fallback-write-failed`. If both writes fail, `recovery_path`
+is null. Delete a recovery file after reconciliation.
 
 For `labels ensure`, `created` contains receipt-backed labels; in dry-run output it contains planned
 labels. `failed_label` requires the action indicated by `stage`. Issue-create partials include the

@@ -907,7 +907,7 @@ def command_issue_create(
     if kind not in MANAGED_LABELS:
         raise WorkError("--type must be Bug, Feature, or Task")
     if args.assignee:
-        validation = runner.run(["api", f"repos/{args.repo}/assignees/{args.assignee}"], check=False)
+        validation = runner.run(["api", f"repos/{args.repo}/assignees/{quote(args.assignee, safe='')}"], check=False)
         if validation.returncode != 0:
             raise WorkError(f"not assignable in {args.repo}: {args.assignee}")
     try:
@@ -1509,7 +1509,7 @@ def command_assign(
             "reason": "already-assigned",
         })
         return 0
-    validation = runner.run(["api", f"repos/{repo}/assignees/{assignee}"], check=False)
+    validation = runner.run(["api", f"repos/{repo}/assignees/{quote(assignee, safe='')}"], check=False)
     if validation.returncode != 0:
         raise WorkError(f"not assignable in {repo}: {assignee}")
     try:
@@ -1623,9 +1623,9 @@ def receipt_issue_repositories(receipt: Receipt) -> set[str]:
     return repos
 
 
-def operation_issue_repository(operation: dict[str, Any]) -> str | None:
+def operation_repository(operation: dict[str, Any]) -> str | None:
     if operation.get("kind") == "pr-body-changed":
-        return None
+        return parse_pr_url(operation["pr"])[0]
     if isinstance(operation.get("repo"), str):
         return operation["repo"]
     reference = operation.get("issue", operation.get("source"))
@@ -1735,8 +1735,8 @@ def command_restore(
             already_restored += 1
             continue
         kind = operation["kind"]
-        issue_repo = operation_issue_repository(operation)
-        if issue_repo in blocked_repositories:
+        operation_repo = operation_repository(operation)
+        if operation_repo in blocked_repositories:
             continue
         fallback_succeeded: bool | None = None
         probe_error: str | None = None
