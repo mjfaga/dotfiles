@@ -661,7 +661,9 @@ class HelperTests(unittest.TestCase):
                 json.loads(output.getvalue()),
                 {
                     "assignee": "sample-user",
+                    "dry_run": False,
                     "issue": "sample-space/sample-app#4",
+                    "ownership_source": "explicit",
                     "partial": True,
                     "stage": "audit",
                 },
@@ -1014,6 +1016,41 @@ class HelperTests(unittest.TestCase):
                 ], runner=FakeRunner([]))
             self.assertEqual(result, 2)
             self.assertIn("supplied but is empty", stderr.getvalue())
+
+    def test_main_assign_from_ownership_map_uses_loaded_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "targets.json"
+            ownership_path = root / "ownership.json"
+            config_path.write_text(json.dumps(config()), encoding="utf-8")
+            ownership_path.write_text(json.dumps({
+                "mappings": [{
+                    "repo": "sample-space/sample-app",
+                    "area": "web",
+                    "logins": ["sample-user"],
+                }],
+            }), encoding="utf-8")
+            responses = managed_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                work.CommandResult(),
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.main([
+                    "--config", str(config_path),
+                    "--ownership-config", str(ownership_path),
+                    "--dry-run",
+                    "assign",
+                    "--issue", "sample-space/sample-app#1",
+                    "--from-ownership-map",
+                    "--area", "web",
+                    "--receipt", str(root / "receipt.json"),
+                ], runner=FakeRunner(responses))
+            self.assertEqual(result, 0)
+            payload = json.loads(output.getvalue())
+            self.assertTrue(payload["assigned"])
+            self.assertEqual(payload["assignee"], "sample-user")
+            self.assertEqual(payload["ownership_source"], "exact")
 
     def test_main_persists_receipt_for_successful_noop_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

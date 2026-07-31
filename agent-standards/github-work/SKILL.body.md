@@ -22,13 +22,14 @@ python3 scripts/github_work.py \
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
 array of `repo`, optional `area`, and `logins`. With `--area`, ownership resolution prefers exact,
-then `*`, then no match; without it, resolution prefers the omitted-area default, then `*`, then a
-union of specific areas. Assignment emits `ownership_source` as `exact`, `wildcard`, `default`,
-`specific-union`, `none`, or `explicit`. A supplied non-empty ownership config is validated before
-non-restore commands but used only by `assign --from-ownership-map`; restore ignores it so the
-shared invocation remains safe. The private operator supplies the files' locations. Consumer
-repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`,
-`*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
+then `*`, then no match; a bare default never satisfies an explicit area, so use `*` for cross-area
+ownership. Without `--area`, resolution prefers the omitted-area default, then `*`, then a union of
+specific areas. Every assignment result, including partials, emits `ownership_source` as `exact`,
+`wildcard`, `default`, `specific-union`, `none`, or `explicit`. A supplied non-empty ownership
+config is validated before non-restore commands but used only by `assign --from-ownership-map`;
+restore ignores it so the shared invocation remains safe. The private operator supplies the files'
+locations. Consumer repositories must ignore `.github-work/`, `*github-work-targets*`,
+`*github-work-ownership*`, `*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
 
 Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep the path in
 a private location excluded from source control, such as `.github-work/receipts/`, and reuse it for
@@ -36,7 +37,7 @@ compensating `restore`. Use `issue-create` with Feature, Bug, or Task and native
 relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes` enforces the read-only
 finality check before it edits a PR body; run `finality` separately to inspect eligibility first.
 Assignment preserves existing assignees and uses `needs-owner` when an ownership lookup has zero or
-multiple candidates.
+multiple human candidates. A bot-only matched tier remains fail-closed and reports its source.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
 is exit `2`. Restore does not require the private target config and tolerates a supplied config path

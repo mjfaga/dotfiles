@@ -1165,6 +1165,7 @@ def command_assign(
             json_print({
                 "assigned": False,
                 "candidates": candidates,
+                "dry_run": runner.dry_run,
                 "ownership_source": ownership_source,
                 "reason": "zero-matches" if not candidates else "multiple-matches",
             })
@@ -1181,6 +1182,7 @@ def command_assign(
         json_print({
             "assigned": False,
             "assignee": assignee,
+            "dry_run": runner.dry_run,
             "ownership_source": ownership_source,
             "reason": "already-assigned",
         })
@@ -1193,7 +1195,9 @@ def command_assign(
     except WorkError:
         json_print({
             "assignee": assignee,
+            "dry_run": runner.dry_run,
             "issue": args.issue,
+            "ownership_source": ownership_source,
             "partial": True,
             "stage": "mutation-result-unknown",
         })
@@ -1205,7 +1209,9 @@ def command_assign(
         except WorkError:
             json_print({
                 "assignee": assignee,
+                "dry_run": runner.dry_run,
                 "issue": args.issue,
+                "ownership_source": ownership_source,
                 "partial": True,
                 "stage": "audit",
             })
@@ -1663,7 +1669,6 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "pr-link":
             return command_pr_link(args, active_runner, config, receipt)
         if args.command == "assign":
-            ownership = None
             if args.from_ownership_map:
                 if args.ownership_config is None:
                     raise WorkError("--ownership-config is required with --from-ownership-map")
