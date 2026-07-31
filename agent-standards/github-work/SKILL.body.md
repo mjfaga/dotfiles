@@ -72,10 +72,11 @@ have unknown status for that field. Relationship membership is read through REST
 is unavailable for a confirmed live source, restore falls back to the GitHub mutation and records
 `restore_unverified: true`; this exits `0`, and neither real nor dry-run output counts an unproven
 mutation. The receipt records whether the fallback command returned success in
-`restore_fallback_succeeded`, and later restore output continues reporting the standing unverified
-count. This state is terminal: confirm the relationship is absent in GitHub because the helper could
-not verify it. For relationship operations, `restore_missing: true` refers to the source issue.
-Receipts remain compatible across helper releases with a supported receipt schema even if the
+`restore_fallback_succeeded`. Per-run reason and operation counts describe only that invocation;
+`standing_missing_operations` and `standing_unverified_operations` preserve receipt-wide evidence on
+later runs. This state is terminal: confirm the relationship is absent in GitHub because the helper
+could not verify it. For relationship operations, `restore_missing: true` refers to the source
+issue. Receipts remain compatible across helper releases with a supported receipt schema even if the
 repository is later removed from active target configuration. Drain outstanding newer-schema
 receipts before pinning an older standard version. Schema-v3 operations require creation and restore
 attribution. Each new operation records the active helper source and private-config digests as audit

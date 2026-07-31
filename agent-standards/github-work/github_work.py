@@ -695,15 +695,16 @@ def issue_read_preflight(
     repo: str,
     *,
     allow_disabled: bool = False,
-) -> None:
+) -> bool:
     """Prove issue-read scope before interpreting resource 404s as absence."""
     result = runner.run(["api", f"repos/{repo}/issues?per_page=1"], check=False)
     if result.returncode != 0:
         detail = f"{result.stderr}\n{result.stdout}".lower()
         if allow_disabled and "http 410" in detail:
-            return
+            return True
         message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
         raise WorkError(f"cannot verify issue read access for restore in {repo}: {message}")
+    return False
 
 
 def issue_labels(state: dict[str, Any]) -> set[str]:
@@ -1647,6 +1648,8 @@ def command_restore(
             "mutated_operations": 0,
             "reason": "empty",
             "unverified_relationship_operations": 0,
+            "standing_missing_operations": 0,
+            "standing_unverified_operations": 0,
             "restored_operations": 0,
             "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
@@ -1668,14 +1671,12 @@ def command_restore(
             "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
-            "missing_issue_operations": standing_missing,
+            "missing_issue_operations": 0,
             "mutated_operations": 0,
-            "reason": (
-                "unverified_relationships" if standing_unverified
-                else "missing_issues" if standing_missing
-                else "already_restored"
-            ),
-            "unverified_relationship_operations": standing_unverified,
+            "reason": "already_restored",
+            "unverified_relationship_operations": 0,
+            "standing_missing_operations": standing_missing,
+            "standing_unverified_operations": standing_unverified,
             "restored_operations": 0,
             "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
@@ -1686,18 +1687,19 @@ def command_restore(
     repositories = receipt_repositories(receipt)
     issue_repositories = receipt_issue_repositories(receipt)
     label_only_repositories = receipt_label_only_repositories(receipt)
+    disabled_issue_repositories: set[str] = set()
     for repo in sorted(repositories):
         repository_preflight(runner, repo)
-        if repo in issue_repositories:
-            issue_read_preflight(
-                runner,
-                repo,
-                allow_disabled=repo in label_only_repositories,
-            )
+        if repo in issue_repositories and issue_read_preflight(
+            runner,
+            repo,
+            allow_disabled=repo in label_only_repositories,
+        ):
+            disabled_issue_repositories.add(repo)
     restored = 0
-    missing_issue_operations = standing_missing
+    missing_issue_operations = 0
     mutated_operations = 0
-    unverified_relationship_operations = standing_unverified
+    unverified_relationship_operations = 0
     already_restored = 0
     skipped_in_use = 0
     retained_label_definitions = 0
@@ -1872,10 +1874,14 @@ def command_restore(
                         f"{label_result.stderr.strip() or label_result.stdout.strip()}"
                     )
             if label_exists:
-                issue_uses = runner.json([
-                    "issue", "list", "--repo", operation["repo"], "--state", "all",
-                    "--label", operation["name"], "--limit", "100", "--json", "url",
-                ])
+                issue_uses = (
+                    []
+                    if operation["repo"] in disabled_issue_repositories
+                    else runner.json([
+                        "issue", "list", "--repo", operation["repo"], "--state", "all",
+                        "--label", operation["name"], "--limit", "100", "--json", "url",
+                    ])
+                )
                 pr_uses = runner.json([
                     "pr", "list", "--repo", operation["repo"], "--state", "all",
                     "--label", operation["name"], "--limit", "1", "--json", "url",
@@ -1941,6 +1947,10 @@ def command_restore(
         ),
         "restored_operations": restored,
         "retained_label_definitions": retained_label_definitions,
+        "standing_missing_operations": standing_missing + missing_issue_operations,
+        "standing_unverified_operations": (
+            standing_unverified + unverified_relationship_operations
+        ),
         "skipped_labels_in_use": skipped_in_use,
         "unverified_relationship_operations": unverified_relationship_operations,
         "total_operations": len(receipt.data["operations"]),

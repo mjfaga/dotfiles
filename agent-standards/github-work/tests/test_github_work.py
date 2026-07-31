@@ -1383,8 +1383,9 @@ class HelperTests(unittest.TestCase):
                 )
             self.assertEqual(second_result, 0)
             second_payload = json.loads(second_output.getvalue())
-            self.assertEqual(second_payload["reason"], "unverified_relationships")
-            self.assertEqual(second_payload["unverified_relationship_operations"], 1)
+            self.assertEqual(second_payload["reason"], "already_restored")
+            self.assertEqual(second_payload["unverified_relationship_operations"], 0)
+            self.assertEqual(second_payload["standing_unverified_operations"], 1)
 
     def test_restore_records_benign_unverified_fallback_failure(self):
         current = receipt()
@@ -1502,7 +1503,7 @@ class HelperTests(unittest.TestCase):
                     Namespace(receipt=path), FakeRunner(responses), current,
                 )
 
-    def test_restore_allows_deleted_label_when_repository_issues_are_disabled(self):
+    def test_restore_skips_issue_usage_when_repository_issues_are_disabled(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
@@ -1512,15 +1513,20 @@ class HelperTests(unittest.TestCase):
                 work.CommandResult(),
                 work.CommandResult(),
                 work.CommandResult(returncode=1, stderr="Gone (HTTP 410)"),
-                work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+                {"name": "type:task"},
+                [],
+                work.CommandResult(),
             ]
             output = io.StringIO()
+            runner = FakeRunner(responses)
             with contextlib.redirect_stdout(output):
                 result = work.command_restore(
-                    Namespace(receipt=path), FakeRunner(responses), current,
+                    Namespace(receipt=path), runner, current,
                 )
             self.assertEqual(result, 0)
             self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
+            self.assertFalse(any(call[0][:2] == ["issue", "list"] for call in runner.calls))
+            self.assertTrue(any(call[0][:2] == ["pr", "list"] for call in runner.calls))
 
     def test_restore_treats_exact_label_http_404_as_already_deleted(self):
         with tempfile.TemporaryDirectory() as directory:
