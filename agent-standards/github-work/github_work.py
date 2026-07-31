@@ -45,6 +45,10 @@ class WorkError(RuntimeError):
     """A hard precondition or mutation failure."""
 
 
+class RelationshipEndpointUnavailable(WorkError):
+    """A live source has no REST relationship endpoint; mutation fallback is required."""
+
+
 class EligibilityError(WorkError):
     """A reachable repository is missing required issue classification."""
 
@@ -641,21 +645,25 @@ def restore_relationship_state(
     source: str,
 ) -> list[str] | None:
     """Return canonical related issue URLs, or None when the source was deleted."""
-    result = runner.run(["api", endpoint, "--paginate"], check=False)
+    result = runner.run(["api", endpoint, "--paginate", "--slurp"], check=False)
     if result.returncode != 0:
         detail = f"{result.stderr}\n{result.stdout}".lower()
-        if "http 404" in detail and restore_issue_state(runner, source) is None:
-            return None
         message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        if "http 404" in detail:
+            if restore_issue_state(runner, source) is None:
+                return None
+            raise RelationshipEndpointUnavailable(
+                f"{response_name} endpoint unavailable for live source {source}: {message}"
+            )
         raise WorkError(f"cannot verify {response_name} relationships for {source}: {message}")
     try:
-        related_issues = json.loads(result.stdout or "null")
+        pages = json.loads(result.stdout or "null")
     except json.JSONDecodeError as exc:
-        raise WorkError(f"{response_name} response is not valid JSON") from exc
-    if not isinstance(related_issues, list):
-        raise WorkError(f"{response_name} response must be an array")
+        raise WorkError(f"{response_name} paginated response is not valid JSON") from exc
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise WorkError(f"{response_name} paginated response must be an array of pages")
     canonical_urls: list[str] = []
-    for item in related_issues:
+    for item in (item for page in pages for item in page):
         if not isinstance(item, dict) or not isinstance(item.get("html_url"), str):
             raise WorkError(f"{response_name} response lacks html_url entries")
         try:
@@ -1037,7 +1045,12 @@ def command_pr_link(
     if args.mode == "closes":
         finality = finality_result(issue_state(runner, args.issue))
         if not finality["eligible"]:
-            json_print({"changed": False, "finality": finality, "mode": args.mode, "pr": args.pr})
+            json_print({
+                "changed": False,
+                "finality": finality,
+                "mode": args.mode,
+                "pr": canonical_pr_reference(args.pr),
+            })
             return 1
     current = runner.json(["pr", "view", args.pr, "--json", "body,url"])
     if not isinstance(current, dict):
@@ -1047,7 +1060,11 @@ def command_pr_link(
     if before == after:
         if not runner.dry_run:
             receipt.ensure_saved()
-        json_print({"changed": False, "pr": args.pr, "mode": args.mode})
+        json_print({
+            "changed": False,
+            "pr": canonical_pr_reference(args.pr),
+            "mode": args.mode,
+        })
         return 0
     with temporary_body(after) as path:
         try:
@@ -1078,7 +1095,12 @@ def command_pr_link(
                 "audit",
             ))
             raise
-    json_print({"changed": True, "dry_run": runner.dry_run, "pr": args.pr, "mode": args.mode})
+    json_print({
+        "changed": True,
+        "dry_run": runner.dry_run,
+        "pr": canonical_pr_reference(args.pr),
+        "mode": args.mode,
+    })
     return 0
 
 
@@ -1604,8 +1626,6 @@ def command_restore(
         mutated = False
         operation_state: dict[str, Any] | None = None
         issue_reference = operation.get("issue")
-        if kind == "relationship-added":
-            issue_reference = operation["source"]
         if isinstance(issue_reference, str):
             operation_state = restore_issue_state(runner, issue_reference)
             if operation_state is None:
@@ -1667,9 +1687,7 @@ def command_restore(
                             or "label reapplication failed"
                         )
         elif kind == "relationship-added":
-            if operation_state is None:
-                raise WorkError("relationship restore lacks source issue state")
-            # The state read establishes that the source exists; exact membership comes from REST.
+            # Exact REST membership also establishes source existence; no GraphQL read is needed.
             source_repo, source_number = parse_issue_url(operation["source"])
             if operation["relation"] == "sub-issue":
                 endpoint = f"repos/{source_repo}/issues/{source_number}/sub_issues"
@@ -1687,20 +1705,27 @@ def command_restore(
                 relationship_markers = (
                     "blocked-by not found", "no blocked-by", "not blocked"
                 )
-            related_issues = restore_relationship_state(
-                runner,
-                endpoint,
-                response_name,
-                operation["source"],
-            )
-            if related_issues is None:
-                if not runner.dry_run:
-                    receipt.mark_restored(operation, missing=True, mutated=False)
-                restored += 1
-                missing_issue_operations += 1
-                continue
-            target = canonical_issue_reference(operation["target"])
-            relationship_present = target in related_issues
+            probe_error: str | None = None
+            try:
+                related_issues = restore_relationship_state(
+                    runner,
+                    endpoint,
+                    response_name,
+                    operation["source"],
+                )
+            except RelationshipEndpointUnavailable as exc:
+                # The mutation command can still use GraphQL on deployments without REST support.
+                probe_error = str(exc)
+                relationship_present = True
+            else:
+                if related_issues is None:
+                    if not runner.dry_run:
+                        receipt.mark_restored(operation, missing=True, mutated=False)
+                    restored += 1
+                    missing_issue_operations += 1
+                    continue
+                target = canonical_issue_reference(operation["target"])
+                relationship_present = target in related_issues
             if relationship_present:
                 result = runner.run(
                     ["issue", "edit", operation["source"], flag, operation["target"]],
@@ -1715,10 +1740,9 @@ def command_restore(
                         marker in detail
                         for marker in (*relationship_markers, "no relationship", "not related")
                     ):
-                        raise WorkError(
-                            f"relationship restore failed: "
-                            f"{result.stderr.strip() or result.stdout.strip()}"
-                        )
+                        mutation_error = result.stderr.strip() or result.stdout.strip()
+                        prefix = f"{probe_error}; fallback mutation failed" if probe_error else "relationship restore failed"
+                        raise WorkError(f"{prefix}: {mutation_error}")
         elif kind == "issue-created":
             if operation_state is None:
                 raise WorkError("issue restore lacks issue state")

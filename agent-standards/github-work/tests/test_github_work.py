@@ -1250,8 +1250,7 @@ class HelperTests(unittest.TestCase):
                 relation="blocked-by",
             )
             responses = restore_preflight_responses() + [
-                {"subIssuesSummary": {"total": 0}, "blockedBy": []},
-                [{"number": 12, "state": "OPEN"}],
+                [[{"number": 12, "state": "OPEN"}]],
             ]
             with self.assertRaisesRegex(work.WorkError, "blocked-by response lacks html_url"):
                 work.command_restore(
@@ -1269,8 +1268,7 @@ class HelperTests(unittest.TestCase):
                 relation="blocked-by",
             )
             responses = restore_preflight_responses() + [
-                {"blockedBy": []},
-                [{"html_url": "https://github.com/sample-space/sample-app/pull/7"}],
+                [[{"html_url": "https://github.com/sample-space/sample-app/pull/7"}]],
             ]
             with self.assertRaisesRegex(
                 work.WorkError, "blocked-by response contains an invalid issue URL"
@@ -1290,7 +1288,6 @@ class HelperTests(unittest.TestCase):
                 relation="blocked-by",
             )
             responses = restore_preflight_responses() + [
-                {"blockedBy": []},
                 work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
                 work.CommandResult(returncode=1, stderr="issue view failed"),
                 work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
@@ -1304,6 +1301,51 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(json.loads(output.getvalue())["reason"], "missing_issues")
             self.assertTrue(current.data["operations"][0]["restore_missing"])
 
+    def test_restore_flattens_paginated_relationship_pages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="sub-issue",
+            )
+            responses = restore_preflight_responses() + [
+                [
+                    [{"html_url": "https://github.com/sample-space/sample-app/issues/11"}],
+                    [{"html_url": "https://github.com/sample-space/sample-app/issues/12"}],
+                ],
+                work.CommandResult(),
+            ]
+            runner = FakeRunner(responses)
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertEqual(result, 0)
+            self.assertTrue(any("--slurp" in call[0] for call in runner.calls))
+            self.assertTrue(any("--remove-sub-issue" in call[0] for call in runner.calls))
+
+    def test_restore_falls_back_to_mutation_when_rest_endpoint_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="blocked-by",
+            )
+            responses = restore_preflight_responses() + [
+                work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+                {"blockedBy": []},
+                work.CommandResult(),
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), FakeRunner(responses), current)
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["mutated_operations"], 1)
+
     def test_restore_skips_exactly_absent_sub_issue_without_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -1315,8 +1357,7 @@ class HelperTests(unittest.TestCase):
                 relation="sub-issue",
             )
             responses = restore_preflight_responses() + [
-                {"blockedBy": []},
-                [{"html_url": "https://github.com/sample-space/sample-app/issues/13"}],
+                [[{"html_url": "https://github.com/sample-space/sample-app/issues/13"}]],
             ]
             runner = FakeRunner(responses)
             output = io.StringIO()
@@ -1373,8 +1414,7 @@ class HelperTests(unittest.TestCase):
                 relation="sub-issue",
             )
             responses = restore_preflight_responses() + [
-                {"subIssuesSummary": {"total": 1}, "blockedBy": []},
-                [{"html_url": "https://github.com/sample-space/sample-app/issues/12"}],
+                [[{"html_url": "https://github.com/sample-space/sample-app/issues/12"}]],
                 work.CommandResult(returncode=1, stderr="source issue not found"),
             ]
             with self.assertRaisesRegex(work.WorkError, "relationship restore failed"):
@@ -1931,8 +1971,7 @@ class HelperTests(unittest.TestCase):
         current = receipt()
         current.add("relationship-added", relation="sub-issue", source="sample-space/sample-app#1", target="sample-space/sample-app#2")
         responses = restore_preflight_responses() + [
-            {"subIssuesSummary": {"total": 1}, "blockedBy": []},
-            [{"html_url": "https://github.com/sample-space/sample-app/issues/2"}],
+            [[{"html_url": "https://github.com/sample-space/sample-app/issues/2"}]],
             work.CommandResult(returncode=1, stderr="permission denied"),
         ]
         with self.assertRaises(work.WorkError):
