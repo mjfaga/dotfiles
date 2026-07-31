@@ -67,10 +67,11 @@ operation counts. A retained label definition is intentionally left behind to pr
 removal; remove it after its reapplied labels are no longer needed. `missing_issues` with
 `missing_issue_operations` means exact REST lookup proved referenced issues were already deleted, so
 those compensation operations completed as no-ops; each affected receipt operation durably records
-`restore_missing: true`. Older restored operations without `restore_missing` have unknown
-missing-resource status. Relationship membership is read through REST. When that endpoint is
-unavailable for a confirmed live source, restore falls back to the GitHub mutation and records
-`restore_unverified: true`; for relationship operations, `restore_missing: true` refers to the
+`restore_missing: true`. Older restored operations without `restore_missing` or `restore_unverified`
+have unknown status for that field. Relationship membership is read through REST. When that endpoint
+is unavailable for a confirmed live source, restore falls back to the GitHub mutation and records
+`restore_unverified: true`; this exits `0`, while dry-run reports the unverified operation without
+counting an unproven mutation. For relationship operations, `restore_missing: true` refers to the
 source issue. Receipts remain compatible across helper releases with a supported receipt schema even
 if the repository is later removed from active target configuration. Drain outstanding newer-schema
 receipts before pinning an older standard version. Schema-v3 operations require creation and restore

@@ -683,7 +683,7 @@ def issue_read_preflight(runner: GhRunner, repo: str) -> None:
     result = runner.run(["api", f"repos/{repo}/issues?per_page=1"], check=False)
     if result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
-        raise WorkError(f"issue read access required for restore in {repo}: {message}")
+        raise WorkError(f"cannot verify issue read access for restore in {repo}: {message}")
 
 
 def issue_labels(state: dict[str, Any]) -> set[str]:
@@ -1572,6 +1572,23 @@ def receipt_repositories(receipt: Receipt) -> set[str]:
     return repos
 
 
+def receipt_issue_repositories(receipt: Receipt) -> set[str]:
+    """Return repositories whose active compensation needs issue-scoped reads."""
+    repos: set[str] = set()
+    for operation in receipt.data["operations"]:
+        if (
+            operation.get("status") != "active"
+            or operation.get("kind") == "pr-body-changed"
+        ):
+            continue
+        if isinstance(operation.get("repo"), str):
+            repos.add(operation["repo"])
+        reference = operation.get("issue", operation.get("source"))
+        if isinstance(reference, str):
+            repos.add(parse_issue_url(reference)[0])
+    return repos
+
+
 def command_restore(
     args: argparse.Namespace,
     runner: GhRunner,
@@ -1614,9 +1631,12 @@ def command_restore(
         })
         return 0
     basic_preflight(runner)
-    for repo in sorted(receipt_repositories(receipt)):
+    repositories = receipt_repositories(receipt)
+    issue_repositories = receipt_issue_repositories(receipt)
+    for repo in sorted(repositories):
         repository_preflight(runner, repo)
-        issue_read_preflight(runner, repo)
+        if repo in issue_repositories:
+            issue_read_preflight(runner, repo)
     restored = 0
     missing_issue_operations = 0
     mutated_operations = 0

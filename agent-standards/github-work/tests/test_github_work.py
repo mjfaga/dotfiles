@@ -72,13 +72,15 @@ def managed_preflight_responses(*, labels=None):
     ]
 
 
-def restore_preflight_responses():
-    return [
+def restore_preflight_responses(*, issue_read=True):
+    responses = [
         work.CommandResult(stdout="gh version 2.96.0\n"),
         work.CommandResult(),
         work.CommandResult(),
-        work.CommandResult(stdout="[]"),
     ]
+    if issue_read:
+        responses.append(work.CommandResult(stdout="[]"))
+    return responses
 
 
 class HelperTests(unittest.TestCase):
@@ -1183,18 +1185,23 @@ class HelperTests(unittest.TestCase):
             )
             current.data["operations"][1]["pr"] += "#issuecomment-123"
             current.save()
-            responses = restore_preflight_responses() + [{"body": "C"}]
+            responses = restore_preflight_responses(issue_read=False) + [{"body": "C"}]
             output = io.StringIO()
+            runner = FakeRunner(responses, dry_run=True)
             with contextlib.redirect_stdout(output):
                 result = work.command_restore(
                     Namespace(receipt=path),
-                    FakeRunner(responses, dry_run=True),
+                    runner,
                     current,
                 )
             self.assertEqual(result, 0)
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["mutated_operations"], 2)
             self.assertEqual(payload["reason"], "restored")
+            self.assertFalse(any(
+                "issues?per_page=1" in " ".join(call[0])
+                for call in runner.calls
+            ))
 
     def test_restore_marks_operations_and_second_run_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1338,7 +1345,7 @@ class HelperTests(unittest.TestCase):
                 work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
             ]
             runner = FakeRunner(responses)
-            with self.assertRaisesRegex(work.WorkError, "issue read access required"):
+            with self.assertRaisesRegex(work.WorkError, "cannot verify issue read access"):
                 work.command_restore(Namespace(receipt=path), runner, current)
             self.assertFalse(any(call[0][:2] == ["issue", "close"] for call in runner.calls))
             self.assertEqual(current.data["operations"][0]["status"], "active")
