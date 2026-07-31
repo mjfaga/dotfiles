@@ -1161,6 +1161,35 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(payload["config_status"], "empty")
             self.assertTrue(payload["config_unavailable"])
 
+    def test_restore_dry_run_replays_chained_pr_bodies_in_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "pr-body-changed",
+                pr="https://github.com/sample-space/sample-app/pull/10",
+                before="A",
+                after="B",
+            )
+            current.add(
+                "pr-body-changed",
+                pr="https://github.com/sample-space/sample-app/pull/10",
+                before="B",
+                after="C",
+            )
+            responses = restore_preflight_responses() + [{"body": "C"}]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(
+                    Namespace(receipt=path),
+                    FakeRunner(responses, dry_run=True),
+                    current,
+                )
+            self.assertEqual(result, 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["mutated_operations"], 2)
+            self.assertEqual(payload["reason"], "restored")
+
     def test_restore_marks_operations_and_second_run_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -1202,6 +1231,43 @@ class HelperTests(unittest.TestCase):
                     "issue", "edit", "https://github.com/sample-space/sample-app/issues/4",
                     "--add-label", "needs-owner",
                 ],
+                [call[0] for call in runner.calls],
+            )
+
+    def test_restore_does_not_tolerate_non_relationship_missing_resource(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="sub-issue",
+            )
+            responses = restore_preflight_responses() + [
+                work.CommandResult(returncode=1, stderr="source issue not found"),
+            ]
+            with self.assertRaisesRegex(work.WorkError, "relationship restore failed"):
+                work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+
+    def test_restore_uses_exact_label_lookup_before_definition_delete(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("label-created", repo="sample-space/sample-app", name="type:task")
+            responses = restore_preflight_responses() + [
+                work.CommandResult(stdout='{"name":"type:task"}'),
+                [],
+                [],
+                work.CommandResult(),
+            ]
+            runner = FakeRunner(responses)
+            with contextlib.redirect_stdout(io.StringIO()):
+                work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertIn(
+                ["api", "repos/sample-space/sample-app/labels/type:task"],
                 [call[0] for call in runner.calls],
             )
 

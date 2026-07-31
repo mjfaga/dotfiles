@@ -1427,17 +1427,27 @@ def command_assign(
     return 0
 
 
-def restore_pr_body(runner: GhRunner, operation: dict[str, Any]) -> bool:
-    current = runner.json(["pr", "view", operation["pr"], "--json", "body"])
-    if not isinstance(current, dict):
-        raise WorkError(f"cannot read pull request: {operation['pr']}")
-    body = current.get("body") or ""
+def restore_pr_body(
+    runner: GhRunner,
+    operation: dict[str, Any],
+    simulated_bodies: dict[str, str] | None = None,
+) -> bool:
+    pr = operation["pr"]
+    if runner.dry_run and simulated_bodies is not None and pr in simulated_bodies:
+        body = simulated_bodies[pr]
+    else:
+        current = runner.json(["pr", "view", pr, "--json", "body"])
+        if not isinstance(current, dict):
+            raise WorkError(f"cannot read pull request: {pr}")
+        body = current.get("body") or ""
     if body == operation["before"]:
         return False
     if body != operation["after"]:
-        raise WorkError(f"refusing to overwrite independently changed PR body: {operation['pr']}")
+        raise WorkError(f"refusing to overwrite independently changed PR body: {pr}")
     with temporary_body(operation["before"]) as path:
-        runner.run(["pr", "edit", operation["pr"], "--body-file", path], mutate=True)
+        runner.run(["pr", "edit", pr, "--body-file", path], mutate=True)
+    if runner.dry_run and simulated_bodies is not None:
+        simulated_bodies[pr] = operation["before"]
     return True
 
 
@@ -1499,7 +1509,10 @@ def command_restore(
     already_restored = 0
     skipped_in_use = 0
     retained_label_definitions = 0
+    # Simulation is dry-run only. Real replay deliberately re-reads GitHub state so retries after
+    # partial failures do not trust stale in-process state.
     simulated_issue_labels: dict[tuple[str, str], bool] = {}
+    simulated_pr_bodies: dict[str, str] = {}
     all_issue_label_reapplications = {
         (canonical_issue_reference(operation["issue"]), operation["name"])
         for operation in receipt.data["operations"]
@@ -1512,7 +1525,7 @@ def command_restore(
         kind = operation["kind"]
         mutated = False
         if kind == "pr-body-changed":
-            mutated = restore_pr_body(runner, operation)
+            mutated = restore_pr_body(runner, operation, simulated_pr_bodies)
         elif kind == "assignee-added":
             state = issue_state(runner, operation["issue"])
             if operation["login"] in issue_assignees(state):
@@ -1564,23 +1577,44 @@ def command_restore(
                 mutated = True
             else:
                 detail = f"{result.stderr}\n{result.stdout}".lower()
-                if not any(marker in detail for marker in ("not found", "does not exist", "no relationship", "not related")):
-                    raise WorkError(f"relationship restore failed: {result.stderr.strip() or result.stdout.strip()}")
+                relationship_markers = (
+                    ("sub-issue not found", "no sub-issue", "not a sub-issue")
+                    if operation["relation"] == "sub-issue"
+                    else ("blocked-by not found", "no blocked-by", "not blocked")
+                )
+                if not any(
+                    marker in detail
+                    for marker in (*relationship_markers, "no relationship", "not related")
+                ):
+                    raise WorkError(
+                        f"relationship restore failed: "
+                        f"{result.stderr.strip() or result.stdout.strip()}"
+                    )
         elif kind == "issue-created":
             state = issue_state(runner, operation["issue"])
             if str(state.get("state")).upper() == "OPEN":
                 runner.run(["issue", "close", operation["issue"], "--reason", "not planned"], mutate=True)
                 mutated = True
         elif kind == "label-created":
-            current = runner.json([
-                "label", "list", "--repo", operation["repo"], "--limit", "200",
-                "--json", "name",
-            ])
-            if not isinstance(current, list):
-                raise WorkError(f"cannot verify labels in {operation['repo']}")
-            if operation["name"] in {
-                item.get("name") for item in current if isinstance(item, dict)
-            }:
+            label_result = runner.run(
+                [
+                    "api",
+                    f"repos/{operation['repo']}/labels/{operation['name']}",
+                ],
+                check=False,
+            )
+            label_exists = label_result.returncode == 0
+            if not label_exists:
+                detail = f"{label_result.stderr}\n{label_result.stdout}".lower()
+                if not any(
+                    marker in detail
+                    for marker in ("label not found", "label does not exist", "unknown label")
+                ):
+                    raise WorkError(
+                        f"cannot verify label {operation['name']} in {operation['repo']}: "
+                        f"{label_result.stderr.strip() or label_result.stdout.strip()}"
+                    )
+            if label_exists:
                 issue_uses = runner.json([
                     "issue", "list", "--repo", operation["repo"], "--state", "all",
                     "--label", operation["name"], "--limit", "100", "--json", "url",
