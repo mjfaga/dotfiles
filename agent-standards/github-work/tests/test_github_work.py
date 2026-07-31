@@ -167,6 +167,7 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertTrue(payload["partial"])
             self.assertEqual(payload["stage"], "audit")
+            self.assertFalse(payload["recovery_fallback"])
             self.assertIsNone(payload["recovery_error"])
             self.assertNotIn("before", payload)
             self.assertNotIn("after", payload)
@@ -310,16 +311,46 @@ class HelperTests(unittest.TestCase):
                 with work.temporary_body("body"):
                     pass
 
-    def test_recovery_writer_failure_returns_structured_error(self):
+    def test_temporary_body_removes_partial_file_when_write_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            partial = Path(directory) / "partial.md"
+            partial.write_text("partial", encoding="utf-8")
+            handle = mock.MagicMock()
+            handle.__enter__.return_value = handle
+            handle.__exit__.return_value = False
+            handle.name = str(partial)
+            handle.write.side_effect = OSError("disk full")
+            with mock.patch.object(work.tempfile, "NamedTemporaryFile", return_value=handle):
+                with self.assertRaises(work.WorkError):
+                    with work.temporary_body("private body"):
+                        pass
+            self.assertFalse(partial.exists())
+
+    def test_recovery_writer_falls_back_to_independent_temp_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             receipt_path = Path(directory) / "receipt.json"
-            with mock.patch.object(work.os, "open", side_effect=OSError("disk full")):
-                path, error = work.write_private_recovery_payload(
+            failure = OSError(28, "No space left on device")
+            with mock.patch.object(work, "write_recovery_file", side_effect=[failure, None]):
+                recovery = work.write_private_recovery_payload(
                     {"before": "private"}, receipt_path
                 )
-            self.assertIsNone(path)
-            self.assertEqual(error, "write-failed")
-            self.assertEqual(list(Path(directory).iterdir()), [])
+            self.assertTrue(recovery["recovery_fallback"])
+            self.assertEqual(recovery["recovery_error"], "primary-write-failed")
+            self.assertEqual(recovery["recovery_errno"], 28)
+            self.assertIn("github-work-recovery", recovery["recovery_path"])
+
+    def test_recovery_writer_double_failure_remains_structured(self):
+        receipt_path = Path("/private/receipt.json")
+        failures = [
+            OSError(28, "No space left on device"),
+            OSError(30, "Read-only file system"),
+        ]
+        with mock.patch.object(work, "write_recovery_file", side_effect=failures):
+            recovery = work.write_private_recovery_payload({"before": "private"}, receipt_path)
+        self.assertIsNone(recovery["recovery_path"])
+        self.assertEqual(recovery["recovery_error"], "primary-and-fallback-write-failed")
+        self.assertEqual(recovery["recovery_errno"], 28)
+        self.assertEqual(recovery["recovery_fallback_errno"], 30)
 
     def test_issue_create_fails_when_gh_returns_no_url(self):
         responses = managed_preflight_responses() + [work.CommandResult()]
@@ -439,8 +470,9 @@ class HelperTests(unittest.TestCase):
             calls += 1
             if calls == 1:
                 receipt.add("issue-created", issue="https://github.com/sample-space/one-app/issues/1")
-                print(json.dumps({"repo": args.repo, "url": "https://github.com/sample-space/one-app/issues/1"}))
-                return 0
+                payload = {"repo": args.repo, "url": "https://github.com/sample-space/one-app/issues/1"}
+                print(json.dumps(payload))
+                return payload
             raise work.WorkError("second target failed")
 
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
@@ -466,7 +498,7 @@ class HelperTests(unittest.TestCase):
 
         def create(*_args):
             print("not-json")
-            return 0
+            raise work.WorkError("child failed")
 
         output = io.StringIO()
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
@@ -507,7 +539,7 @@ class HelperTests(unittest.TestCase):
             with self.assertRaises(work.WorkError):
                 receipt(str(path))
 
-    def test_receipt_validation_maps_null_metadata_to_work_error(self):
+    def test_receipt_validation_accepts_explicitly_unavailable_config_digest(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "receipt.json"
             path.write_text(json.dumps({
@@ -518,8 +550,8 @@ class HelperTests(unittest.TestCase):
                 "operations": [],
             }), encoding="utf-8")
             path.chmod(0o600)
-            with self.assertRaisesRegex(work.WorkError, "config_digest is malformed"):
-                work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
+            current = work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
+            self.assertIsNone(current.data["config_digest"])
 
     def test_receipt_save_maps_os_errors_to_work_error(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -549,7 +581,7 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(stdout.getvalue(), "")
             self.assertIn("cannot save receipt", stderr.getvalue())
 
-    def test_main_restore_does_not_require_target_config(self):
+    def test_main_restore_tolerates_missing_optional_target_config(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
@@ -561,7 +593,10 @@ class HelperTests(unittest.TestCase):
             responses = restore_preflight_responses() + [{"labels": [], "assignees": []}]
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
-                result = work.main(["restore", "--receipt", path], runner=FakeRunner(responses))
+                result = work.main([
+                    "--config", str(Path(directory) / "missing-targets.json"),
+                    "restore", "--receipt", path,
+                ], runner=FakeRunner(responses))
             self.assertEqual(result, 0)
             self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
             restored = receipt(path)

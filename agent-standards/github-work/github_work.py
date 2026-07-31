@@ -137,8 +137,10 @@ class Receipt:
             r"(?:[0-9a-f]{40}|development)", self.data["source_sha"]
         ):
             raise WorkError("receipt source_sha is malformed")
-        if not isinstance(self.data["config_digest"], str) or not re.fullmatch(
-            r"[0-9a-f]{64}", self.data["config_digest"]
+        config_digest = self.data["config_digest"]
+        if config_digest is not None and (
+            not isinstance(config_digest, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", config_digest)
         ):
             raise WorkError("receipt config_digest is malformed")
         if not isinstance(self.data["operations"], list):
@@ -347,8 +349,8 @@ def temporary_body(content: str) -> Iterator[str]:
         with tempfile.NamedTemporaryFile(
             "w", delete=False, suffix=".md", encoding="utf-8"
         ) as handle:
-            handle.write(content)
             path = Path(handle.name)
+            handle.write(content)
     except OSError as exc:
         if path is not None:
             with contextlib.suppress(OSError):
@@ -363,38 +365,80 @@ def temporary_body(content: str) -> Iterator[str]:
             path.unlink(missing_ok=True)
 
 
-def write_private_recovery_payload(
-    payload: dict[str, Any],
-    receipt_path: Path | None,
-) -> tuple[str | None, str | None]:
-    if receipt_path is None:
-        return None, "receipt-path-unavailable"
-    recovery_path = receipt_path.with_name(
-        f"{receipt_path.name}.github-work-recovery-{uuid.uuid4()}.json"
-    )
+def write_recovery_file(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
-        recovery_path.parent.mkdir(parents=True, exist_ok=True)
-        descriptor = os.open(
-            recovery_path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o600,
-        )
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
-        recovery_path.chmod(0o600)
-        return str(recovery_path), None
-    except OSError:
+        path.chmod(0o600)
+    except BaseException:
         with contextlib.suppress(OSError):
-            recovery_path.unlink(missing_ok=True)
-        return None, "write-failed"
+            os.close(descriptor)
+        raise
+
+
+def recovery_error_fields(exc: OSError, attempted_path: Path) -> dict[str, Any]:
+    return {
+        "recovery_attempted_path": str(attempted_path),
+        "recovery_detail": exc.strerror or str(exc),
+        "recovery_errno": exc.errno,
+    }
+
+
+def write_private_recovery_payload(
+    payload: dict[str, Any],
+    receipt_path: Path | None,
+) -> dict[str, Any]:
+    if receipt_path is None:
+        return {
+            "recovery_error": "receipt-path-unavailable",
+            "recovery_fallback": False,
+            "recovery_path": None,
+        }
+    primary_path = receipt_path.with_name(
+        f"{receipt_path.name}.github-work-recovery-{uuid.uuid4()}.json"
+    )
+    primary_failure: dict[str, Any]
+    try:
+        write_recovery_file(primary_path, payload)
+        return {
+            "recovery_error": None,
+            "recovery_fallback": False,
+            "recovery_path": str(primary_path),
+        }
+    except OSError as primary_error:
+        primary_failure = recovery_error_fields(primary_error, primary_path)
+        with contextlib.suppress(OSError):
+            primary_path.unlink(missing_ok=True)
+    fallback_path = Path(tempfile.gettempdir()) / f"github-work-recovery-{uuid.uuid4()}.json"
+    try:
+        write_recovery_file(fallback_path, payload)
+        return {
+            "recovery_error": "primary-write-failed",
+            "recovery_fallback": True,
+            "recovery_path": str(fallback_path),
+            **primary_failure,
+        }
+    except OSError as fallback_error:
+        with contextlib.suppress(OSError):
+            fallback_path.unlink(missing_ok=True)
+        return {
+            "recovery_error": "primary-and-fallback-write-failed",
+            "recovery_fallback": True,
+            "recovery_fallback_detail": fallback_error.strerror or str(fallback_error),
+            "recovery_fallback_errno": fallback_error.errno,
+            "recovery_fallback_path": str(fallback_path),
+            "recovery_path": None,
+            **primary_failure,
+        }
 
 
 def pr_link_partial_payload(
     args: argparse.Namespace,
     before: str,
-    recovery_path: str | None,
-    recovery_error: str | None,
+    recovery: dict[str, Any],
     stage: str,
 ) -> dict[str, Any]:
     return {
@@ -404,9 +448,8 @@ def pr_link_partial_payload(
         "mode": args.mode,
         "partial": True,
         "pr": args.pr,
-        "recovery_error": recovery_error,
-        "recovery_path": recovery_path,
         "stage": stage,
+        **recovery,
     }
 
 
@@ -582,8 +625,11 @@ def default_issue_body(kind: str, title: str) -> str:
 
 
 def command_issue_create(
-    args: argparse.Namespace, runner: GhRunner, config: dict[str, Any], receipt: Receipt
-) -> int:
+    args: argparse.Namespace,
+    runner: GhRunner,
+    config: dict[str, Any],
+    receipt: Receipt,
+) -> dict[str, Any]:
     target = target_for(config, args.repo)
     related_repos = [args.repo]
     if args.parent:
@@ -611,8 +657,9 @@ def command_issue_create(
         command.extend(["--body-file", path])
         result = runner.run(command, mutate=True)
     if runner.dry_run:
-        json_print({"dry_run": True, "repo": args.repo, "type": args.type})
-        return 0
+        payload = {"dry_run": True, "repo": args.repo, "type": args.type}
+        json_print(payload)
+        return payload
     output_lines = result.stdout.strip().splitlines()
     if not output_lines:
         raise WorkError("gh issue create returned no issue URL")
@@ -632,8 +679,9 @@ def command_issue_create(
     except WorkError:
         json_print({"partial": True, "repo": args.repo, "type": args.type, "url": created_url})
         raise
-    json_print({"url": created_url, "repo": args.repo, "type": args.type})
-    return 0
+    payload = {"url": created_url, "repo": args.repo, "type": args.type}
+    json_print(payload)
+    return payload
 
 
 def issue_reference(value: str) -> str:
@@ -702,14 +750,13 @@ def command_pr_link(
         try:
             runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
         except WorkError:
-            recovery, recovery_error = write_private_recovery_payload(
+            recovery = write_private_recovery_payload(
                 {"after": after, "before": before}, receipt.path
             )
             json_print(pr_link_partial_payload(
                 args,
                 before,
                 recovery,
-                recovery_error,
                 "mutation-result-unknown",
             ))
             raise
@@ -718,14 +765,13 @@ def command_pr_link(
             receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
             receipt.ensure_saved()
         except WorkError:
-            recovery, recovery_error = write_private_recovery_payload(
+            recovery = write_private_recovery_payload(
                 {"after": after, "before": before}, receipt.path
             )
             json_print(pr_link_partial_payload(
                 args,
                 before,
                 recovery,
-                recovery_error,
                 "audit",
             ))
             raise
@@ -1090,7 +1136,7 @@ def command_work_graph_create(
         captured = io.StringIO()
         try:
             with contextlib.redirect_stdout(captured):
-                command_issue_create(child_args, runner, config, receipt)
+                child_payload = command_issue_create(child_args, runner, config, receipt)
         except WorkError as child_error:
             child_output = captured.getvalue().strip()
             try:
@@ -1105,19 +1151,8 @@ def command_work_graph_create(
                 "partial": True,
                 "umbrella": args.umbrella,
             })
-            raise child_error
-        try:
-            created.append(parse_captured_payload(captured.getvalue()))
-        except WorkError as parse_error:
-            json_print({
-                "created_tasks": len(created),
-                "failed_partial": {"parse_error": str(parse_error)},
-                "failed_repo": repo,
-                "issues": created,
-                "partial": True,
-                "umbrella": args.umbrella,
-            })
             raise
+        created.append(child_payload)
     if not runner.dry_run:
         receipt.ensure_saved()
     json_print({"created_tasks": len(created), "issues": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
@@ -1301,7 +1336,10 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "restore":
             if args.ownership_config:
                 raise WorkError("--ownership-config is invalid with restore")
-            config_sha = file_digest(args.config) if args.config else None
+            try:
+                config_sha = file_digest(args.config) if args.config else None
+            except WorkError:
+                config_sha = None
             receipt = Receipt(args.receipt, source_sha=source_sha, config_digest=config_sha)
             return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)
@@ -1319,7 +1357,8 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "labels":
             return command_labels_ensure(args, active_runner, config, receipt)
         if args.command == "issue-create":
-            return command_issue_create(args, active_runner, config, receipt)
+            command_issue_create(args, active_runner, config, receipt)
+            return 0
         if args.command == "pr-link":
             return command_pr_link(args, active_runner, config, receipt)
         if args.command == "assign":
