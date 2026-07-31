@@ -1051,7 +1051,9 @@ def ownership_resolution(
     wildcards = [mapping for mapping in mappings if mapping.get("area") == "*"]
     source = "none"
     selected: list[dict[str, Any]] = []
-    if area is not None:
+    if area is not None and not mappings:
+        source = "repo-unmapped"
+    elif area is not None:
         exact = [mapping for mapping in mappings if mapping.get("area") == area]
         if exact:
             selected, source = exact, "exact"
@@ -1059,6 +1061,8 @@ def ownership_resolution(
             selected, source = wildcards, "wildcard"
         elif defaults:
             source = "default-ineligible"
+        else:
+            source = "area-unmapped"
     else:
         specific = [mapping for mapping in mappings if mapping.get("area") not in {None, "*"}]
         if defaults:
@@ -1161,6 +1165,17 @@ def add_needs_owner(
             raise
 
 
+def validate_assignment_args(args: argparse.Namespace) -> None:
+    """Reject supplied-but-empty or incompatible assignment options."""
+    if hasattr(args, "assignee") and args.assignee is not None and not args.assignee:
+        raise WorkError("--assignee was supplied but is empty")
+    if hasattr(args, "area") and args.area is not None:
+        if not args.area:
+            raise WorkError("--area was supplied but is empty")
+        if not args.from_ownership_map:
+            raise WorkError("--area requires --from-ownership-map")
+
+
 def command_assign(
     args: argparse.Namespace,
     runner: GhRunner,
@@ -1168,11 +1183,7 @@ def command_assign(
     ownership: dict[str, Any] | None,
     receipt: Receipt,
 ) -> int:
-    if args.area is not None:
-        if not args.area:
-            raise WorkError("--area was supplied but is empty")
-        if not args.from_ownership_map:
-            raise WorkError("--area requires --from-ownership-map")
+    validate_assignment_args(args)
     repo, _ = parse_issue_url(args.issue)
     mutation_preflight(runner, config, [repo])
     assignee = args.assignee
@@ -1605,7 +1616,10 @@ def build_parser() -> argparse.ArgumentParser:
     group = assign.add_mutually_exclusive_group(required=True)
     group.add_argument("--assignee")
     group.add_argument("--from-ownership-map", action="store_true")
-    assign.add_argument("--area")
+    assign.add_argument(
+        "--area",
+        help="non-empty ownership area used only with --from-ownership-map",
+    )
     assign.add_argument("--receipt", required=True)
     assign.add_argument("--json", action="store_true")
 
@@ -1641,6 +1655,7 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
     active_runner = runner or GhRunner(dry_run=args.dry_run)
     active_runner.dry_run = args.dry_run
     try:
+        validate_assignment_args(args)
         if args.command == "standard-check":
             return command_standard_check(args)
         source_sha = active_source_sha()

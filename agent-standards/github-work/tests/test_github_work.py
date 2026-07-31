@@ -315,6 +315,23 @@ class HelperTests(unittest.TestCase):
             ([], "default-ineligible"),
         )
 
+    def test_ownership_resolution_distinguishes_repo_and_area_gaps(self):
+        ownership = {
+            "mappings": [{
+                "repo": "sample-space/sample-app",
+                "area": "web",
+                "logins": ["web-user"],
+            }],
+        }
+        self.assertEqual(
+            work.ownership_resolution(ownership, "sample-space/sample-app", "infra"),
+            ([], "area-unmapped"),
+        )
+        self.assertEqual(
+            work.ownership_resolution(ownership, "sample-space/other-app", "web"),
+            ([], "repo-unmapped"),
+        )
+
     def test_load_ownership_rejects_non_array_mappings(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ownership.json"
@@ -1059,6 +1076,25 @@ class HelperTests(unittest.TestCase):
                 ], runner=FakeRunner([]))
             self.assertEqual(result, 2)
             self.assertIn("supplied but is empty", stderr.getvalue())
+
+    def test_main_rejects_empty_assignee_before_loading_config(self):
+        commands = [
+            ["issue-create", "--repo", "sample-space/sample-app", "--type", "Task",
+             "--title", "Sample", "--assignee", "", "--receipt", "receipt.json"],
+            ["assign", "--issue", "sample-space/sample-app#1", "--assignee", "",
+             "--receipt", "receipt.json"],
+            ["work-graph", "create", "--umbrella", "sample-space/sample-app#1",
+             "--repos", "all", "--assignee", "", "--receipt", "receipt.json"],
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                runner = FakeRunner([])
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    result = work.main(["--config", "missing.json", *command], runner=runner)
+                self.assertEqual(result, 2)
+                self.assertIn("--assignee was supplied but is empty", stderr.getvalue())
+                self.assertEqual(runner.calls, [])
 
     def test_main_assign_from_ownership_map_uses_loaded_config(self):
         with tempfile.TemporaryDirectory() as directory:

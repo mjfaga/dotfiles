@@ -25,10 +25,11 @@ array of `repo`, optional `area`, and `logins`. With `--area`, ownership resolut
 then `*`, then no match; a bare default never satisfies an explicit area, so use `*` for cross-area
 ownership. Without `--area`, resolution prefers the omitted-area default, then `*`, then a union of
 specific areas. Every assignment result, including partials, emits `ownership_source` as `exact`,
-`wildcard`, `default`, `default-ineligible`, `specific-union`, `none`, or `explicit`; the ineligible
-value identifies an explicit-area request whose only available mapping was a bare default. A
-supplied non-empty ownership config is validated before non-restore commands but used only by
-`assign --from-ownership-map`; restore ignores it so the shared invocation remains safe. The private
+`wildcard`, `default`, `default-ineligible`, `area-unmapped`, `repo-unmapped`, `specific-union`,
+`none`, or `explicit`; these values distinguish an ineligible bare default, a missing area in a
+configured repository, and a repository absent from the ownership map. A supplied non-empty
+ownership config is validated before non-restore commands but used only by `assign
+--from-ownership-map`; restore ignores it so the shared invocation remains safe. The private
 operator supplies the files' locations. Consumer repositories must ignore `.github-work/`,
 `*github-work-targets*`, `*github-work-ownership*`, `*.github-work-receipt.json*`, and
 `*github-work-recovery*.json*`.
@@ -39,8 +40,8 @@ compensating `restore`. Use `issue-create` with Feature, Bug, or Task and native
 relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes` enforces the read-only
 finality check before it edits a PR body; run `finality` separately to inspect eligibility first.
 Assignment preserves existing assignees and uses `needs-owner` when an ownership lookup has zero or
-multiple human candidates. A bot-only matched tier remains fail-closed and reports its source.
-Reject an empty `--area`, and use `--area` only with `--from-ownership-map`.
+multiple human candidates. A bot-only matched tier remains fail-closed and reports its source. An
+empty `--assignee` or `--area`, or `--area` without `--from-ownership-map`, exits `2`.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
 is exit `2`. Restore does not require the private target config and tolerates a supplied config path
