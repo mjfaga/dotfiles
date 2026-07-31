@@ -830,7 +830,10 @@ def content_without_provenance(text: str, *, managed_region: bool) -> str:
         start = candidate.rfind("\n", 0, begin) + 1
         finish = candidate.find("\n", end)
         candidate = candidate[start : len(candidate) if finish < 0 else finish]
-    lines = [line for line in candidate.splitlines(keepends=True) if "github-work-standard: version=" not in line]
+    lines = [
+        line for line in candidate.splitlines(keepends=True)
+        if not line.lstrip().startswith(("# github-work-standard: version=", "<!-- github-work-standard: version="))
+    ]
     return "".join(lines)
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from argparse import Namespace
@@ -150,7 +151,19 @@ class RendererTests(unittest.TestCase):
             args.dry_run = False
             with mock.patch.object(sync, "verify_source"):
                 self.assertEqual(sync.sync(args), 0)
-            self.assertTrue((checkout / "scripts" / "github_work.py").exists())
+            generated_helper = checkout / "scripts" / "github_work.py"
+            self.assertTrue(generated_helper.exists())
+            helper_spec = importlib.util.spec_from_file_location("generated_github_work", generated_helper)
+            assert helper_spec and helper_spec.loader
+            helper_module = importlib.util.module_from_spec(helper_spec)
+            sys.modules[helper_spec.name] = helper_module
+            helper_spec.loader.exec_module(helper_module)
+            helper_text = generated_helper.read_text()
+            helper_module.verify_content(
+                helper_text,
+                helper_module.provenance_from_text(helper_text),
+                managed_region=False,
+            )
             generated_skill = skill.read_text()
             self.assertTrue(generated_skill.startswith("---\nname: github-work\n"))
             self.assertIn("description:", generated_skill.split("---", 2)[1])
