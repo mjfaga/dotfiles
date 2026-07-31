@@ -1177,6 +1177,8 @@ class HelperTests(unittest.TestCase):
                 before="B",
                 after="C",
             )
+            current.data["operations"][1]["pr"] += "#issuecomment-123"
+            current.save()
             responses = restore_preflight_responses() + [{"body": "C"}]
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
@@ -1245,12 +1247,30 @@ class HelperTests(unittest.TestCase):
                 relation="sub-issue",
             )
             responses = restore_preflight_responses() + [
+                {"subIssuesSummary": {"total": 1}, "blockedBy": []},
                 work.CommandResult(returncode=1, stderr="source issue not found"),
             ]
             with self.assertRaisesRegex(work.WorkError, "relationship restore failed"):
                 work.command_restore(
                     Namespace(receipt=path), FakeRunner(responses), current,
                 )
+
+    def test_restore_treats_exact_label_http_404_as_already_deleted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("label-created", repo="sample-space/sample-app", name="type:task")
+            responses = restore_preflight_responses() + [
+                work.CommandResult(returncode=1, stderr="gh: Not Found (HTTP 404)"),
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
+            self.assertEqual(current.data["operations"][0]["status"], "restored")
 
     def test_restore_uses_exact_label_lookup_before_definition_delete(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1783,7 +1803,10 @@ class HelperTests(unittest.TestCase):
     def test_relationship_restore_fails_on_unknown_error(self):
         current = receipt()
         current.add("relationship-added", relation="sub-issue", source="sample-space/sample-app#1", target="sample-space/sample-app#2")
-        responses = restore_preflight_responses() + [work.CommandResult(returncode=1, stderr="permission denied")]
+        responses = restore_preflight_responses() + [
+            {"subIssuesSummary": {"total": 1}, "blockedBy": []},
+            work.CommandResult(returncode=1, stderr="permission denied"),
+        ]
         with self.assertRaises(work.WorkError):
             work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
 

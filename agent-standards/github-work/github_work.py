@@ -258,6 +258,8 @@ class Receipt:
             raise WorkError(f"invalid receipt operation: {kind}")
         if "issue" in details and isinstance(details["issue"], str):
             details["issue"] = canonical_issue_reference(details["issue"])
+        if "pr" in details and isinstance(details["pr"], str):
+            details["pr"] = canonical_pr_reference(details["pr"])
         self.data["operations"].append({
             "operation_id": str(uuid.uuid4()),
             "status": "active",
@@ -463,6 +465,11 @@ def parse_pr_url(value: str) -> tuple[str, int]:
     if not match:
         raise WorkError(f"expected pull request URL: {value}")
     return match.group(1), int(match.group(2))
+
+
+def canonical_pr_reference(value: str) -> str:
+    repo, number = parse_pr_url(value)
+    return f"https://github.com/{repo}/pull/{number}"
 
 
 def json_print(value: Any) -> None:
@@ -1433,8 +1440,13 @@ def restore_pr_body(
     simulated_bodies: dict[str, str] | None = None,
 ) -> bool:
     pr = operation["pr"]
-    if runner.dry_run and simulated_bodies is not None and pr in simulated_bodies:
-        body = simulated_bodies[pr]
+    simulation_key = canonical_pr_reference(pr)
+    if (
+        runner.dry_run
+        and simulated_bodies is not None
+        and simulation_key in simulated_bodies
+    ):
+        body = simulated_bodies[simulation_key]
     else:
         current = runner.json(["pr", "view", pr, "--json", "body"])
         if not isinstance(current, dict):
@@ -1447,7 +1459,7 @@ def restore_pr_body(
     with temporary_body(operation["before"]) as path:
         runner.run(["pr", "edit", pr, "--body-file", path], mutate=True)
     if runner.dry_run and simulated_bodies is not None:
-        simulated_bodies[pr] = operation["before"]
+        simulated_bodies[simulation_key] = operation["before"]
     return True
 
 
@@ -1571,25 +1583,49 @@ def command_restore(
                             or "label reapplication failed"
                         )
         elif kind == "relationship-added":
-            flag = "--remove-sub-issue" if operation["relation"] == "sub-issue" else "--remove-blocked-by"
-            result = runner.run(["issue", "edit", operation["source"], flag, operation["target"]], mutate=True, check=False)
-            if result.returncode == 0:
-                mutated = True
-            else:
-                detail = f"{result.stderr}\n{result.stdout}".lower()
+            state = issue_state(runner, operation["source"])
+            if operation["relation"] == "sub-issue":
+                summary = state.get("subIssuesSummary")
+                if not isinstance(summary, dict) or not isinstance(summary.get("total"), int):
+                    raise WorkError("relationship response lacks subIssuesSummary.total")
+                relationship_present = summary["total"] > 0
+                flag = "--remove-sub-issue"
                 relationship_markers = (
-                    ("sub-issue not found", "no sub-issue", "not a sub-issue")
-                    if operation["relation"] == "sub-issue"
-                    else ("blocked-by not found", "no blocked-by", "not blocked")
+                    "sub-issue not found", "no sub-issue", "not a sub-issue"
                 )
-                if not any(
-                    marker in detail
-                    for marker in (*relationship_markers, "no relationship", "not related")
-                ):
-                    raise WorkError(
-                        f"relationship restore failed: "
-                        f"{result.stderr.strip() or result.stdout.strip()}"
-                    )
+            else:
+                blocked_by = state.get("blockedBy")
+                if not isinstance(blocked_by, list):
+                    raise WorkError("relationship response lacks blockedBy")
+                target = canonical_issue_reference(operation["target"])
+                relationship_present = any(
+                    isinstance(blocker, dict)
+                    and isinstance(blocker.get("url"), str)
+                    and canonical_issue_reference(blocker["url"]) == target
+                    for blocker in blocked_by
+                )
+                flag = "--remove-blocked-by"
+                relationship_markers = (
+                    "blocked-by not found", "no blocked-by", "not blocked"
+                )
+            if relationship_present:
+                result = runner.run(
+                    ["issue", "edit", operation["source"], flag, operation["target"]],
+                    mutate=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    mutated = True
+                else:
+                    detail = f"{result.stderr}\n{result.stdout}".lower()
+                    if not any(
+                        marker in detail
+                        for marker in (*relationship_markers, "no relationship", "not related")
+                    ):
+                        raise WorkError(
+                            f"relationship restore failed: "
+                            f"{result.stderr.strip() or result.stdout.strip()}"
+                        )
         elif kind == "issue-created":
             state = issue_state(runner, operation["issue"])
             if str(state.get("state")).upper() == "OPEN":
@@ -1606,10 +1642,9 @@ def command_restore(
             label_exists = label_result.returncode == 0
             if not label_exists:
                 detail = f"{label_result.stderr}\n{label_result.stdout}".lower()
-                if not any(
-                    marker in detail
-                    for marker in ("label not found", "label does not exist", "unknown label")
-                ):
+                # Repository preflight already established access, so HTTP 404 identifies the
+                # exact label resource as absent rather than an inaccessible repository.
+                if "(http 404)" not in detail:
                     raise WorkError(
                         f"cannot verify label {operation['name']} in {operation['repo']}: "
                         f"{label_result.stderr.strip() or label_result.stdout.strip()}"
