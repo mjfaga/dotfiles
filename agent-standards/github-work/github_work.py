@@ -668,7 +668,7 @@ def restore_pr_body(runner: GhRunner, operation: dict[str, Any]) -> bool:
         raise WorkError(f"refusing to overwrite independently changed PR body: {operation['pr']}")
     with temporary_body(operation["before"]) as path:
         runner.run(["pr", "edit", operation["pr"], "--body-file", path], mutate=True)
-    return not runner.dry_run
+    return True
 
 
 def receipt_repositories(receipt: Receipt) -> set[str]:
@@ -694,6 +694,11 @@ def command_restore(
     restored = 0
     already_restored = 0
     skipped_in_use = 0
+    pending_issue_label_removals = {
+        (operation["issue"], operation["name"])
+        for operation in receipt.data["operations"]
+        if operation["status"] == "active" and operation["kind"] == "issue-label-added"
+    }
     for operation in reversed(receipt.data["operations"]):
         if operation["status"] == "restored":
             already_restored += 1
@@ -706,17 +711,17 @@ def command_restore(
             state = issue_state(runner, operation["issue"])
             if operation["login"] in issue_assignees(state):
                 runner.run(["issue", "edit", operation["issue"], "--remove-assignee", operation["login"]], mutate=True)
-                mutated = not runner.dry_run
+                mutated = True
         elif kind == "issue-label-added":
             state = issue_state(runner, operation["issue"])
             if operation["name"] in issue_labels(state):
                 runner.run(["issue", "edit", operation["issue"], "--remove-label", operation["name"]], mutate=True)
-                mutated = not runner.dry_run
+                mutated = True
         elif kind == "relationship-added":
             flag = "--remove-sub-issue" if operation["relation"] == "sub-issue" else "--remove-blocked-by"
             result = runner.run(["issue", "edit", operation["source"], flag, operation["target"]], mutate=True, check=False)
             if result.returncode == 0:
-                mutated = not runner.dry_run
+                mutated = True
             else:
                 detail = f"{result.stderr}\n{result.stdout}".lower()
                 if not any(marker in detail for marker in ("not found", "does not exist", "no relationship", "not related")):
@@ -725,7 +730,7 @@ def command_restore(
             state = issue_state(runner, operation["issue"])
             if str(state.get("state")).upper() == "OPEN":
                 runner.run(["issue", "close", operation["issue"], "--reason", "not planned"], mutate=True)
-                mutated = not runner.dry_run
+                mutated = True
         elif kind == "label-created":
             current = runner.json([
                 "label", "list", "--repo", operation["repo"], "--limit", "200", "--json", "name",
@@ -735,7 +740,7 @@ def command_restore(
             if operation["name"] in {item.get("name") for item in current if isinstance(item, dict)}:
                 issue_uses = runner.json([
                     "issue", "list", "--repo", operation["repo"], "--state", "all",
-                    "--label", operation["name"], "--limit", "1", "--json", "url",
+                    "--label", operation["name"], "--limit", "100", "--json", "url",
                 ])
                 pr_uses = runner.json([
                     "pr", "list", "--repo", operation["repo"], "--state", "all",
@@ -743,11 +748,16 @@ def command_restore(
                 ])
                 if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
                     raise WorkError(f"cannot verify label usage in {operation['repo']}")
+                if runner.dry_run:
+                    issue_uses = [
+                        use for use in issue_uses
+                        if (use.get("url"), operation["name"]) not in pending_issue_label_removals
+                    ]
                 if issue_uses or pr_uses:
                     skipped_in_use += 1
                     continue
                 runner.run(["label", "delete", operation["name"], "--repo", operation["repo"], "--yes"], mutate=True)
-                mutated = not runner.dry_run
+                mutated = True
         if not runner.dry_run:
             receipt.mark_restored(operation, mutated=mutated)
         restored += int(mutated)
@@ -791,30 +801,72 @@ def command_work_graph_create(
 
 
 def provenance_from_text(text: str) -> dict[str, str]:
-    match = re.search(
-        r"github-work-standard: version=(\S+) source=([0-9a-f]{40}) target=([0-9a-f]{64})",
+    matches = list(re.finditer(
+        r"github-work-standard: version=(\S+) source=([0-9a-f]{40}) "
+        r"target=([0-9a-f]{64}) content=([0-9a-f]{64})",
         text,
-    )
-    if not match:
-        raise WorkError("github-work-standard provenance marker is missing or malformed")
-    return {"version": match.group(1), "source": match.group(2), "target": match.group(3)}
+    ))
+    if len(matches) != 1:
+        raise WorkError("github-work-standard requires exactly one valid provenance marker")
+    match = matches[0]
+    return {
+        "version": match.group(1),
+        "source": match.group(2),
+        "target": match.group(3),
+        "content": match.group(4),
+    }
+
+
+def content_without_provenance(text: str, *, managed_region: bool) -> str:
+    candidate = text
+    if managed_region:
+        if candidate.count("BEGIN github-work-standard") != 1 or candidate.count("END github-work-standard") != 1:
+            raise WorkError("github-work-standard requires exactly one managed region")
+        begin = candidate.find("BEGIN github-work-standard")
+        end = candidate.find("END github-work-standard", begin + 1)
+        marker = candidate.find("github-work-standard: version=")
+        if begin < 0 or end < 0 or not begin < marker < end:
+            raise WorkError("github-work-standard provenance must be inside its managed region")
+        start = candidate.rfind("\n", 0, begin) + 1
+        finish = candidate.find("\n", end)
+        candidate = candidate[start : len(candidate) if finish < 0 else finish]
+    lines = [line for line in candidate.splitlines(keepends=True) if "github-work-standard: version=" not in line]
+    return "".join(lines)
+
+
+def verify_content(text: str, marker: dict[str, str], *, managed_region: bool) -> None:
+    content = content_without_provenance(text, managed_region=managed_region)
+    actual = hashlib.sha256(content.encode()).hexdigest()
+    if actual != marker["content"]:
+        raise WorkError("github-work-standard managed content digest does not match provenance")
 
 
 def command_standard_check(args: argparse.Namespace) -> int:
-    helper = provenance_from_text(Path(__file__).read_text())
-    checked: dict[str, str] = {}
+    helper_text = Path(__file__).read_text()
+    helper = provenance_from_text(helper_text)
+    verify_content(helper_text, helper, managed_region=False)
+    identity = {key: helper[key] for key in ("version", "source", "target")}
+    checked: dict[str, str] = {"helper": str(Path(__file__))}
     paths = [
         ("agents", args.agents_path),
         ("skill", args.skill_path),
         ("pull-request-template", args.pr_template_path),
-        *((f"issue-form-{index + 1}", path) for index, path in enumerate(args.issue_form_path)),
+        *((f"issue-form-{index + 1}", path) for index, path in enumerate(
+            args.issue_form_path or [
+                ".github/ISSUE_TEMPLATE/bug.yml",
+                ".github/ISSUE_TEMPLATE/feature.yml",
+                ".github/ISSUE_TEMPLATE/task.yml",
+            ]
+        )),
     ]
     for label, raw_path in paths:
         path = Path(raw_path)
         if not path.is_file():
             raise WorkError(f"standard-check path is missing: {path}")
-        marker = provenance_from_text(path.read_text())
-        if marker != helper:
+        text = path.read_text()
+        marker = provenance_from_text(text)
+        verify_content(text, marker, managed_region=True)
+        if {key: marker[key] for key in identity} != identity:
             raise WorkError(f"{label} provenance does not match helper provenance")
         checked[label] = str(path)
     if args.expected_version and helper["version"] != args.expected_version:
@@ -889,11 +941,7 @@ def build_parser() -> argparse.ArgumentParser:
     standard_check.add_argument(
         "--issue-form-path",
         action="append",
-        default=[
-            ".github/ISSUE_TEMPLATE/bug.yml",
-            ".github/ISSUE_TEMPLATE/feature.yml",
-            ".github/ISSUE_TEMPLATE/task.yml",
-        ],
+        default=None,
     )
     standard_check.add_argument("--expected-version")
     standard_check.add_argument("--expected-source-sha")

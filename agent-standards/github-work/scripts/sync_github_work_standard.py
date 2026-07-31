@@ -116,15 +116,26 @@ def merge_marker(original: str, block: str) -> str:
     return original + separator + block + "\n"
 
 
-def provenance(version: str, source_sha: str, target_digest: str, prefix: str = "<!--") -> str:
+def provenance(
+    version: str,
+    source_sha: str,
+    target_digest: str,
+    content_digest: str,
+    prefix: str = "<!--",
+) -> str:
+    payload = (
+        f"github-work-standard: version={version} source={source_sha} "
+        f"target={target_digest} content={content_digest}"
+    )
     if prefix == "#":
-        return f"# github-work-standard: version={version} source={source_sha} target={target_digest}\n"
-    return f"<!-- github-work-standard: version={version} source={source_sha} target={target_digest} -->\n"
+        return f"# {payload}\n"
+    return f"<!-- {payload} -->\n"
 
 
 def render_marked_source(source: str, version: str, source_sha: str, target_digest: str) -> str:
     block = marker_payload(source)
-    marker = provenance(version, source_sha, target_digest).rstrip("\n")
+    content_digest = hashlib.sha256(block.encode()).hexdigest()
+    marker = provenance(version, source_sha, target_digest, content_digest).rstrip("\n")
     return block.replace(BEGIN, f"{BEGIN}\n{marker}", 1)
 
 
@@ -147,8 +158,7 @@ def form_header(
 ) -> str:
     managed_labels = list(dict.fromkeys(labels or []))
     lines = [f"# {BEGIN}"]
-    if provenance_marker:
-        lines.append(f"# {provenance_marker}")
+    provenance_index = len(lines)
     if classification == "native-type":
         lines.append(f"type: {kind.title()}")
     else:
@@ -159,6 +169,10 @@ def form_header(
         lines.append("labels:")
         lines.extend(f"  - {json.dumps(label)}" for label in managed_labels)
     lines.append(f"# {END}")
+    if provenance_marker:
+        unmanaged_block = "\n".join(lines)
+        content_digest = hashlib.sha256(unmanaged_block.encode()).hexdigest()
+        lines.insert(provenance_index, f"# {provenance_marker} content={content_digest}")
     return "\n".join(lines)
 
 
@@ -249,7 +263,8 @@ def merge_form(
 
 def marked_helper(source: str, version: str, source_sha: str, target_digest: str) -> str:
     lines = source.splitlines(keepends=True)
-    marker = provenance(version, source_sha, target_digest, prefix="#")
+    content_digest = hashlib.sha256(source.encode()).hexdigest()
+    marker = provenance(version, source_sha, target_digest, content_digest, prefix="#")
     if lines and lines[0].startswith("#!"):
         return lines[0] + marker + "".join(lines[1:])
     return marker + source

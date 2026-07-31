@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import hashlib
 import json
 import os
 import stat
@@ -285,6 +286,28 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue())["skipped_labels_in_use"], 1)
         self.assertEqual(current.data["operations"][0]["status"], "active")
 
+    def test_restore_dry_run_simulates_pending_issue_label_removal(self):
+        current = receipt()
+        issue = "https://github.com/sample-space/sample-app/issues/9"
+        current.add("label-created", repo="sample-space/sample-app", name="needs-owner")
+        current.add("issue-label-added", issue=issue, name="needs-owner")
+        responses = managed_preflight_responses() + [
+            {"labels": [{"name": "needs-owner"}], "assignees": []},
+            [{"name": "needs-owner"}],
+            [{"url": issue}],
+            [],
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(
+                Namespace(receipt="unused"), FakeRunner(responses, dry_run=True), config(), current
+            )
+        payload = json.loads(output.getvalue())
+        self.assertEqual(result, 0)
+        self.assertEqual(payload["restored_operations"], 2)
+        self.assertEqual(payload["skipped_labels_in_use"], 0)
+        self.assertTrue(all(operation["status"] == "active" for operation in current.data["operations"]))
+
     def test_relationship_restore_fails_on_unknown_error(self):
         current = receipt()
         current.add("relationship-added", relation="sub-issue", source="sample-space/sample-app#1", target="sample-space/sample-app#2")
@@ -292,8 +315,24 @@ class HelperTests(unittest.TestCase):
         with self.assertRaises(work.WorkError):
             work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
 
-    def test_standard_check_requires_matching_provenance(self):
-        marker = "# github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST + "\n"
+    def test_standard_check_requires_matching_provenance_and_content(self):
+        helper_source = "#!/usr/bin/env python3\nprint('sample')\n"
+        helper_digest = hashlib.sha256(helper_source.encode()).hexdigest()
+        helper_marker = (
+            "# github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST
+            + " content=" + helper_digest + "\n"
+        )
+        helper_text = "#!/usr/bin/env python3\n" + helper_marker + "print('sample')\n"
+        managed_source = "<!-- BEGIN github-work-standard -->\nmanaged content\n<!-- END github-work-standard -->"
+        managed_digest = hashlib.sha256(managed_source.encode()).hexdigest()
+        managed_marker = (
+            "<!-- github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST
+            + " content=" + managed_digest + " -->"
+        )
+        managed_text = managed_source.replace(
+            "<!-- BEGIN github-work-standard -->",
+            "<!-- BEGIN github-work-standard -->\n" + managed_marker,
+        )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             helper = root / "github_work.py"
@@ -301,12 +340,12 @@ class HelperTests(unittest.TestCase):
             skill = root / "SKILL.md"
             pr_template = root / "pull_request_template.md"
             issue_forms = [root / name for name in ("bug.yml", "feature.yml", "task.yml")]
-            helper.write_text(marker)
-            agents.write_text("x" * 12000 + "\n<!-- github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST + " -->\n")
-            skill.write_text(agents.read_text())
-            pr_template.write_text(agents.read_text())
+            helper.write_text(helper_text)
+            agents.write_text("x" * 12000 + "\n" + managed_text)
+            skill.write_text(managed_text)
+            pr_template.write_text(managed_text)
             for form in issue_forms:
-                form.write_text(agents.read_text())
+                form.write_text(managed_text)
             args = Namespace(
                 agents_path=str(agents), skill_path=str(skill), pr_template_path=str(pr_template),
                 issue_form_path=[str(path) for path in issue_forms], expected_version=None,
@@ -314,7 +353,7 @@ class HelperTests(unittest.TestCase):
             )
             with mock.patch.object(work, "__file__", str(helper)), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(work.command_standard_check(args), 0)
-            skill.write_text(skill.read_text().replace(DIGEST, "c" * 64))
+            skill.write_text(skill.read_text().replace("managed content", "changed content"))
             with mock.patch.object(work, "__file__", str(helper)), self.assertRaises(work.WorkError):
                 work.command_standard_check(args)
 
