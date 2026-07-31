@@ -43,28 +43,30 @@ Assignment preserves existing assignees, adds a uniquely resolved owner when nee
 `needs-owner` only when an unassigned issue's lookup has zero or multiple human candidates. When an
 issue becomes human-owned, assignment removes a stale `needs-owner` label with a reversible receipt
 operation. Map ambiguity on an owned issue reports `existing-owner`; `already-assigned` results use
-stable `assignee`, `assignees`, and `candidates` keys. Every assignment result includes
-`needs_owner_removed`; `true` means removal occurred or would occur under `--dry-run`, while
-escalation and absent-label paths report `false`. A bot-only matched tier remains fail-closed and
-reports its source. An empty `--receipt`, `--title`, `--assignee`, `--area`, `--parent`,
-`--blocking`, or `--body-file`, or `--area` without `--from-ownership-map`, exits `2`. Empty target
-or ownership config exits `2` on commands that consume configuration; `standard-check` ignores both,
-while `restore` audits target config availability and ignores ownership config. Other commands fail
-fast on a supplied empty or malformed ownership config even when only a later assignment step uses
-it.
+stable `assignee`, `assignees`, and `candidates` keys. Every assignment result, including partials,
+includes `needs_owner_removed`; `true` means removal occurred or would occur under `--dry-run`,
+`false` means no removal, and `null` means removal is in flight or unknown. A bot-only matched tier
+remains fail-closed and reports its source. An empty `--receipt`, `--title`, `--assignee`, `--area`,
+`--parent`, `--blocking`, or `--body-file`, or `--area` without `--from-ownership-map`, exits `2`.
+Empty target or ownership config exits `2` on commands that consume configuration; `standard-check`
+ignores both, while `restore` audits target config availability and ignores ownership config. Other
+commands fail fast on a supplied empty or malformed ownership config even when only a later
+assignment step uses it.
 
-A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
-is exit `2`. Restore does not require the private target config and tolerates a supplied config path
-that is missing, empty, unreadable, or invalid during rollback. Its output and schema-v3
-per-operation audit metadata distinguish an unavailable requested config from a deliberately
-config-free restore. `config_status` is `ok`, `absent`, `empty`, `unreadable`, or `invalid`; older
-receipts without these audit fields mean unknown. It exits `3` when labels remain in use; resolve
-those references and retry. Restore output distinguishes `empty`, `already_restored`, `restored`,
-and `labels_in_use`, and reports both restored and mutated operation counts. Receipts remain
-compatible across helper releases with a supported receipt schema even if the repository is later
-removed from active target configuration. Drain outstanding newer-schema receipts before pinning an
-older standard version. Schema-v3 operations require creation and restore attribution. Each new
-operation records the active helper source and private-config digests as audit metadata.
+A second restore and a receipt from a successful no-op mutation are no-ops. Restore reports
+`retained_labels` with `retained_label_definitions` when a receipt-created label definition must
+remain to preserve a reversed removal. A missing receipt path is exit `2`. Restore does not require
+the private target config and tolerates a supplied config path that is missing, empty, unreadable,
+or invalid during rollback. Its output and schema-v3 per-operation audit metadata distinguish an
+unavailable requested config from a deliberately config-free restore. `config_status` is `ok`,
+`absent`, `empty`, `unreadable`, or `invalid`; older receipts without these audit fields mean
+unknown. It exits `3` when labels remain in use; resolve those references and retry. Restore output
+distinguishes `empty`, `already_restored`, `restored`, and `labels_in_use`, and reports both
+restored and mutated operation counts. Receipts remain compatible across helper releases with a
+supported receipt schema even if the repository is later removed from active target configuration.
+Drain outstanding newer-schema receipts before pinning an older standard version. Schema-v3
+operations require creation and restore attribution. Each new operation records the active helper
+source and private-config digests as audit metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means

@@ -881,6 +881,7 @@ class HelperTests(unittest.TestCase):
                     "assignee": "sample-user",
                     "dry_run": False,
                     "issue": "sample-space/sample-app#4",
+                    "needs_owner_removed": False,
                     "ownership_source": "explicit",
                     "partial": True,
                     "stage": "audit",
@@ -1227,6 +1228,9 @@ class HelperTests(unittest.TestCase):
                 work.CommandResult(),
                 {"labels": [{"name": "needs-owner"}], "assignees": []},
                 work.CommandResult(),
+                [{"name": "needs-owner"}],
+                [{"url": "https://github.com/sample-space/sample-app/issues/7"}],
+                [],
             ]
             real_output = io.StringIO()
             with contextlib.redirect_stdout(real_output):
@@ -1236,13 +1240,19 @@ class HelperTests(unittest.TestCase):
                     real,
                 )
             self.assertEqual(result, 0)
-            self.assertEqual(json.loads(real_output.getvalue())["skipped_labels_in_use"], 0)
+            real_payload = json.loads(real_output.getvalue())
+            self.assertEqual(real_payload["skipped_labels_in_use"], 0)
+            self.assertEqual(real_payload["retained_label_definitions"], 1)
+            self.assertEqual(real_payload["reason"], "retained_labels")
             self.assertTrue(all(op["status"] == "restored" for op in real.data["operations"]))
 
             dry = make_receipt(str(Path(directory) / "dry.json"))
             dry_responses = restore_preflight_responses() + [
                 {"labels": [], "assignees": []},
                 {"labels": [{"name": "needs-owner"}], "assignees": []},
+                [{"name": "needs-owner"}],
+                [],
+                [],
             ]
             dry_output = io.StringIO()
             with contextlib.redirect_stdout(dry_output):
@@ -1252,7 +1262,68 @@ class HelperTests(unittest.TestCase):
                     dry,
                 )
             self.assertEqual(result, 0)
-            self.assertEqual(json.loads(dry_output.getvalue())["skipped_labels_in_use"], 0)
+            dry_payload = json.loads(dry_output.getvalue())
+            self.assertEqual(dry_payload["skipped_labels_in_use"], 0)
+            self.assertEqual(dry_payload["retained_label_definitions"], 1)
+            self.assertEqual(dry_payload["reason"], "retained_labels")
+
+    def test_restore_deletes_unused_definition_after_same_issue_lifecycle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("label-created", repo="sample-space/sample-app", name="needs-owner")
+            current.add(
+                "issue-label-added", issue="sample-space/sample-app#4", name="needs-owner",
+            )
+            current.add(
+                "issue-label-removed", issue="sample-space/sample-app#4", name="needs-owner",
+            )
+            responses = restore_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                work.CommandResult(),
+                {"labels": [{"name": "needs-owner"}], "assignees": []},
+                work.CommandResult(),
+                [{"name": "needs-owner"}],
+                [],
+                [],
+                work.CommandResult(),
+            ]
+            runner = FakeRunner(responses)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertEqual(result, 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["reason"], "restored")
+            self.assertEqual(payload["retained_label_definitions"], 0)
+            self.assertIn(
+                ["label", "delete", "needs-owner", "--repo", "sample-space/sample-app", "--yes"],
+                [call[0] for call in runner.calls],
+            )
+
+    def test_restore_retry_retains_definition_for_already_reapplied_label(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("label-created", repo="sample-space/sample-app", name="needs-owner")
+            current.add(
+                "issue-label-removed", issue="sample-space/sample-app#7", name="needs-owner",
+            )
+            current.mark_restored(current.data["operations"][1], mutated=True)
+            responses = restore_preflight_responses() + [
+                [{"name": "needs-owner"}],
+                [{"url": "https://github.com/sample-space/sample-app/issues/7"}],
+                [],
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+            self.assertEqual(result, 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["reason"], "retained_labels")
+            self.assertEqual(payload["retained_label_definitions"], 1)
 
     def test_restore_tolerates_missing_definition_for_removed_label(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1129,6 +1129,7 @@ def add_needs_owner(
                 "dry_run": runner.dry_run,
                 "issue": issue,
                 "name": NEEDS_OWNER_LABEL[0],
+                "needs_owner_removed": False,
                 "ownership_source": ownership_source,
                 "partial": True,
                 "repo": repo,
@@ -1146,6 +1147,7 @@ def add_needs_owner(
                     "dry_run": runner.dry_run,
                     "issue": issue,
                     "name": NEEDS_OWNER_LABEL[0],
+                    "needs_owner_removed": False,
                     "ownership_source": ownership_source,
                     "partial": True,
                     "repo": repo,
@@ -1162,6 +1164,7 @@ def add_needs_owner(
             "issue": issue,
             "label_created": label_created,
             "name": NEEDS_OWNER_LABEL[0],
+            "needs_owner_removed": False,
             "ownership_source": ownership_source,
             "partial": True,
             "repo": repo,
@@ -1179,6 +1182,7 @@ def add_needs_owner(
                 "issue": issue,
                 "label_created": label_created,
                 "name": NEEDS_OWNER_LABEL[0],
+                "needs_owner_removed": False,
                 "ownership_source": ownership_source,
                 "partial": True,
                 "repo": repo,
@@ -1227,7 +1231,10 @@ def remove_needs_owner(
         )
         if result.returncode != 0:
             detail = f"{result.stderr}\n{result.stdout}".lower()
-            if any(marker in detail for marker in ("not found", "does not exist", "not labeled")):
+            if any(
+                marker in detail
+                for marker in ("label not found", "label does not exist", "not labeled")
+            ):
                 return False
             raise WorkError(result.stderr.strip() or result.stdout.strip() or "label removal failed")
     except WorkError:
@@ -1236,6 +1243,7 @@ def remove_needs_owner(
             "action": "remove-label",
             "issue": issue,
             "name": NEEDS_OWNER_LABEL[0],
+            "needs_owner_removed": None,
             "partial": True,
             "stage": "mutation-result-unknown",
         })
@@ -1249,6 +1257,7 @@ def remove_needs_owner(
                 "action": "remove-label",
                 "issue": issue,
                 "name": NEEDS_OWNER_LABEL[0],
+                "needs_owner_removed": None,
                 "partial": True,
                 "stage": "audit",
             })
@@ -1333,7 +1342,9 @@ def command_assign(
     if state is None:
         state = issue_state(runner, args.issue)
     if assignee in issue_assignees(state):
-        assignees = sorted(issue_assignees(state))
+        assignees = sorted(
+            login for login in issue_assignees(state) if not login.endswith("[bot]")
+        )
         needs_owner_removed = remove_needs_owner(
             runner,
             args.issue,
@@ -1370,6 +1381,7 @@ def command_assign(
             "assignee": assignee,
             "dry_run": runner.dry_run,
             "issue": args.issue,
+            "needs_owner_removed": False,
             "ownership_source": ownership_source,
             "partial": True,
             "stage": "mutation-result-unknown",
@@ -1384,6 +1396,7 @@ def command_assign(
                 "assignee": assignee,
                 "dry_run": runner.dry_run,
                 "issue": args.issue,
+                "needs_owner_removed": False,
                 "ownership_source": ownership_source,
                 "partial": True,
                 "stage": "audit",
@@ -1397,7 +1410,9 @@ def command_assign(
         {
             "assignee": assignee,
             "assignee_added": not runner.dry_run,
-            "assignees": sorted(set(issue_assignees(state)) | {assignee}),
+            "assignees": sorted({
+                login for login in issue_assignees(state) if not login.endswith("[bot]")
+            } | {assignee}),
             "candidates": [assignee],
             "ownership_source": ownership_source,
         },
@@ -1456,6 +1471,7 @@ def command_restore(
             "mutated_operations": 0,
             "reason": "empty",
             "restored_operations": 0,
+            "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
             "total_operations": 0,
         })
@@ -1470,6 +1486,7 @@ def command_restore(
             "mutated_operations": 0,
             "reason": "already_restored",
             "restored_operations": 0,
+            "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
             "total_operations": len(receipt.data["operations"]),
         })
@@ -1481,10 +1498,16 @@ def command_restore(
     mutated_operations = 0
     already_restored = 0
     skipped_in_use = 0
+    retained_label_definitions = 0
     pending_issue_label_removals = {
         (canonical_issue_reference(operation["issue"]), operation["name"])
         for operation in receipt.data["operations"]
         if operation["status"] == "active" and operation["kind"] == "issue-label-added"
+    }
+    all_issue_label_reapplications = {
+        (canonical_issue_reference(operation["issue"]), operation["name"])
+        for operation in receipt.data["operations"]
+        if operation["kind"] == "issue-label-removed"
     }
     pending_issue_label_reapplications = {
         (canonical_issue_reference(operation["issue"]), operation["name"])
@@ -1544,41 +1567,53 @@ def command_restore(
                 runner.run(["issue", "close", operation["issue"], "--reason", "not planned"], mutate=True)
                 mutated = True
         elif kind == "label-created":
-            retained_for_reapplication = any(
-                parse_issue_url(issue)[0] == operation["repo"] and name == operation["name"]
-                for issue, name in pending_issue_label_reapplications
-            )
-            if not retained_for_reapplication:
-                current = runner.json([
-                    "label", "list", "--repo", operation["repo"], "--limit", "200",
-                    "--json", "name",
+            current = runner.json([
+                "label", "list", "--repo", operation["repo"], "--limit", "200",
+                "--json", "name",
+            ])
+            if not isinstance(current, list):
+                raise WorkError(f"cannot verify labels in {operation['repo']}")
+            if operation["name"] in {
+                item.get("name") for item in current if isinstance(item, dict)
+            }:
+                issue_uses = runner.json([
+                    "issue", "list", "--repo", operation["repo"], "--state", "all",
+                    "--label", operation["name"], "--limit", "100", "--json", "url",
                 ])
-                if not isinstance(current, list):
-                    raise WorkError(f"cannot verify labels in {operation['repo']}")
-                if operation["name"] in {
-                    item.get("name") for item in current if isinstance(item, dict)
-                }:
-                    issue_uses = runner.json([
-                        "issue", "list", "--repo", operation["repo"], "--state", "all",
-                        "--label", operation["name"], "--limit", "100", "--json", "url",
-                    ])
-                    pr_uses = runner.json([
-                        "pr", "list", "--repo", operation["repo"], "--state", "all",
-                        "--label", operation["name"], "--limit", "1", "--json", "url",
-                    ])
-                    if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
-                        raise WorkError(f"cannot verify label usage in {operation['repo']}")
-                    if runner.dry_run:
-                        issue_uses = [
-                            use for use in issue_uses
-                            if (
-                                canonical_issue_reference(use.get("url", "")),
-                                operation["name"],
-                            ) not in pending_issue_label_removals
-                        ]
-                    if issue_uses or pr_uses:
+                pr_uses = runner.json([
+                    "pr", "list", "--repo", operation["repo"], "--state", "all",
+                    "--label", operation["name"], "--limit", "1", "--json", "url",
+                ])
+                if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
+                    raise WorkError(f"cannot verify label usage in {operation['repo']}")
+                observed_issue_uses = {
+                    canonical_issue_reference(use.get("url", ""))
+                    for use in issue_uses
+                    if isinstance(use, dict)
+                }
+                if runner.dry_run:
+                    observed_issue_uses.update(
+                        issue for issue, name in pending_issue_label_reapplications
+                        if name == operation["name"]
+                        and parse_issue_url(issue)[0] == operation["repo"]
+                    )
+                    observed_issue_uses.difference_update(
+                        issue for issue, name in pending_issue_label_removals
+                        if name == operation["name"]
+                        and parse_issue_url(issue)[0] == operation["repo"]
+                    )
+                reapplication_targets = {
+                    issue for issue, name in all_issue_label_reapplications
+                    if name == operation["name"]
+                    and parse_issue_url(issue)[0] == operation["repo"]
+                }
+                if observed_issue_uses or pr_uses:
+                    if not pr_uses and observed_issue_uses <= reapplication_targets:
+                        retained_label_definitions += 1
+                    else:
                         skipped_in_use += 1
                         continue
+                else:
                     runner.run([
                         "label", "delete", operation["name"], "--repo", operation["repo"],
                         "--yes",
@@ -1595,8 +1630,13 @@ def command_restore(
         "config_unavailable": receipt.config_unavailable,
         "dry_run": runner.dry_run,
         "mutated_operations": mutated_operations,
-        "reason": "labels_in_use" if skipped_in_use else "restored",
+        "reason": (
+            "labels_in_use" if skipped_in_use
+            else "retained_labels" if retained_label_definitions
+            else "restored"
+        ),
         "restored_operations": restored,
+        "retained_label_definitions": retained_label_definitions,
         "skipped_labels_in_use": skipped_in_use,
         "total_operations": len(receipt.data["operations"]),
     })
