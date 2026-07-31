@@ -35,13 +35,14 @@ multiple candidates.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
 is exit `2`. Restore does not require the private target config and tolerates a supplied config path
-that is unavailable during rollback. Its output and per-operation audit metadata distinguish an
-unavailable requested config from a deliberately config-free restore. It exits `3` when labels
-remain in use; resolve those references and retry. Restore output distinguishes `empty`,
-`already_restored`, `restored`, and `labels_in_use`, and reports both restored and mutated operation
-counts. Receipts remain compatible across helper releases with the same receipt schema even if the
-repository is later removed from active target configuration. Each new operation records the active
-helper source and private-config digests as audit metadata.
+that is missing, empty, or invalid during rollback. Its output and schema-v2 per-operation audit
+metadata distinguish an unavailable requested config from a deliberately config-free restore;
+schema-v1 receipts without those fields mean unknown. It exits `3` when labels remain in use;
+resolve those references and retry. Restore output distinguishes `empty`, `already_restored`,
+`restored`, and `labels_in_use`, and reports both restored and mutated operation counts. Receipts
+remain compatible across helper releases with the same receipt schema even if the repository is
+later removed from active target configuration. Each new operation records the active helper source
+and private-config digests as audit metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
@@ -50,13 +51,16 @@ live GitHub state. PR-body recovery data is written beside the receipt at the pr
 `recovery_path`, not stdout. A primary-write failure records errno/detail and tries a mode-0600
 system-temp path. `recovery_fallback_used` is true only when that write succeeds. Recovery payloads
 always include stable primary/fallback attempted-path, errno, and detail keys with nulls where they
-do not apply. If both writes fail, `recovery_path` is null. Delete a recovery file after
-reconciliation.
+do not apply. `recovery_error` is one of null, `receipt-path-unavailable`, `primary-write-failed`,
+or `primary-and-fallback-write-failed`. If both writes fail, `recovery_path` is null. Delete a
+recovery file after reconciliation.
 
 For `labels ensure`, `created` contains receipt-backed labels; in dry-run output it contains planned
-labels. `failed_label` requires the action indicated by `stage`. Work-graph failures include
-receipt-backed `issues`, `failed_repo`, and the child's `failed_partial`. A `needs-owner` failure
-reports `label_created` when it made the shared label during that invocation.
+labels. `failed_label` requires the action indicated by `stage`. Issue-create partials include
+`relationship`, `relationship_added`, and `stage`. Work-graph failures include receipt-backed
+`issues`, `failed_repo`, and the child's `failed_partial`; dry-run issue objects are plans without
+URLs. A `needs-owner` failure reports `label_created` when it made the shared label during that
+invocation.
 
 Exit `0` means success or eligibility. Exit `1` means the read-only `preflight` or `finality`
 command found ineligibility. The mutating `pr-link --mode closes` finality gate also returns exit

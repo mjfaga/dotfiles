@@ -21,9 +21,9 @@ import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any, Iterable, Iterator, NoReturn, Sequence
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MIN_GH_VERSION = (2, 96, 0)
 MANAGED_LABELS = {
     "bug": ("type:bug", "B60205", "Unexpected problem or incorrect behavior"),
@@ -140,7 +140,7 @@ class Receipt:
         required = {"schema_version", "receipt_id", "source_sha", "config_digest", "operations"}
         if required - self.data.keys():
             raise WorkError("receipt is missing required metadata")
-        if self.data["schema_version"] != SCHEMA_VERSION:
+        if self.data["schema_version"] not in {1, SCHEMA_VERSION}:
             raise WorkError("unsupported receipt schema")
         if not isinstance(self.data["receipt_id"], str) or not self.data["receipt_id"]:
             raise WorkError("receipt_id must be a non-empty string")
@@ -197,6 +197,12 @@ class Receipt:
             ):
                 if boolean_field in operation and not isinstance(operation[boolean_field], bool):
                     raise WorkError(f"receipt operation {boolean_field} must be boolean")
+                if (
+                    self.data["schema_version"] >= 2
+                    and operation["status"] == "restored"
+                    and boolean_field not in operation
+                ):
+                    raise WorkError(f"receipt operation {boolean_field} is required")
 
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
@@ -416,7 +422,7 @@ def recovery_fields() -> dict[str, Any]:
 def recovery_error_fields(exc: BaseException, prefix: str, attempted_path: Path) -> dict[str, Any]:
     return {
         f"recovery_{prefix}_attempted_path": str(attempted_path),
-        f"recovery_{prefix}_detail": getattr(exc, "strerror", None) or str(exc),
+        f"recovery_{prefix}_detail": getattr(exc, "strerror", None) or str(exc) or None,
         f"recovery_{prefix}_errno": getattr(exc, "errno", None),
     }
 
@@ -636,6 +642,30 @@ def default_issue_body(kind: str, title: str) -> str:
     )
 
 
+def raise_issue_partial(
+    exc: WorkError,
+    args: argparse.Namespace,
+    created_url: str,
+    *,
+    emit: bool,
+    stage: str,
+    relationship: dict[str, str] | None = None,
+    relationship_added: bool | None = False,
+) -> NoReturn:
+    payload = {
+        "partial": True,
+        "relationship": relationship,
+        "relationship_added": relationship_added,
+        "repo": args.repo,
+        "stage": stage,
+        "type": args.type,
+        "url": created_url,
+    }
+    if emit:
+        json_print(payload)
+    raise PartialWorkError(str(exc), payload) from exc
+
+
 def command_issue_create(
     args: argparse.Namespace,
     runner: GhRunner,
@@ -659,7 +689,14 @@ def command_issue_create(
         validation = runner.run(["api", f"repos/{args.repo}/assignees/{args.assignee}"], check=False)
         if validation.returncode != 0:
             raise WorkError(f"not assignable in {args.repo}: {args.assignee}")
-    body = Path(args.body_file).read_text(encoding="utf-8") if args.body_file else default_issue_body(args.type, args.title)
+    try:
+        body = (
+            Path(args.body_file).read_text(encoding="utf-8")
+            if args.body_file
+            else default_issue_body(args.type, args.title)
+        )
+    except OSError as exc:
+        raise WorkError(f"cannot read issue body file: {exc}") from exc
     command = ["issue", "create", "--repo", args.repo, "--title", args.title]
     if target["classification"] == "native-type":
         command.extend(["--type", args.type.title()])
@@ -682,20 +719,57 @@ def command_issue_create(
     parse_issue_url(created_url)
     try:
         receipt.add("issue-created", issue=created_url)
-        if target["classification"] == "managed-label":
-            receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
-        if args.parent:
-            runner.run(["issue", "edit", args.parent, "--add-sub-issue", created_url], mutate=True)
-            receipt.add("relationship-added", relation="sub-issue", source=args.parent, target=created_url)
-        if args.blocking:
-            runner.run(["issue", "edit", args.blocking, "--add-blocked-by", created_url], mutate=True)
-            receipt.add("relationship-added", relation="blocked-by", source=args.blocking, target=created_url)
-        receipt.ensure_saved()
     except WorkError as exc:
-        payload = {"partial": True, "repo": args.repo, "type": args.type, "url": created_url}
-        if emit:
-            json_print(payload)
-        raise PartialWorkError(str(exc), payload) from exc
+        raise_issue_partial(exc, args, created_url, emit=emit, stage="audit")
+    if target["classification"] == "managed-label":
+        try:
+            receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
+        except WorkError as exc:
+            raise_issue_partial(exc, args, created_url, emit=emit, stage="audit")
+    relationships = [
+        (
+            args.parent,
+            "sub-issue",
+            ["issue", "edit", args.parent, "--add-sub-issue", created_url]
+            if args.parent
+            else None,
+        ),
+        (
+            args.blocking,
+            "blocked-by",
+            ["issue", "edit", args.blocking, "--add-blocked-by", created_url]
+            if args.blocking
+            else None,
+        ),
+    ]
+    for source, relation, relationship_command in relationships:
+        if not source or relationship_command is None:
+            continue
+        relationship = {"relation": relation, "source": source, "target": created_url}
+        try:
+            runner.run(relationship_command, mutate=True)
+        except WorkError as exc:
+            raise_issue_partial(
+                exc,
+                args,
+                created_url,
+                emit=emit,
+                stage="mutation-result-unknown",
+                relationship=relationship,
+                relationship_added=None,
+            )
+        try:
+            receipt.add("relationship-added", **relationship)
+        except WorkError as exc:
+            raise_issue_partial(
+                exc,
+                args,
+                created_url,
+                emit=emit,
+                stage="audit",
+                relationship=relationship,
+                relationship_added=True,
+            )
     payload = {"url": created_url, "repo": args.repo, "type": args.type}
     if emit:
         json_print(payload)
@@ -1166,25 +1240,27 @@ def command_work_graph_create(
                 emit=False,
             )
         except PartialWorkError as child_error:
-            json_print({
+            aggregate = {
                 "created_tasks": len(created),
                 "failed_partial": child_error.payload,
                 "failed_repo": repo,
                 "issues": created,
                 "partial": True,
                 "umbrella": args.umbrella,
-            })
-            raise
-        except WorkError:
-            json_print({
+            }
+            json_print(aggregate)
+            raise PartialWorkError(str(child_error), aggregate) from child_error
+        except WorkError as child_error:
+            aggregate = {
                 "created_tasks": len(created),
                 "failed_partial": None,
                 "failed_repo": repo,
                 "issues": created,
                 "partial": True,
                 "umbrella": args.umbrella,
-            })
-            raise
+            }
+            json_print(aggregate)
+            raise PartialWorkError(str(child_error), aggregate) from child_error
         created.append(child_payload)
     if not runner.dry_run:
         receipt.ensure_saved()
@@ -1369,13 +1445,15 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "restore":
             if args.ownership_config:
                 raise WorkError("--ownership-config is invalid with restore")
-            config_requested = bool(args.config)
+            config_requested = args.config is not None
             config_unavailable = False
-            try:
-                config_sha = file_digest(args.config) if args.config else None
-            except WorkError:
-                config_sha = None
-                config_unavailable = True
+            config_sha = None
+            if config_requested:
+                try:
+                    load_targets(args.config)
+                    config_sha = file_digest(args.config)
+                except WorkError:
+                    config_unavailable = True
             receipt = Receipt(
                 args.receipt,
                 source_sha=source_sha,

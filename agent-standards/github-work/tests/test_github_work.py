@@ -379,8 +379,45 @@ class HelperTests(unittest.TestCase):
                 work.command_issue_create(args, FakeRunner(responses), config(), receipt())
         self.assertEqual(
             json.loads(output.getvalue()),
-            {"partial": True, "repo": "sample-space/sample-app", "type": "Task", "url": created},
+            {
+                "partial": True,
+                "relationship": {
+                    "relation": "sub-issue",
+                    "source": "sample-space/sample-app#2",
+                    "target": created,
+                },
+                "relationship_added": None,
+                "repo": "sample-space/sample-app",
+                "stage": "mutation-result-unknown",
+                "type": "Task",
+                "url": created,
+            },
         )
+
+    def test_issue_create_reports_audit_stage_when_receipt_write_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current = receipt(str(Path(directory) / "receipt.json"))
+            created = "https://github.com/sample-space/sample-app/issues/7"
+            responses = managed_preflight_responses() + [
+                work.CommandResult(stdout=created + "\n"),
+            ]
+            args = Namespace(
+                repo="sample-space/sample-app",
+                type="Task",
+                title="Sample",
+                body_file=None,
+                parent=None,
+                blocking=None,
+                assignee=None,
+            )
+            output = io.StringIO()
+            with mock.patch.object(current, "save", side_effect=work.WorkError("disk full")):
+                with contextlib.redirect_stdout(output), self.assertRaises(work.PartialWorkError):
+                    work.command_issue_create(args, FakeRunner(responses), config(), current)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["stage"], "audit")
+            self.assertIsNone(payload["relationship"])
+            self.assertFalse(payload["relationship_added"])
 
     def test_issue_create_rejects_unassignable_login_before_creation(self):
         responses = managed_preflight_responses() + [work.CommandResult(returncode=1, stderr="not assignable")]
@@ -479,9 +516,10 @@ class HelperTests(unittest.TestCase):
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
         output = io.StringIO()
         with mock.patch.object(work, "command_issue_create", side_effect=create):
-            with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+            with contextlib.redirect_stdout(output), self.assertRaises(work.PartialWorkError) as caught:
                 work.command_work_graph_create(args, runner, targets, current_receipt)
         payload = json.loads(output.getvalue())
+        self.assertEqual(caught.exception.payload, payload)
         self.assertEqual(payload["created_tasks"], 1)
         self.assertEqual(payload["failed_repo"], "sample-space/two-app")
         self.assertEqual(payload["issues"][0]["url"], "https://github.com/sample-space/one-app/issues/1")
@@ -510,9 +548,10 @@ class HelperTests(unittest.TestCase):
         output = io.StringIO()
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
         with mock.patch.object(work, "command_issue_create", side_effect=create):
-            with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+            with contextlib.redirect_stdout(output), self.assertRaises(work.PartialWorkError) as caught:
                 work.command_work_graph_create(args, FakeRunner(responses), targets, receipt())
         payload = json.loads(output.getvalue())
+        self.assertEqual(caught.exception.payload, payload)
         self.assertTrue(payload["partial"])
         self.assertEqual(payload["failed_repo"], "sample-space/one-app")
         self.assertEqual(payload["failed_partial"], failed)
@@ -545,6 +584,27 @@ class HelperTests(unittest.TestCase):
             path.chmod(0o600)
             with self.assertRaises(work.WorkError):
                 receipt(str(path))
+
+    def test_receipt_schema_one_remains_loadable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "receipt.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "receipt_id": "legacy-receipt",
+                "source_sha": SOURCE,
+                "config_digest": DIGEST,
+                "operations": [],
+            }), encoding="utf-8")
+            path.chmod(0o600)
+            current = work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
+            self.assertEqual(current.data["schema_version"], 1)
+
+    def test_receipt_schema_two_requires_restore_config_audit_fields(self):
+        current = receipt()
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        current.data["operations"][0]["status"] = "restored"
+        with self.assertRaisesRegex(work.WorkError, "restored_config_requested is required"):
+            current.validate()
 
     def test_receipt_validation_accepts_explicitly_unavailable_config_digest(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -588,8 +648,10 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(stdout.getvalue(), "")
             self.assertIn("cannot save receipt", stderr.getvalue())
 
-    def test_main_restore_tolerates_missing_optional_target_config(self):
+    def test_main_restore_tolerates_invalid_optional_target_config(self):
         with tempfile.TemporaryDirectory() as directory:
+            invalid_config = Path(directory) / "invalid-targets.json"
+            invalid_config.write_text("{", encoding="utf-8")
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
             current.add(
@@ -601,7 +663,7 @@ class HelperTests(unittest.TestCase):
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 result = work.main([
-                    "--config", str(Path(directory) / "missing-targets.json"),
+                    "--config", str(invalid_config),
                     "restore", "--receipt", path,
                 ], runner=FakeRunner(responses))
             self.assertEqual(result, 0)
@@ -614,6 +676,27 @@ class HelperTests(unittest.TestCase):
             self.assertIsNone(operation["restored_by_config_digest"])
             self.assertTrue(operation["restored_config_requested"])
             self.assertTrue(operation["restored_config_unavailable"])
+
+    def test_main_restore_records_empty_supplied_config_as_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "issue-label-added",
+                issue="https://github.com/sample-space/sample-app/issues/9",
+                name="needs-owner",
+            )
+            responses = restore_preflight_responses() + [{"labels": [], "assignees": []}]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.main([
+                    "--config", "",
+                    "restore", "--receipt", path,
+                ], runner=FakeRunner(responses))
+            self.assertEqual(result, 0)
+            payload = json.loads(output.getvalue())
+            self.assertTrue(payload["config_requested"])
+            self.assertTrue(payload["config_unavailable"])
 
     def test_restore_marks_operations_and_second_run_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
