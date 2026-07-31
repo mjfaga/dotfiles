@@ -1,6 +1,7 @@
 ---
 name: github-work
-description: Create, classify, relate, assign, link, finalize, or restore GitHub work items and pull requests.
+description:
+  Create, classify, relate, assign, link, finalize, or restore GitHub work items and pull requests.
 ---
 
 <!-- BEGIN github-work-standard -->
