@@ -104,6 +104,35 @@ class RendererTests(unittest.TestCase):
             with self.assertRaises(sync.RenderError):
                 sync.verify_source(Path(directory), "0" * 40, "missing-tag")
 
+    def test_checkout_override_preserves_configured_target_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            worktree = Path(directory) / "worktree"
+            worktree.mkdir()
+            (worktree / "AGENTS.src.md").write_text("# Existing\n")
+            skill = worktree / ".claude/skills/github-work/SKILL.src.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("# Existing skill\n")
+            configured = target(Path("/configured/primary/checkout"))
+            config = Path(directory) / "targets.yml"
+            config.write_text(json.dumps({"targets": [configured]}))
+            args = Namespace(
+                source_root=str(ROOT), config=str(config), source_sha="a" * 40,
+                source_tag="test-tag", repos="all", check=False, dry_run=False,
+                checkout_override=[f"sample-space/sample-app={worktree}"],
+            )
+            with mock.patch.object(sync, "verify_source"):
+                self.assertEqual(sync.sync(args), 0)
+            rendered = (worktree / "AGENTS.src.md").read_text()
+            self.assertIn(f"target={sync.digest_target(configured)}", rendered)
+            self.assertFalse(Path("/configured/primary/checkout/AGENTS.src.md").exists())
+
+    def test_checkout_override_rejects_unknown_or_relative_paths(self):
+        configured = target(Path("/configured/primary/checkout"))
+        with self.assertRaises(sync.RenderError):
+            sync.parse_checkout_overrides(["other-space/other-app=/tmp/worktree"], [configured])
+        with self.assertRaises(sync.RenderError):
+            sync.parse_checkout_overrides(["sample-space/sample-app=relative/path"], [configured])
+
     def test_full_render_then_check_and_dry_run(self):
         with tempfile.TemporaryDirectory() as directory:
             checkout = Path(directory) / "checkout"

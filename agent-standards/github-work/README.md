@@ -6,7 +6,7 @@ Public, repository-neutral sources for using GitHub as an agent work ledger. Run
 
 `github_work.py` provides `preflight`, `labels ensure`, `issue-create`, `work-graph create`, `pr-link`, `finality`, `assign`, `restore`, and `standard-check`. `--dry-run` is a global option and must precede the command. Mutations use strict mode-`0600` JSON receipts bound to the helper source SHA and private-config digest. Multiline GitHub content is always passed through temporary body files.
 
-`sync_github_work_standard.py --config TARGETS --source-tag TAG --source-sha SHA [--check|--dry-run]` verifies the immutable tag/SHA and clean source tree before rendering bounded blocks, templates, skills, and a marked helper into configured checkouts. Config files ending in `.yml` are JSON-compatible YAML parsed with the Python standard-library `json` module.
+`sync_github_work_standard.py --config TARGETS --source-tag TAG --source-sha SHA [--checkout-override OWNER/REPO=/FEATURE/WORKTREE] [--check|--dry-run]` verifies the immutable tag/SHA and clean source tree before rendering bounded blocks, templates, skills, and a marked helper. Runtime checkout overrides direct output into feature worktrees without changing the configured target digest. Config files ending in `.yml` are JSON-compatible YAML parsed with the Python standard-library `json` module.
 
 `public_content_check.py --targets TARGETS --ownership OWNERSHIP` rejects runtime-private names, paths, ownership values, rollout receipt artifacts, and generic secret patterns in this public tree.
 

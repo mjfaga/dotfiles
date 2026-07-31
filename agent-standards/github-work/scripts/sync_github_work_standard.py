@@ -236,8 +236,14 @@ def safe_output_path(checkout: Path, relative: str) -> Path:
     return candidate
 
 
-def expected_files(source_root: Path, target: dict[str, Any], version: str, source_sha: str) -> dict[Path, str]:
-    checkout = Path(target["checkout"]).resolve()
+def expected_files(
+    source_root: Path,
+    target: dict[str, Any],
+    version: str,
+    source_sha: str,
+    checkout_override: str | None = None,
+) -> dict[Path, str]:
+    checkout = Path(checkout_override or target["checkout"]).resolve()
     if not checkout.is_dir():
         raise RenderError(f"checkout does not exist: {target['checkout']}")
     target_digest = digest_target(target)
@@ -286,6 +292,23 @@ def select_targets(targets: list[dict[str, Any]], repos: str) -> list[dict[str, 
     return selected
 
 
+def parse_checkout_overrides(values: list[str], targets: list[dict[str, Any]]) -> dict[str, str]:
+    known = {target["repo"] for target in targets}
+    overrides: dict[str, str] = {}
+    for value in values:
+        repo, separator, checkout = value.partition("=")
+        if not separator or not repo or not checkout:
+            raise RenderError("--checkout-override must use OWNER/REPO=/absolute/path")
+        if repo not in known:
+            raise RenderError(f"checkout override targets unknown repository: {repo}")
+        if repo in overrides:
+            raise RenderError(f"duplicate checkout override: {repo}")
+        if not Path(checkout).is_absolute():
+            raise RenderError(f"checkout override must be absolute: {repo}")
+        overrides[repo] = checkout
+    return overrides
+
+
 def verify_source(source_root: Path, source_sha: str, source_tag: str) -> None:
     if not re_full_sha(source_sha):
         raise RenderError("--source-sha must be a 40-character lowercase commit SHA")
@@ -327,11 +350,19 @@ def sync(args: argparse.Namespace) -> int:
     verify_source(source_root, args.source_sha, args.source_tag)
     metadata = load_object(source_root / "standard.yml")
     version = str(metadata["version"])
-    targets = select_targets(validate_targets(load_object(Path(args.config))), args.repos)
+    all_targets = validate_targets(load_object(Path(args.config)))
+    targets = select_targets(all_targets, args.repos)
+    overrides = parse_checkout_overrides(getattr(args, "checkout_override", []), all_targets)
     drift: list[str] = []
     changed: list[str] = []
     for target in targets:
-        for path, content in expected_files(source_root, target, version, args.source_sha).items():
+        for path, content in expected_files(
+            source_root,
+            target,
+            version,
+            args.source_sha,
+            overrides.get(target["repo"]),
+        ).items():
             current = path.read_text() if path.exists() else None
             if current == content:
                 continue
@@ -367,6 +398,13 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--source-sha", required=True)
     result.add_argument("--source-tag", required=True)
     result.add_argument("--repos", default="all")
+    result.add_argument(
+        "--checkout-override",
+        action="append",
+        default=[],
+        metavar="OWNER/REPO=/ABSOLUTE/PATH",
+        help="render a configured target into a temporary feature worktree without changing its digest",
+    )
     mode = result.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--dry-run", action="store_true")
