@@ -151,6 +151,9 @@ class RendererTests(unittest.TestCase):
             with mock.patch.object(sync, "verify_source"):
                 self.assertEqual(sync.sync(args), 0)
             self.assertTrue((checkout / "scripts" / "github_work.py").exists())
+            generated_skill = skill.read_text()
+            self.assertTrue(generated_skill.startswith("---\nname: github-work\n"))
+            self.assertIn("description:", generated_skill.split("---", 2)[1])
             generated_form = (checkout / ".github/ISSUE_TEMPLATE/bug.yml").read_text()
             self.assertIn("name:", generated_form)
             self.assertIn("description:", generated_form)

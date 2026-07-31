@@ -8,7 +8,9 @@ third-party runtime dependencies.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
+import io
 import json
 from contextlib import contextmanager
 import os
@@ -30,6 +32,7 @@ MANAGED_LABELS = {
     "task": ("type:task", "8250DF", "Bounded implementation or follow-up work"),
 }
 CLOSING_WORDS = ("Closes", "Fixes", "Resolves")
+NEEDS_OWNER_LABEL = ("needs-owner", "D876E3", "Ownership requires explicit triage")
 
 
 class WorkError(RuntimeError):
@@ -140,8 +143,12 @@ class Receipt:
             required_fields = OPERATION_FIELDS[kind]
             if required_fields - operation.keys():
                 raise WorkError(f"receipt operation {kind} is missing required fields")
-            if not all(isinstance(operation[field], str) and operation[field] for field in required_fields):
-                raise WorkError(f"receipt operation {kind} fields must be non-empty strings")
+            for field in required_fields:
+                value = operation[field]
+                if not isinstance(value, str):
+                    raise WorkError(f"receipt operation {kind} fields must be strings")
+                if not value and not (kind == "pr-body-changed" and field in {"before", "after"}):
+                    raise WorkError(f"receipt operation {kind} fields must be non-empty strings")
             if kind == "relationship-added" and operation["relation"] not in {"sub-issue", "blocked-by"}:
                 raise WorkError("receipt relationship type is invalid")
             operation_id = operation.get("operation_id")
@@ -504,6 +511,8 @@ def target_reference_pattern(issue: str, pr_repo: str) -> re.Pattern[str]:
 
 def linked_body(body: str, issue: str, mode: str, pr_repo: str) -> str:
     reference = issue_reference(issue)
+    keyword = "Refs" if mode == "refs" else "Closes"
+    body = re.sub(r"\bRefs\s+#ISSUE\b", f"{keyword} {reference}", body, flags=re.IGNORECASE)
     target = target_reference_pattern(issue, pr_repo)
     closing = re.compile(
         rf"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?P<reference>{target.pattern})",
@@ -570,8 +579,10 @@ def finality_result(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def command_finality(args: argparse.Namespace, runner: GhRunner) -> int:
+def command_finality(args: argparse.Namespace, runner: GhRunner, config: dict[str, Any]) -> int:
+    repo, _ = parse_issue_url(args.issue)
     basic_preflight(runner)
+    target_preflight(runner, target_for(config, repo))
     result = finality_result(issue_state(runner, args.issue))
     json_print(result)
     return 0 if result["eligible"] else 1
@@ -590,11 +601,24 @@ def ownership_candidates(config: dict[str, Any], repo: str, area: str | None) ->
 
 def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
     state = issue_state(runner, issue)
-    if "needs-owner" in issue_labels(state):
+    if NEEDS_OWNER_LABEL[0] in issue_labels(state):
         return
-    runner.run(["issue", "edit", issue, "--add-label", "needs-owner"], mutate=True)
+    repo, _ = parse_issue_url(issue)
+    labels = runner.json([
+        "label", "list", "--repo", repo, "--limit", "200", "--json", "name",
+    ])
+    if not isinstance(labels, list):
+        raise WorkError(f"cannot verify ownership labels in {repo}")
+    if NEEDS_OWNER_LABEL[0] not in {item.get("name") for item in labels if isinstance(item, dict)}:
+        runner.run([
+            "label", "create", NEEDS_OWNER_LABEL[0], "--repo", repo,
+            "--color", NEEDS_OWNER_LABEL[1], "--description", NEEDS_OWNER_LABEL[2],
+        ], mutate=True)
+        if not runner.dry_run:
+            receipt.add("label-created", repo=repo, name=NEEDS_OWNER_LABEL[0])
+    runner.run(["issue", "edit", issue, "--add-label", NEEDS_OWNER_LABEL[0]], mutate=True)
     if not runner.dry_run:
-        receipt.add("issue-label-added", issue=issue, name="needs-owner")
+        receipt.add("issue-label-added", issue=issue, name=NEEDS_OWNER_LABEL[0])
 
 
 def command_assign(
@@ -669,6 +693,7 @@ def command_restore(
     mutation_preflight(runner, config, receipt_repositories(receipt))
     restored = 0
     already_restored = 0
+    skipped_in_use = 0
     for operation in reversed(receipt.data["operations"]):
         if operation["status"] == "restored":
             already_restored += 1
@@ -708,6 +733,15 @@ def command_restore(
             if not isinstance(current, list):
                 raise WorkError(f"cannot verify labels in {operation['repo']}")
             if operation["name"] in {item.get("name") for item in current if isinstance(item, dict)}:
+                uses = runner.json([
+                    "issue", "list", "--repo", operation["repo"], "--state", "all",
+                    "--label", operation["name"], "--limit", "1", "--json", "url",
+                ])
+                if not isinstance(uses, list):
+                    raise WorkError(f"cannot verify label usage in {operation['repo']}")
+                if uses:
+                    skipped_in_use += 1
+                    continue
                 runner.run(["label", "delete", operation["name"], "--repo", operation["repo"], "--yes"], mutate=True)
                 mutated = not runner.dry_run
         if not runner.dry_run:
@@ -716,6 +750,7 @@ def command_restore(
     json_print({
         "restored_operations": restored,
         "already_restored_operations": already_restored,
+        "skipped_labels_in_use": skipped_in_use,
         "dry_run": runner.dry_run,
     })
     return 0
@@ -730,7 +765,7 @@ def command_work_graph_create(
     repos = parse_repositories(config, args.repos)
     umbrella_repo, _ = parse_issue_url(args.umbrella)
     mutation_preflight(runner, config, [umbrella_repo, *repos])
-    created = 0
+    created: list[dict[str, Any]] = []
     for repo in repos:
         target = target_for(config, repo)
         title = target.get("work_title") or f"Adopt the GitHub work standard in {repo}"
@@ -743,16 +778,18 @@ def command_work_graph_create(
             blocking=None,
             assignee=args.assignee,
         )
-        command_issue_create(child_args, runner, config, receipt)
-        created += 1
-    json_print({"created_tasks": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            command_issue_create(child_args, runner, config, receipt)
+        created.append(json.loads(captured.getvalue()))
+    json_print({"created_tasks": len(created), "issues": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
     return 0
 
 
 def provenance_from_text(text: str) -> dict[str, str]:
     match = re.search(
         r"github-work-standard: version=(\S+) source=([0-9a-f]{40}) target=([0-9a-f]{64})",
-        text[:3000],
+        text,
     )
     if not match:
         raise WorkError("github-work-standard provenance marker is missing or malformed")
@@ -862,7 +899,7 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "preflight":
             return command_preflight(args, active_runner, config)
         if args.command == "finality":
-            return command_finality(args, active_runner)
+            return command_finality(args, active_runner, config)
         receipt = Receipt(
             getattr(args, "receipt", None),
             source_sha=source_sha,

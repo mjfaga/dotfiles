@@ -94,6 +94,15 @@ def marker_payload(content: str) -> str:
     return content[start : end + len(END)]
 
 
+def frontmatter_payload(content: str) -> str:
+    if not content.startswith("---\n"):
+        raise RenderError("canonical skill must start with YAML frontmatter")
+    end = content.find("\n---\n", 4)
+    if end < 0:
+        raise RenderError("canonical skill frontmatter is unterminated")
+    return content[: end + len("\n---\n")].rstrip("\n")
+
+
 def merge_marker(original: str, block: str) -> str:
     start = original.find(BEGIN)
     end = original.find(END)
@@ -117,6 +126,17 @@ def render_marked_source(source: str, version: str, source_sha: str, target_dige
     block = marker_payload(source)
     marker = provenance(version, source_sha, target_digest).rstrip("\n")
     return block.replace(BEGIN, f"{BEGIN}\n{marker}", 1)
+
+
+def render_skill_file(original: str, source: str, version: str, source_sha: str, target_digest: str) -> str:
+    merged = merge_marker(original, render_marked_source(source, version, source_sha, target_digest))
+    frontmatter = frontmatter_payload(source)
+    if merged.startswith("---\n"):
+        existing_end = merged.find("\n---\n", 4)
+        if existing_end < 0:
+            raise RenderError("existing skill frontmatter is unterminated")
+        merged = merged[existing_end + len("\n---\n") :].lstrip("\n")
+    return frontmatter + "\n\n" + merged
 
 
 def form_header(kind: str, classification: str, labels: list[str] | None = None) -> str:
@@ -251,11 +271,12 @@ def expected_files(
     skill_path = safe_output_path(checkout, target["skill_source_path"])
     agents_original = agents_path.read_text() if agents_path.exists() else ""
     skill_original = skill_path.read_text() if skill_path.exists() else ""
-    agents_block = render_marked_source((source_root / "AGENTS.fragment.md").read_text(), version, source_sha, target_digest)
-    skill_block = render_marked_source((source_root / "SKILL.body.md").read_text(), version, source_sha, target_digest)
+    agents_source = (source_root / "AGENTS.fragment.md").read_text()
+    skill_source = (source_root / "SKILL.body.md").read_text()
+    agents_block = render_marked_source(agents_source, version, source_sha, target_digest)
     files = {
         agents_path: merge_marker(agents_original, agents_block),
-        skill_path: merge_marker(skill_original, skill_block),
+        skill_path: render_skill_file(skill_original, skill_source, version, source_sha, target_digest),
     }
     form_dir_relative = target.get("issue_forms_path", ".github/ISSUE_TEMPLATE")
     filenames = target.get("issue_form_files", {"bug": "bug.yml", "feature": "feature.yml", "task": "task.yml"})

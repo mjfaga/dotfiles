@@ -110,6 +110,10 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(rendered.count("Closes"), 1)
         self.assertEqual(rendered.lower().count("refs"), 1)
 
+    def test_pr_template_placeholder_is_replaced(self):
+        rendered = work.linked_body("Refs #ISSUE\n", "sample-space/sample-app#3", "refs", "sample-space/sample-app")
+        self.assertEqual(rendered, "Refs sample-space/sample-app#3\n")
+
     def test_finality_blocks_open_relationships(self):
         result = work.finality_result({"blockedBy": [{"state": "OPEN"}], "subIssuesSummary": {"total": 2, "completed": 1}})
         self.assertEqual(result, {"eligible": False, "open_blockers": 1, "incomplete_sub_issues": 1})
@@ -182,7 +186,9 @@ class HelperTests(unittest.TestCase):
 
     def test_assign_ambiguity_adds_needs_owner_not_assignee(self):
         ownership = {"mappings": [{"repo": "sample-space/sample-app", "area": "*", "logins": ["one-user", "two-user"]}]}
-        responses = managed_preflight_responses() + [{"labels": [], "assignees": []}, work.CommandResult()]
+        responses = managed_preflight_responses() + [
+            {"labels": [], "assignees": []}, [], work.CommandResult(), work.CommandResult(),
+        ]
         runner = FakeRunner(responses)
         args = Namespace(issue="sample-space/sample-app#4", assignee=None, from_ownership_map=True, area=None)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -214,6 +220,7 @@ class HelperTests(unittest.TestCase):
             calls += 1
             if calls == 1:
                 receipt.add("issue-created", issue="https://github.com/sample-space/one-app/issues/1")
+                print(json.dumps({"repo": args.repo, "url": "https://github.com/sample-space/one-app/issues/1"}))
                 return 0
             raise work.WorkError("second target failed")
 
@@ -228,6 +235,7 @@ class HelperTests(unittest.TestCase):
             path = Path(directory) / "receipt.json"
             current = receipt(str(path))
             current.add("label-created", repo="sample-space/sample-app", name="type:task")
+            current.add("pr-body-changed", pr="https://github.com/sample-space/sample-app/pull/1", before="", after="Refs #1\n")
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
             with self.assertRaises(work.WorkError):
                 work.Receipt(str(path), source_sha="c" * 40, config_digest=DIGEST)
@@ -250,7 +258,7 @@ class HelperTests(unittest.TestCase):
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
             current.add("label-created", repo="sample-space/sample-app", name="type:task")
-            first_responses = managed_preflight_responses() + [[{"name": "type:task"}], work.CommandResult()]
+            first_responses = managed_preflight_responses() + [[{"name": "type:task"}], [], work.CommandResult()]
             first = FakeRunner(first_responses)
             with contextlib.redirect_stdout(io.StringIO()):
                 work.command_restore(Namespace(receipt=path), first, config(), current)
@@ -261,6 +269,16 @@ class HelperTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 work.command_restore(Namespace(receipt=path), second, config(), reloaded)
             self.assertEqual(json.loads(output.getvalue())["restored_operations"], 0)
+
+    def test_label_restore_skips_labels_that_are_in_use(self):
+        current = receipt()
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        responses = managed_preflight_responses() + [[{"name": "type:task"}], [{"url": "https://github.com/sample-space/sample-app/issues/9"}]]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
+        self.assertEqual(json.loads(output.getvalue())["skipped_labels_in_use"], 1)
+        self.assertEqual(current.data["operations"][0]["status"], "active")
 
     def test_relationship_restore_fails_on_unknown_error(self):
         current = receipt()
@@ -277,7 +295,7 @@ class HelperTests(unittest.TestCase):
             agents = root / "AGENTS.md"
             skill = root / "SKILL.md"
             helper.write_text(marker)
-            agents.write_text("<!-- github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST + " -->\n")
+            agents.write_text("x" * 12000 + "\n<!-- github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST + " -->\n")
             skill.write_text(agents.read_text())
             args = Namespace(agents_path=str(agents), skill_path=str(skill), expected_version=None, expected_source_sha=None, expected_target_digest=None)
             with mock.patch.object(work, "__file__", str(helper)), contextlib.redirect_stdout(io.StringIO()):
