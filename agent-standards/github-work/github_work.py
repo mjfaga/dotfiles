@@ -222,6 +222,7 @@ class Receipt:
                 ):
                     raise WorkError(f"receipt operation {metadata_field} is malformed")
             for boolean_field in (
+                "restore_fallback_succeeded",
                 "restore_missing",
                 "restore_mutated",
                 "restore_unverified",
@@ -282,11 +283,14 @@ class Receipt:
         self,
         operation: dict[str, Any],
         *,
+        fallback_succeeded: bool | None = None,
         missing: bool = False,
         mutated: bool,
         unverified: bool = False,
     ) -> None:
         operation["status"] = "restored"
+        if fallback_succeeded is not None:
+            operation["restore_fallback_succeeded"] = fallback_succeeded
         operation["restore_missing"] = missing
         operation["restore_mutated"] = mutated
         operation["restore_unverified"] = unverified
@@ -615,10 +619,18 @@ def gh_version(runner: GhRunner) -> tuple[int, int, int]:
     return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
 
 
-def issue_state(runner: GhRunner, value: str) -> dict[str, Any]:
+def issue_state(
+    runner: GhRunner,
+    value: str,
+    *,
+    include_relationships: bool = False,
+) -> dict[str, Any]:
+    fields = "url,state,labels,assignees,title,body"
+    if include_relationships:
+        fields += ",subIssuesSummary,blockedBy"
     state = runner.json([
         "issue", "view", value,
-        "--json", "url,state,labels,assignees,subIssuesSummary,blockedBy,title,body",
+        "--json", fields,
     ])
     if not isinstance(state, dict):
         raise WorkError(f"cannot verify issue state: {value}")
@@ -1062,7 +1074,9 @@ def command_pr_link(
     pr_repo, _ = parse_pr_url(args.pr)
     mutation_preflight(runner, config, [issue_repo, pr_repo])
     if args.mode == "closes":
-        finality = finality_result(issue_state(runner, args.issue))
+        finality = finality_result(
+            issue_state(runner, args.issue, include_relationships=True)
+        )
         if not finality["eligible"]:
             json_print({
                 "changed": False,
@@ -1165,7 +1179,9 @@ def command_finality(args: argparse.Namespace, runner: GhRunner, config: dict[st
             "reason": "classification",
         })
         return 1
-    result = finality_result(issue_state(runner, args.issue))
+    result = finality_result(
+        issue_state(runner, args.issue, include_relationships=True)
+    )
     json_print(result)
     return 0 if result["eligible"] else 1
 
@@ -1637,6 +1653,14 @@ def command_restore(
             "total_operations": 0,
         })
         return 0
+    standing_missing = sum(
+        operation.get("status") == "restored" and operation.get("restore_missing") is True
+        for operation in receipt.data["operations"]
+    )
+    standing_unverified = sum(
+        operation.get("status") == "restored" and operation.get("restore_unverified") is True
+        for operation in receipt.data["operations"]
+    )
     if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
@@ -1644,10 +1668,14 @@ def command_restore(
             "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
-            "missing_issue_operations": 0,
+            "missing_issue_operations": standing_missing,
             "mutated_operations": 0,
-            "reason": "already_restored",
-            "unverified_relationship_operations": 0,
+            "reason": (
+                "unverified_relationships" if standing_unverified
+                else "missing_issues" if standing_missing
+                else "already_restored"
+            ),
+            "unverified_relationship_operations": standing_unverified,
             "restored_operations": 0,
             "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
@@ -1667,9 +1695,9 @@ def command_restore(
                 allow_disabled=repo in label_only_repositories,
             )
     restored = 0
-    missing_issue_operations = 0
+    missing_issue_operations = standing_missing
     mutated_operations = 0
-    unverified_relationship_operations = 0
+    unverified_relationship_operations = standing_unverified
     already_restored = 0
     skipped_in_use = 0
     retained_label_definitions = 0
@@ -1687,6 +1715,7 @@ def command_restore(
             already_restored += 1
             continue
         kind = operation["kind"]
+        fallback_succeeded: bool | None = None
         mutated = False
         unverified = False
         operation_state: dict[str, Any] | None = None
@@ -1799,13 +1828,17 @@ def command_restore(
                     check=False,
                 )
                 if result.returncode == 0:
+                    fallback_succeeded = True if unverified else None
                     mutated = not unverified
                 else:
                     detail = f"{result.stderr}\n{result.stdout}".lower()
-                    if not any(
+                    tolerated = any(
                         marker in detail
                         for marker in (*relationship_markers, "no relationship", "not related")
-                    ):
+                    )
+                    if unverified and tolerated:
+                        fallback_succeeded = False
+                    if not tolerated:
                         mutation_error = result.stderr.strip() or result.stdout.strip()
                         prefix = (
                             f"{probe_error}; fallback mutation failed"
@@ -1884,6 +1917,7 @@ def command_restore(
         if not runner.dry_run:
             receipt.mark_restored(
                 operation,
+                fallback_succeeded=fallback_succeeded,
                 mutated=mutated,
                 unverified=unverified,
             )

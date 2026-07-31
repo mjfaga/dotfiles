@@ -1373,7 +1373,36 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(payload["mutated_operations"], 0)
             self.assertEqual(payload["reason"], "unverified_relationships")
             self.assertEqual(payload["unverified_relationship_operations"], 1)
-            self.assertTrue(current.data["operations"][0]["restore_unverified"])
+            operation = current.data["operations"][0]
+            self.assertTrue(operation["restore_unverified"])
+            self.assertTrue(operation["restore_fallback_succeeded"])
+            second_output = io.StringIO()
+            with contextlib.redirect_stdout(second_output):
+                second_result = work.command_restore(
+                    Namespace(receipt=path), FakeRunner(), current,
+                )
+            self.assertEqual(second_result, 0)
+            second_payload = json.loads(second_output.getvalue())
+            self.assertEqual(second_payload["reason"], "unverified_relationships")
+            self.assertEqual(second_payload["unverified_relationship_operations"], 1)
+
+    def test_restore_records_benign_unverified_fallback_failure(self):
+        current = receipt()
+        current.add(
+            "relationship-added",
+            source="sample-space/sample-app#9",
+            target="sample-space/sample-app#12",
+            relation="blocked-by",
+        )
+        responses = restore_preflight_responses() + [
+            work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            {"blockedBy": []},
+            work.CommandResult(returncode=1, stderr="no blocked-by relationship"),
+        ]
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
+        self.assertEqual(result, 0)
+        self.assertFalse(current.data["operations"][0]["restore_fallback_succeeded"])
 
     def test_restore_dry_fallback_reports_unverified_without_claiming_mutation(self):
         current = receipt()
