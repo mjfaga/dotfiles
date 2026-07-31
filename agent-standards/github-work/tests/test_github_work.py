@@ -245,6 +245,20 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(work.WorkError, "work_title.*non-empty string"):
                 work.load_targets(path)
 
+    def test_load_targets_rejects_non_string_auxiliary_work_title(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "targets.json"
+            path.write_text(json.dumps({
+                "targets": config()["targets"],
+                "auxiliary_repositories": [{
+                    "repo": "sample-space/aux-app",
+                    "classification": "native-type",
+                    "work_title": ["not", "a", "string"],
+                }],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(work.WorkError, "work_title.*non-empty string"):
+                work.load_targets(path)
+
     def test_load_targets_maps_non_utf8_config_to_operational_error(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "targets.json"
@@ -260,6 +274,25 @@ class HelperTests(unittest.TestCase):
             }), encoding="utf-8")
             with self.assertRaisesRegex(work.WorkError, "mappings array"):
                 work.load_ownership(path)
+
+    def test_load_ownership_accepts_repo_wide_mapping_without_area(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ownership.json"
+            path.write_text(json.dumps({
+                "mappings": [{
+                    "repo": "sample-space/sample-app",
+                    "logins": ["sample-user"],
+                }],
+            }), encoding="utf-8")
+            ownership = work.load_ownership(path)
+            self.assertEqual(
+                work.ownership_candidates(ownership, "sample-space/sample-app", None),
+                ["sample-user"],
+            )
+            self.assertEqual(
+                work.ownership_candidates(ownership, "sample-space/sample-app", "ui"),
+                [],
+            )
 
     def test_labels_ensure_creates_only_missing_after_preflight(self):
         existing = [{"name": "type:bug", "color": "000000", "description": "preserved"}]
@@ -742,6 +775,22 @@ class HelperTests(unittest.TestCase):
         with self.assertRaisesRegex(work.WorkError, "restored operation is missing"):
             current.validate()
 
+    def test_receipt_schema_three_rejects_null_restoring_source(self):
+        current = receipt()
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        operation = current.data["operations"][0]
+        operation.update({
+            "status": "restored",
+            "restore_mutated": True,
+            "restored_by_source_sha": None,
+            "restored_by_config_digest": None,
+            "restored_config_requested": False,
+            "restored_config_status": "absent",
+            "restored_config_unavailable": False,
+        })
+        with self.assertRaisesRegex(work.WorkError, "restored_by_source_sha must not be null"):
+            current.validate()
+
     def test_receipt_validation_accepts_explicitly_unavailable_config_digest(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "receipt.json"
@@ -880,6 +929,39 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["restored_operations"], 0)
             self.assertEqual(payload["reason"], "empty")
+
+    def test_main_preflight_does_not_load_unused_ownership_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "targets.json"
+            ownership_path = root / "ownership.json"
+            config_path.write_text(json.dumps(config()), encoding="utf-8")
+            ownership_path.write_text('{"mappings": {}}', encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.main([
+                    "--config", str(config_path),
+                    "--ownership-config", str(ownership_path),
+                    "preflight", "--repos", "sample-space/sample-app",
+                ], runner=FakeRunner(managed_preflight_responses()))
+            self.assertEqual(result, 0)
+
+    def test_main_assign_distinguishes_empty_ownership_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "targets.json"
+            config_path.write_text(json.dumps(config()), encoding="utf-8")
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                result = work.main([
+                    "--config", str(config_path),
+                    "--ownership-config", "",
+                    "assign",
+                    "--issue", "sample-space/sample-app#1",
+                    "--from-ownership-map",
+                    "--receipt", str(Path(directory) / "receipt.json"),
+                ], runner=FakeRunner([]))
+            self.assertEqual(result, 2)
+            self.assertIn("supplied but is empty", stderr.getvalue())
 
     def test_main_persists_receipt_for_successful_noop_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

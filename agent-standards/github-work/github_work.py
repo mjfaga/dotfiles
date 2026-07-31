@@ -34,6 +34,10 @@ MANAGED_LABELS = {
 }
 CLOSING_WORDS = ("Closes", "Fixes", "Resolves")
 NEEDS_OWNER_LABEL = ("needs-owner", "D876E3", "Ownership requires explicit triage")
+RELATIONSHIP_SPECS = (
+    ("parent", "sub-issue", "--add-sub-issue"),
+    ("blocking", "blocked-by", "--add-blocked-by"),
+)
 
 
 class WorkError(RuntimeError):
@@ -228,6 +232,11 @@ class Receipt:
                         "receipt restored operation is missing: "
                         + ", ".join(sorted(missing_restore_fields))
                     )
+                if (
+                    schema_version >= 3
+                    and operation["restored_by_source_sha"] is None
+                ):
+                    raise WorkError("receipt restored_by_source_sha must not be null")
 
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
@@ -351,6 +360,14 @@ def load_targets(path: str | None) -> dict[str, Any]:
             raise WorkError("auxiliary repository entries require a non-empty repo")
         if item.get("classification") not in {"native-type", "managed-label"}:
             raise WorkError(f"unknown auxiliary classification for {item.get('repo')}")
+        if "work_title" in item and (
+            not isinstance(item["work_title"], str) or not item["work_title"]
+        ):
+            raise WorkError(f"work_title for {item['repo']} must be a non-empty string")
+        if "adapter" in item and item["adapter"] not in {
+            "generated-modern", "generated-legacy", "plain"
+        }:
+            raise WorkError(f"unknown adapter for {item['repo']}: {item['adapter']}")
         if item["repo"] in seen:
             raise WorkError(f"duplicate repository configuration: {item['repo']}")
         seen.add(item["repo"])
@@ -367,8 +384,10 @@ def load_ownership(path: str | Path) -> dict[str, Any]:
             raise WorkError("every ownership mapping must be an object")
         if not isinstance(mapping.get("repo"), str) or not mapping["repo"]:
             raise WorkError("ownership mapping repo must be a non-empty string")
-        if not isinstance(mapping.get("area"), str) or not mapping["area"]:
-            raise WorkError("ownership mapping area must be a non-empty string")
+        if "area" in mapping and (
+            not isinstance(mapping["area"], str) or not mapping["area"]
+        ):
+            raise WorkError("ownership mapping area must be a non-empty string when present")
         logins = mapping.get("logins")
         if not isinstance(logins, list) or any(
             not isinstance(login, str) or not login for login in logins
@@ -712,11 +731,8 @@ def raise_issue_partial(
 ) -> NoReturn:
     requested_relationships = [
         {"relation": relation, "source": source}
-        for source, relation in (
-            (args.parent, "sub-issue"),
-            (args.blocking, "blocked-by"),
-        )
-        if source
+        for attribute, relation, _ in RELATIONSHIP_SPECS
+        if (source := getattr(args, attribute))
     ]
     payload = {
         "completed_relationships": completed_relationships or [],
@@ -803,14 +819,10 @@ def command_issue_create(
             stage="mutation-result-unknown",
             relationship_added=None,
         )
-    relationship_specs = [
-        (args.parent, "sub-issue", "--add-sub-issue"),
-        (args.blocking, "blocked-by", "--add-blocked-by"),
-    ]
     relationships = [
         ({"relation": relation, "source": source, "target": created_url}, flag)
-        for source, relation, flag in relationship_specs
-        if source
+        for attribute, relation, flag in RELATIONSHIP_SPECS
+        if (source := getattr(args, attribute))
     ]
     completed_relationships: list[dict[str, str]] = []
     next_relationship = relationships[0][0] if relationships else None
@@ -1550,7 +1562,7 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             return command_standard_check(args)
         source_sha = active_source_sha()
         if args.command == "restore":
-            if args.ownership_config:
+            if args.ownership_config is not None:
                 raise WorkError("--ownership-config is invalid with restore")
             config_requested = args.config is not None
             config_sha = None
@@ -1581,7 +1593,6 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)
         config_sha = file_digest(args.config)
-        ownership = load_ownership(args.ownership_config) if args.ownership_config else None
         if args.command == "preflight":
             return command_preflight(args, active_runner, config)
         if args.command == "finality":
@@ -1601,6 +1612,13 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "pr-link":
             return command_pr_link(args, active_runner, config, receipt)
         if args.command == "assign":
+            ownership = None
+            if args.from_ownership_map:
+                if args.ownership_config is None:
+                    raise WorkError("--ownership-config is required with --from-ownership-map")
+                if not args.ownership_config:
+                    raise WorkError("--ownership-config was supplied but is empty")
+                ownership = load_ownership(args.ownership_config)
             return command_assign(args, active_runner, config, ownership, receipt)
         if args.command == "work-graph":
             return command_work_graph_create(args, active_runner, config, receipt)

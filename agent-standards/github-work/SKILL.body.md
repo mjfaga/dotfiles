@@ -21,7 +21,9 @@ python3 scripts/github_work.py \
 
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
-array of `repo`, `area`, and `logins`. The private operator supplies their location. Consumer
+array of `repo`, optional `area`, and `logins`. Omitted `area` is repo-wide only when no area filter
+is requested; use `*` to match every explicit area. Ownership config is loaded only when
+`--from-ownership-map` is used. The private operator supplies the files' locations. Consumer
 repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`,
 `*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
 
@@ -60,10 +62,11 @@ recovery file after reconciliation.
 For `labels ensure`, `created` contains receipt-backed labels; in dry-run output it contains planned
 labels. `failed_label` requires the action indicated by `stage`. Issue-create partials include the
 `title`, `requested_relationships`, `relationship`, `relationship_added`, `completed_relationships`,
-and `stage`. Work-graph failures are partial only when a child or prior mutation needs
-reconciliation; they include receipt-backed `issues`, `failed_repo`, and the child's
-`failed_partial`. Dry-run issue objects are plans without URLs. A `needs-owner` failure reports
-`label_created` when it made the shared label during that invocation.
+and `stage`; the title is deliberately emitted when it may be the only recovery handle. Work-graph
+failures are partial only when a child or prior mutation needs reconciliation; they include
+receipt-backed `issues`, `failed_repo`, and the child's `failed_partial`. Dry-run issue objects are
+plans without URLs. A `needs-owner` failure reports `label_created` when it made the shared label
+during that invocation.
 
 Exit `0` means success or eligibility. Exit `1` means the read-only `preflight` or `finality`
 command found ineligibility. The mutating `pr-link --mode closes` finality gate also returns exit
