@@ -166,8 +166,15 @@ class HelperTests(unittest.TestCase):
                     work.command_pr_link(args, FakeRunner(responses), config(), current)
             payload = json.loads(output.getvalue())
             self.assertTrue(payload["partial"])
-            self.assertEqual(payload["before"], "Original body\n")
-            self.assertIn("Refs sample-space/sample-app#4", payload["after"])
+            self.assertEqual(payload["stage"], "audit")
+            self.assertNotIn("before", payload)
+            self.assertNotIn("after", payload)
+            recovery_path = Path(payload["recovery_path"])
+            self.assertEqual(stat.S_IMODE(recovery_path.stat().st_mode), 0o600)
+            recovery = json.loads(recovery_path.read_text(encoding="utf-8"))
+            self.assertEqual(recovery["before"], "Original body\n")
+            self.assertIn("Refs sample-space/sample-app#4", recovery["after"])
+            recovery_path.unlink()
 
     def test_pr_template_placeholder_is_replaced(self):
         rendered = work.linked_body("Refs #ISSUE\n", "sample-space/sample-app#3", "refs", "sample-space/sample-app")
@@ -225,6 +232,20 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(len(create_calls), 2)
         self.assertEqual(len(current_receipt.data["operations"]), 2)
         self.assertNotIn("--force", create_calls[0][0])
+
+    def test_labels_ensure_reports_created_labels_when_audit_fails(self):
+        current = receipt()
+        runner = FakeRunner(managed_preflight_responses(labels=[]))
+        output = io.StringIO()
+        with mock.patch.object(current, "save", side_effect=work.WorkError("cannot save receipt")):
+            with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+                work.command_labels_ensure(
+                    Namespace(repos="sample-space/sample-app"), runner, config(), current
+                )
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["stage"], "audit")
+        self.assertEqual(payload["created"], [{"name": "type:bug", "repo": "sample-space/sample-app"}])
+        self.assertEqual(payload["failed_label"], payload["created"][0])
 
     def test_labels_dry_run_never_records_mutation(self):
         runner = FakeRunner([
@@ -331,6 +352,24 @@ class HelperTests(unittest.TestCase):
         edit = next(call[0] for call in runner.calls if call[0][:2] == ["pr", "edit"])
         self.assertIn("--body-file", edit)
 
+    def test_assign_marks_failed_mutation_result_as_unknown(self):
+        current = receipt()
+        responses = managed_preflight_responses() + [
+            {"labels": [], "assignees": []},
+            work.CommandResult(),
+            work.CommandResult(returncode=1, stderr="network timeout"),
+        ]
+        args = Namespace(
+            issue="sample-space/sample-app#4",
+            assignee="sample-user",
+            from_ownership_map=False,
+            area=None,
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+            work.command_assign(args, FakeRunner(responses), config(), None, current)
+        self.assertEqual(json.loads(output.getvalue())["stage"], "mutation-result-unknown")
+
     def test_assign_reports_partial_state_when_receipt_write_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             current = receipt(str(Path(directory) / "receipt.json"))
@@ -351,7 +390,12 @@ class HelperTests(unittest.TestCase):
                     work.command_assign(args, FakeRunner(responses), config(), None, current)
             self.assertEqual(
                 json.loads(output.getvalue()),
-                {"assignee": "sample-user", "issue": "sample-space/sample-app#4", "partial": True},
+                {
+                    "assignee": "sample-user",
+                    "issue": "sample-space/sample-app#4",
+                    "partial": True,
+                    "stage": "audit",
+                },
             )
 
     def test_work_graph_preserves_partial_receipt_on_failure(self):
@@ -441,6 +485,24 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(stdout.getvalue(), "")
             self.assertIn("cannot save receipt", stderr.getvalue())
 
+    def test_main_restore_does_not_require_target_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "issue-label-added",
+                issue="https://github.com/sample-space/sample-app/issues/9",
+                name="needs-owner",
+            )
+            responses = restore_preflight_responses() + [{"labels": [], "assignees": []}]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.main(["restore", "--receipt", path], runner=FakeRunner(responses))
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
+            restored = receipt(path)
+            self.assertIsNone(restored.data["operations"][0]["restored_by_config_digest"])
+
     def test_restore_marks_operations_and_second_run_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -449,13 +511,13 @@ class HelperTests(unittest.TestCase):
             first_responses = restore_preflight_responses() + [[{"name": "type:task"}], [], [], work.CommandResult()]
             first = FakeRunner(first_responses)
             with contextlib.redirect_stdout(io.StringIO()):
-                work.command_restore(Namespace(receipt=path), first, config(), current)
+                work.command_restore(Namespace(receipt=path), first, current)
             reloaded = receipt(path)
             self.assertEqual(reloaded.data["operations"][0]["status"], "restored")
             second = FakeRunner([])
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
-                work.command_restore(Namespace(receipt=path), second, config(), reloaded)
+                work.command_restore(Namespace(receipt=path), second, reloaded)
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["restored_operations"], 0)
             self.assertEqual(payload["reason"], "already_restored")
@@ -465,7 +527,7 @@ class HelperTests(unittest.TestCase):
         current = receipt()
         runner = FakeRunner([])
         with self.assertRaisesRegex(work.WorkError, "receipt not found"):
-            work.command_restore(Namespace(receipt="missing"), runner, config(), current)
+            work.command_restore(Namespace(receipt="missing"), runner, current)
         self.assertEqual(runner.calls, [])
 
     def test_restore_accepts_persisted_noop_receipt(self):
@@ -476,7 +538,7 @@ class HelperTests(unittest.TestCase):
             reloaded = receipt(path)
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
-                result = work.command_restore(Namespace(receipt=path), FakeRunner([]), config(), reloaded)
+                result = work.command_restore(Namespace(receipt=path), FakeRunner([]), reloaded)
             self.assertEqual(result, 0)
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["restored_operations"], 0)
@@ -520,7 +582,7 @@ class HelperTests(unittest.TestCase):
         ]
         with contextlib.redirect_stdout(io.StringIO()):
             first_result = work.command_restore(
-                Namespace(receipt="unused"), FakeRunner(first_responses), config(), current
+                Namespace(receipt="unused"), FakeRunner(first_responses), current
             )
         self.assertEqual(first_result, 3)
         self.assertEqual(
@@ -535,7 +597,7 @@ class HelperTests(unittest.TestCase):
         ]
         with contextlib.redirect_stdout(io.StringIO()):
             second_result = work.command_restore(
-                Namespace(receipt="unused"), FakeRunner(second_responses), config(), current
+                Namespace(receipt="unused"), FakeRunner(second_responses), current
             )
         self.assertEqual(second_result, 0)
         self.assertTrue(all(operation["status"] == "restored" for operation in current.data["operations"]))
@@ -550,7 +612,7 @@ class HelperTests(unittest.TestCase):
         ]
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
+            result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
         self.assertEqual(result, 3)
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["skipped_labels_in_use"], 1)
@@ -572,7 +634,7 @@ class HelperTests(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             result = work.command_restore(
-                Namespace(receipt="unused"), FakeRunner(responses, dry_run=True), config(), current
+                Namespace(receipt="unused"), FakeRunner(responses, dry_run=True), current
             )
         payload = json.loads(output.getvalue())
         self.assertEqual(result, 0)
@@ -593,7 +655,7 @@ class HelperTests(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             result = work.command_restore(
-                Namespace(receipt="unused"), FakeRunner(responses), {"targets": []}, current
+                Namespace(receipt="unused"), FakeRunner(responses), current
             )
         payload = json.loads(output.getvalue())
         self.assertEqual(result, 0)
@@ -607,7 +669,17 @@ class HelperTests(unittest.TestCase):
         current.add("relationship-added", relation="sub-issue", source="sample-space/sample-app#1", target="sample-space/sample-app#2")
         responses = restore_preflight_responses() + [work.CommandResult(returncode=1, stderr="permission denied")]
         with self.assertRaises(work.WorkError):
-            work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
+            work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
+
+    def test_captured_payload_errors_remain_operational(self):
+        with self.assertRaisesRegex(work.WorkError, "malformed JSON"):
+            work.parse_captured_payload("not-json")
+        with self.assertRaisesRegex(work.WorkError, "non-object"):
+            work.parse_captured_payload("[]")
+
+    def test_skill_body_respects_documented_line_width(self):
+        lines = (ROOT / "SKILL.body.md").read_text(encoding="utf-8").splitlines()
+        self.assertEqual([], [(index, len(line)) for index, line in enumerate(lines, 1) if len(line) > 100])
 
     def test_standard_check_requires_matching_provenance_and_content(self):
         helper_source = "#!/usr/bin/env python3\nprint('sample')\n"

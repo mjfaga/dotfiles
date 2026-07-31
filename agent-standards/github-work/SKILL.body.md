@@ -21,29 +21,36 @@ python3 scripts/github_work.py \
 
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
-array of `repo`, `area`, and `logins`. The private operator supplies their location. Keep receipts
-under `.github-work/receipts/`; consumer repositories must ignore `.github-work/`,
-`*github-work-targets*`, `*github-work-ownership*`, and `*.github-work-receipt.json*`.
+array of `repo`, `area`, and `logins`. The private operator supplies their location. Consumer
+repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`, and
+`*.github-work-receipt.json*`.
 
-Assign before creating a branch. Every mutating command requires `--receipt PATH`; the path MUST be
-under the private `.github-work/receipts/` directory and reused for compensating `restore`. Use `issue-create` with Feature, Bug, or Task and
-native parent/blocking relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes`
-enforces the read-only finality check before it edits a PR body; run `finality` separately to inspect
-eligibility first. Assignment preserves existing assignees and uses `needs-owner` when an ownership
-lookup has zero or multiple candidates.
+Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep the path in
+a private location excluded from source control, such as `.github-work/receipts/`, and reuse it for
+compensating `restore`. Use `issue-create` with Feature, Bug, or Task and native parent/blocking
+relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes` enforces the read-only
+finality check before it edits a PR body; run `finality` separately to inspect eligibility first.
+Assignment preserves existing assignees and uses `needs-owner` when an ownership lookup has zero or
+multiple candidates.
 
-A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path is
-exit `2`. `restore` exits `3` when labels remain in use; resolve those references and retry. Restore
-output distinguishes `empty`, `already_restored`, `restored`, and `labels_in_use`, and reports both
-restored and mutated operation counts. Receipts remain compatible across helper releases with the
-same receipt schema even if the repository is later removed from active target configuration. Each
-new operation records the active helper source and private-config digests as audit metadata. On
-interruption or partial failure, recover created work from the receipt and any `partial: true` output;
-partial payloads intentionally accompany a non-zero exit and require reconciliation.
+A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
+is exit `2`. Restore does not require the private target config. It exits `3` when labels remain in
+use; resolve those references and retry. Restore output distinguishes `empty`, `already_restored`,
+`restored`, and `labels_in_use`, and reports both restored and mutated operation counts. Receipts
+remain compatible across helper releases with the same receipt schema even if the repository is
+later removed from active target configuration. Each new operation records the active helper source
+and private-config digests as audit metadata.
 
-Exit `0` means success or eligibility. Exit `1` means a read-only eligibility, preflight, or finality
-check failed. Exit `2` means an operational or configuration error; mutating commands report
-classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`; exit `2`
+On interruption or partial failure, recover created work from the receipt and any `partial: true`
+output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
+the GitHub mutation succeeded but receipt persistence failed; `mutation-result-unknown` means verify
+live GitHub state. PR-body recovery data is written to the private mode-0600 `recovery_path`, not
+stdout.
+
+Exit `0` means success or eligibility. Exit `1` means a read-only eligibility, preflight, or
+finality check failed. Exit `2` means an operational or configuration error; mutating commands
+report classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`;
+exit `2`
 reports the operational error on stderr. Finality consumers must check `reason` (`ready`,
 `not_ready`, or `classification`) before reading relationship counts. Multiline PR bodies are edited
 through a body file. Never let this generic lifecycle replace local land or deployment checks.

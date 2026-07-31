@@ -104,7 +104,7 @@ class Receipt:
         path: str | None,
         *,
         source_sha: str,
-        config_digest: str,
+        config_digest: str | None,
     ) -> None:
         self.path = Path(path) if path else None
         self.loaded = bool(self.path and self.path.exists())
@@ -347,6 +347,52 @@ def temporary_body(content: str) -> Iterator[str]:
         Path(handle.name).unlink(missing_ok=True)
 
 
+def write_private_recovery_payload(payload: dict[str, Any]) -> str:
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            delete=False,
+            prefix="github-work-recovery-",
+            suffix=".json",
+            encoding="utf-8",
+        ) as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            path = Path(handle.name)
+        path.chmod(0o600)
+        return str(path)
+    except OSError as exc:
+        raise WorkError(f"cannot write private recovery payload: {exc}") from exc
+
+
+def pr_link_partial_payload(
+    args: argparse.Namespace,
+    before: str,
+    recovery_path: str,
+    stage: str,
+) -> dict[str, Any]:
+    return {
+        "before_length": len(before),
+        "before_sha256": hashlib.sha256(before.encode("utf-8")).hexdigest(),
+        "issue": args.issue,
+        "mode": args.mode,
+        "partial": True,
+        "pr": args.pr,
+        "recovery_path": recovery_path,
+        "stage": stage,
+    }
+
+
+def parse_captured_payload(text: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise WorkError("child command emitted malformed JSON") from exc
+    if not isinstance(payload, dict):
+        raise WorkError("child command emitted a non-object JSON payload")
+    return payload
+
+
 def gh_version(runner: GhRunner) -> tuple[int, int, int]:
     text = runner.run(["version"]).stdout
     match = re.search(r"gh version (\d+)\.(\d+)\.(\d+)", text)
@@ -464,13 +510,32 @@ def command_labels_ensure(
             if name in by_name:
                 unchanged += 1
                 continue
-            runner.run([
-                "label", "create", name, "--repo", repo,
-                "--color", color, "--description", description,
-            ], mutate=True)
+            label = {"repo": repo, "name": name}
+            try:
+                runner.run([
+                    "label", "create", name, "--repo", repo,
+                    "--color", color, "--description", description,
+                ], mutate=True)
+            except WorkError:
+                json_print({
+                    "created": created,
+                    "failed_label": label,
+                    "partial": True,
+                    "stage": "mutation-result-unknown",
+                })
+                raise
+            created.append(label)
             if not runner.dry_run:
-                receipt.add("label-created", repo=repo, name=name)
-            created.append({"repo": repo, "name": name})
+                try:
+                    receipt.add("label-created", repo=repo, name=name)
+                except WorkError:
+                    json_print({
+                        "created": created,
+                        "failed_label": label,
+                        "partial": True,
+                        "stage": "audit",
+                    })
+                    raise
     if not runner.dry_run:
         receipt.ensure_saved()
     json_print({"created": created, "created_count": len(created), "unchanged": unchanged, "dry_run": runner.dry_run})
@@ -609,19 +674,18 @@ def command_pr_link(
     try:
         with temporary_body(after) as path:
             runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
-        if not runner.dry_run:
+    except WorkError:
+        recovery = write_private_recovery_payload({"after": after, "before": before})
+        json_print(pr_link_partial_payload(args, before, recovery, "mutation-result-unknown"))
+        raise
+    if not runner.dry_run:
+        try:
             receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
             receipt.ensure_saved()
-    except WorkError:
-        json_print({
-            "after": after,
-            "before": before,
-            "issue": args.issue,
-            "mode": args.mode,
-            "partial": True,
-            "pr": args.pr,
-        })
-        raise
+        except WorkError:
+            recovery = write_private_recovery_payload({"after": after, "before": before})
+            json_print(pr_link_partial_payload(args, before, recovery, "audit"))
+            raise
     json_print({"changed": True, "dry_run": runner.dry_run, "pr": args.pr, "mode": args.mode})
     return 0
 
@@ -694,24 +758,62 @@ def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
     ])
     if not isinstance(labels, list):
         raise WorkError(f"cannot verify ownership labels in {repo}")
+    label_created = False
     if NEEDS_OWNER_LABEL[0] not in {item.get("name") for item in labels if isinstance(item, dict)}:
         try:
             runner.run([
                 "label", "create", NEEDS_OWNER_LABEL[0], "--repo", repo,
                 "--color", NEEDS_OWNER_LABEL[1], "--description", NEEDS_OWNER_LABEL[2],
             ], mutate=True)
-            if not runner.dry_run:
-                receipt.add("label-created", repo=repo, name=NEEDS_OWNER_LABEL[0])
         except WorkError:
-            json_print({"action": "create-label", "name": NEEDS_OWNER_LABEL[0], "partial": True, "repo": repo})
+            json_print({
+                "action": "create-label",
+                "name": NEEDS_OWNER_LABEL[0],
+                "partial": True,
+                "repo": repo,
+                "stage": "mutation-result-unknown",
+            })
             raise
+        label_created = not runner.dry_run
+        if not runner.dry_run:
+            try:
+                receipt.add("label-created", repo=repo, name=NEEDS_OWNER_LABEL[0])
+            except WorkError:
+                json_print({
+                    "action": "create-label",
+                    "name": NEEDS_OWNER_LABEL[0],
+                    "partial": True,
+                    "repo": repo,
+                    "stage": "audit",
+                })
+                raise
     try:
         runner.run(["issue", "edit", issue, "--add-label", NEEDS_OWNER_LABEL[0]], mutate=True)
-        if not runner.dry_run:
-            receipt.add("issue-label-added", issue=issue, name=NEEDS_OWNER_LABEL[0])
     except WorkError:
-        json_print({"action": "add-label", "issue": issue, "name": NEEDS_OWNER_LABEL[0], "partial": True})
+        json_print({
+            "action": "add-label",
+            "issue": issue,
+            "label_created": label_created,
+            "name": NEEDS_OWNER_LABEL[0],
+            "partial": True,
+            "repo": repo,
+            "stage": "mutation-result-unknown",
+        })
         raise
+    if not runner.dry_run:
+        try:
+            receipt.add("issue-label-added", issue=issue, name=NEEDS_OWNER_LABEL[0])
+        except WorkError:
+            json_print({
+                "action": "add-label",
+                "issue": issue,
+                "label_created": label_created,
+                "name": NEEDS_OWNER_LABEL[0],
+                "partial": True,
+                "repo": repo,
+                "stage": "audit",
+            })
+            raise
 
 
 def command_assign(
@@ -751,12 +853,26 @@ def command_assign(
         raise WorkError(f"not assignable in {repo}: {assignee}")
     try:
         runner.run(["issue", "edit", args.issue, "--add-assignee", assignee], mutate=True)
-        if not runner.dry_run:
+    except WorkError:
+        json_print({
+            "assignee": assignee,
+            "issue": args.issue,
+            "partial": True,
+            "stage": "mutation-result-unknown",
+        })
+        raise
+    if not runner.dry_run:
+        try:
             receipt.add("assignee-added", issue=args.issue, login=assignee)
             receipt.ensure_saved()
-    except WorkError:
-        json_print({"assignee": assignee, "issue": args.issue, "partial": True})
-        raise
+        except WorkError:
+            json_print({
+                "assignee": assignee,
+                "issue": args.issue,
+                "partial": True,
+                "stage": "audit",
+            })
+            raise
     json_print({"assigned": True, "dry_run": runner.dry_run, "assignee": assignee})
     return 0
 
@@ -791,7 +907,6 @@ def receipt_repositories(receipt: Receipt) -> set[str]:
 def command_restore(
     args: argparse.Namespace,
     runner: GhRunner,
-    config: dict[str, Any],
     receipt: Receipt,
 ) -> int:
     if not receipt.data["operations"]:
@@ -935,7 +1050,7 @@ def command_work_graph_create(
                 command_issue_create(child_args, runner, config, receipt)
         except WorkError:
             child_output = captured.getvalue().strip()
-            failed_partial = json.loads(child_output) if child_output else None
+            failed_partial = parse_captured_payload(child_output) if child_output else None
             json_print({
                 "created_tasks": len(created),
                 "failed_partial": failed_partial,
@@ -945,7 +1060,7 @@ def command_work_graph_create(
                 "umbrella": args.umbrella,
             })
             raise
-        created.append(json.loads(captured.getvalue()))
+        created.append(parse_captured_payload(captured.getvalue()))
     if not runner.dry_run:
         receipt.ensure_saved()
     json_print({"created_tasks": len(created), "issues": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
@@ -1125,9 +1240,13 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
     try:
         if args.command == "standard-check":
             return command_standard_check(args)
+        source_sha = active_source_sha()
+        if args.command == "restore":
+            config_sha = file_digest(args.config) if args.config else None
+            receipt = Receipt(args.receipt, source_sha=source_sha, config_digest=config_sha)
+            return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)
         config_sha = file_digest(args.config)
-        source_sha = active_source_sha()
         ownership = load_json(args.ownership_config) if args.ownership_config else None
         if args.command == "preflight":
             return command_preflight(args, active_runner, config)
@@ -1138,8 +1257,6 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             source_sha=source_sha,
             config_digest=config_sha,
         )
-        if args.command == "restore":
-            return command_restore(args, active_runner, config, receipt)
         if args.command == "labels":
             return command_labels_ensure(args, active_runner, config, receipt)
         if args.command == "issue-create":
