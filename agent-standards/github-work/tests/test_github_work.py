@@ -236,12 +236,30 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(work.WorkError, "repo must be a non-empty string"):
                 work.load_targets(path)
 
+    def test_load_targets_rejects_non_string_work_title(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "targets.json"
+            target = config()["targets"][0]
+            target["work_title"] = ["not", "a", "string"]
+            path.write_text(json.dumps({"targets": [target]}), encoding="utf-8")
+            with self.assertRaisesRegex(work.WorkError, "work_title.*non-empty string"):
+                work.load_targets(path)
+
     def test_load_targets_maps_non_utf8_config_to_operational_error(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "targets.json"
             path.write_bytes(b"bad-utf8-\x96")
             with self.assertRaisesRegex(work.WorkError, "cannot load JSON-compatible YAML"):
                 work.load_targets(path)
+
+    def test_load_ownership_rejects_non_array_mappings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ownership.json"
+            path.write_text(json.dumps({
+                "mappings": {"sample-space/sample-app": ["sample-user"]},
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(work.WorkError, "mappings array"):
+                work.load_ownership(path)
 
     def test_labels_ensure_creates_only_missing_after_preflight(self):
         existing = [{"name": "type:bug", "color": "000000", "description": "preserved"}]
@@ -387,7 +405,24 @@ class HelperTests(unittest.TestCase):
             work.command_issue_create(args, FakeRunner(responses), config(), receipt())
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["stage"], "mutation-result-unknown")
+        self.assertEqual(payload["title"], "Sample")
         self.assertIsNone(payload["url"])
+
+    def test_issue_create_reports_partial_when_gh_returns_malformed_url(self):
+        responses = managed_preflight_responses() + [
+            work.CommandResult(stdout="https://github.com/sample-space/sample-app/issues/7\nversion nag\n"),
+        ]
+        args = Namespace(
+            repo="sample-space/sample-app", type="Task", title="Sample", body_file=None,
+            parent=None, blocking=None, assignee=None,
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaises(work.PartialWorkError):
+            work.command_issue_create(args, FakeRunner(responses), config(), receipt())
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["stage"], "mutation-result-unknown")
+        self.assertEqual(payload["url"], "version nag")
+        self.assertEqual(payload["title"], "Sample")
 
     def test_issue_create_reports_partial_url_when_relationship_fails(self):
         created = "https://github.com/sample-space/sample-app/issues/7"
@@ -415,7 +450,11 @@ class HelperTests(unittest.TestCase):
                 },
                 "relationship_added": None,
                 "repo": "sample-space/sample-app",
+                "requested_relationships": [
+                    {"relation": "sub-issue", "source": "sample-space/sample-app#2"},
+                ],
                 "stage": "mutation-result-unknown",
+                "title": "Sample",
                 "type": "Task",
                 "url": created,
             },
@@ -444,6 +483,7 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["stage"], "audit")
             self.assertEqual(payload["completed_relationships"], [])
+            self.assertEqual(payload["requested_relationships"], [])
             self.assertIsNone(payload["relationship"])
             self.assertFalse(payload["relationship_added"])
 
@@ -670,7 +710,32 @@ class HelperTests(unittest.TestCase):
             current = work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
             self.assertEqual(current.data["schema_version"], 1)
 
-    def test_receipt_schema_two_requires_restore_config_audit_fields(self):
+    def test_receipt_schema_two_from_previous_release_remains_loadable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "receipt.json"
+            path.write_text(json.dumps({
+                "schema_version": 2,
+                "receipt_id": "previous-release",
+                "source_sha": SOURCE,
+                "config_digest": DIGEST,
+                "operations": [{
+                    "operation_id": "operation-1",
+                    "status": "restored",
+                    "kind": "label-created",
+                    "repo": "sample-space/sample-app",
+                    "name": "type:task",
+                    "restore_mutated": True,
+                    "restored_by_source_sha": SOURCE,
+                    "restored_by_config_digest": DIGEST,
+                    "restored_config_requested": False,
+                    "restored_config_unavailable": False,
+                }],
+            }), encoding="utf-8")
+            path.chmod(0o600)
+            current = work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
+            self.assertEqual(current.data["schema_version"], 2)
+
+    def test_receipt_schema_three_requires_complete_restore_audit_fields(self):
         current = receipt()
         current.add("label-created", repo="sample-space/sample-app", name="type:task")
         current.data["operations"][0]["status"] = "restored"
@@ -745,7 +810,10 @@ class HelperTests(unittest.TestCase):
             self.assertTrue(payload["config_unavailable"])
             restored = receipt(path)
             operation = restored.data["operations"][0]
-            self.assertIsNone(operation["restored_by_config_digest"])
+            self.assertEqual(
+                operation["restored_by_config_digest"],
+                hashlib.sha256(b"{").hexdigest(),
+            )
             self.assertTrue(operation["restored_config_requested"])
             self.assertEqual(operation["restored_config_status"], "invalid")
             self.assertTrue(operation["restored_config_unavailable"])

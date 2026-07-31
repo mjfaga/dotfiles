@@ -23,8 +23,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, NoReturn, Sequence
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SUPPORTED_SCHEMA_VERSIONS = frozenset(range(1, SCHEMA_VERSION + 1))
+CONFIG_STATUSES = frozenset({"absent", "empty", "invalid", "ok", "unreadable"})
 MIN_GH_VERSION = (2, 96, 0)
 MANAGED_LABELS = {
     "bug": ("type:bug", "B60205", "Unexpected problem or incorrect behavior"),
@@ -124,6 +125,8 @@ class Receipt:
         self.config_requested = config_requested
         self.config_unavailable = config_unavailable
         self.config_status = config_status
+        if config_status not in CONFIG_STATUSES:
+            raise WorkError(f"invalid current config status: {config_status}")
         self.data: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "receipt_id": str(uuid.uuid4()),
@@ -201,19 +204,24 @@ class Receipt:
             ):
                 if boolean_field in operation and not isinstance(operation[boolean_field], bool):
                     raise WorkError(f"receipt operation {boolean_field} must be boolean")
-            if "restored_config_status" in operation and operation["restored_config_status"] not in {
-                "absent", "empty", "invalid", "ok", "unreadable"
-            }:
+            if (
+                "restored_config_status" in operation
+                and operation["restored_config_status"] not in CONFIG_STATUSES
+            ):
                 raise WorkError("receipt operation restored_config_status is invalid")
-            if self.data["schema_version"] >= 2 and operation["status"] == "restored":
+            schema_version = self.data["schema_version"]
+            if schema_version >= 2 and operation["status"] == "restored":
                 required_restore_fields = {
-                    "restore_mutated",
-                    "restored_by_config_digest",
-                    "restored_by_source_sha",
                     "restored_config_requested",
-                    "restored_config_status",
                     "restored_config_unavailable",
                 }
+                if schema_version >= 3:
+                    required_restore_fields.update({
+                        "restore_mutated",
+                        "restored_by_config_digest",
+                        "restored_by_source_sha",
+                        "restored_config_status",
+                    })
                 missing_restore_fields = required_restore_fields - operation.keys()
                 if missing_restore_fields:
                     raise WorkError(
@@ -327,17 +335,45 @@ def load_targets(path: str | None) -> dict[str, Any]:
             raise WorkError(f"unknown adapter for {target['repo']}: {target['adapter']}")
         if target["classification"] not in {"native-type", "managed-label"}:
             raise WorkError(f"unknown classification for {target['repo']}")
+        if "work_title" in target and (
+            not isinstance(target["work_title"], str) or not target["work_title"]
+        ):
+            raise WorkError(f"work_title for {target['repo']} must be a non-empty string")
     auxiliary = config.get("auxiliary_repositories", [])
     if not isinstance(auxiliary, list):
         raise WorkError("auxiliary_repositories must be an array")
     for item in auxiliary:
-        if not isinstance(item, dict) or not isinstance(item.get("repo"), str):
-            raise WorkError("auxiliary repository entries require repo")
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("repo"), str)
+            or not item["repo"]
+        ):
+            raise WorkError("auxiliary repository entries require a non-empty repo")
         if item.get("classification") not in {"native-type", "managed-label"}:
             raise WorkError(f"unknown auxiliary classification for {item.get('repo')}")
         if item["repo"] in seen:
             raise WorkError(f"duplicate repository configuration: {item['repo']}")
         seen.add(item["repo"])
+    return config
+
+
+def load_ownership(path: str | Path) -> dict[str, Any]:
+    config = load_json(path)
+    mappings = config.get("mappings")
+    if not isinstance(mappings, list):
+        raise WorkError("ownership config requires a mappings array")
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            raise WorkError("every ownership mapping must be an object")
+        if not isinstance(mapping.get("repo"), str) or not mapping["repo"]:
+            raise WorkError("ownership mapping repo must be a non-empty string")
+        if not isinstance(mapping.get("area"), str) or not mapping["area"]:
+            raise WorkError("ownership mapping area must be a non-empty string")
+        logins = mapping.get("logins")
+        if not isinstance(logins, list) or any(
+            not isinstance(login, str) or not login for login in logins
+        ):
+            raise WorkError("ownership mapping logins must be an array of non-empty strings")
     return config
 
 
@@ -674,13 +710,23 @@ def raise_issue_partial(
     relationship_added: bool | None = False,
     completed_relationships: list[dict[str, str]] | None = None,
 ) -> NoReturn:
+    requested_relationships = [
+        {"relation": relation, "source": source}
+        for source, relation in (
+            (args.parent, "sub-issue"),
+            (args.blocking, "blocked-by"),
+        )
+        if source
+    ]
     payload = {
         "completed_relationships": completed_relationships or [],
         "partial": True,
         "relationship": relationship,
         "relationship_added": relationship_added,
         "repo": args.repo,
+        "requested_relationships": requested_relationships,
         "stage": stage,
+        "title": args.title,
         "type": args.type,
         "url": created_url,
     }
@@ -746,7 +792,17 @@ def command_issue_create(
             relationship_added=None,
         )
     created_url = output_lines[-1]
-    parse_issue_url(created_url)
+    try:
+        parse_issue_url(created_url)
+    except WorkError as exc:
+        raise_issue_partial(
+            exc,
+            args,
+            created_url,
+            emit=emit,
+            stage="mutation-result-unknown",
+            relationship_added=None,
+        )
     relationship_specs = [
         (args.parent, "sub-issue", "--add-sub-issue"),
         (args.blocking, "blocked-by", "--add-blocked-by"),
@@ -1287,6 +1343,7 @@ def command_work_graph_create(
                 emit=False,
             )
         except PartialWorkError as child_error:
+            # A child partial always represents GitHub state that needs reconciliation.
             aggregate = {
                 "created_tasks": len(created),
                 "failed_partial": child_error.payload,
@@ -1509,7 +1566,6 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
                     try:
                         load_targets(args.config)
                     except Exception:
-                        config_sha = None
                         config_status = "invalid"
                     else:
                         config_status = "ok"
@@ -1525,7 +1581,7 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)
         config_sha = file_digest(args.config)
-        ownership = load_json(args.ownership_config) if args.ownership_config else None
+        ownership = load_ownership(args.ownership_config) if args.ownership_config else None
         if args.command == "preflight":
             return command_preflight(args, active_runner, config)
         if args.command == "finality":
@@ -1534,6 +1590,8 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             getattr(args, "receipt", None),
             source_sha=source_sha,
             config_digest=config_sha,
+            config_requested=True,
+            config_status="ok",
         )
         if args.command == "labels":
             return command_labels_ensure(args, active_runner, config, receipt)
