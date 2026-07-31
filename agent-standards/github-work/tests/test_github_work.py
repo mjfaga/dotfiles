@@ -452,7 +452,7 @@ class HelperTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             work.command_issue_create(args, runner, config("native-type"), current_receipt)
         commands = [call[0] for call in runner.calls]
-        self.assertIn(["issue", "edit", "sample-space/sample-app#2", "--add-sub-issue", "https://github.com/sample-space/sample-app/issues/7"], commands)
+        self.assertIn(["issue", "edit", "https://github.com/sample-space/sample-app/issues/2", "--add-sub-issue", "https://github.com/sample-space/sample-app/issues/7"], commands)
         self.assertEqual([operation["kind"] for operation in current_receipt.data["operations"]], ["issue-created", "relationship-added"])
 
     def test_managed_issue_creation_records_classification_label_for_restore(self):
@@ -583,13 +583,16 @@ class HelperTests(unittest.TestCase):
                 "partial": True,
                 "relationship": {
                     "relation": "sub-issue",
-                    "source": "sample-space/sample-app#2",
+                    "source": "https://github.com/sample-space/sample-app/issues/2",
                     "target": created,
                 },
                 "relationship_added": None,
                 "repo": "sample-space/sample-app",
                 "requested_relationships": [
-                    {"relation": "sub-issue", "source": "sample-space/sample-app#2"},
+                    {
+                        "relation": "sub-issue",
+                        "source": "https://github.com/sample-space/sample-app/issues/2",
+                    },
                 ],
                 "stage": "mutation-result-unknown",
                 "title": "Sample",
@@ -880,7 +883,7 @@ class HelperTests(unittest.TestCase):
                 {
                     "assignee": "sample-user",
                     "dry_run": False,
-                    "issue": "sample-space/sample-app#4",
+                    "issue": "https://github.com/sample-space/sample-app/issues/4",
                     "needs_owner_removed": False,
                     "ownership_source": "explicit",
                     "partial": True,
@@ -1254,6 +1257,52 @@ class HelperTests(unittest.TestCase):
                 work.command_restore(
                     Namespace(receipt=path), FakeRunner(responses), current,
                 )
+
+    def test_restore_names_unparseable_relationship_rest_url(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="blocked-by",
+            )
+            responses = restore_preflight_responses() + [
+                {"blockedBy": []},
+                [{"html_url": "https://github.com/sample-space/sample-app/pull/7"}],
+            ]
+            with self.assertRaisesRegex(
+                work.WorkError, "blocked-by response contains an invalid issue URL"
+            ):
+                work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+
+    def test_restore_reconciles_source_deleted_during_relationship_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="blocked-by",
+            )
+            responses = restore_preflight_responses() + [
+                {"blockedBy": []},
+                work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+                work.CommandResult(returncode=1, stderr="issue view failed"),
+                work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["reason"], "missing_issues")
+            self.assertTrue(current.data["operations"][0]["restore_missing"])
 
     def test_restore_skips_exactly_absent_sub_issue_without_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

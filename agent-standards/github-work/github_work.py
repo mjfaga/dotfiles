@@ -591,7 +591,7 @@ def pr_link_partial_payload(
     return {
         "before_length": len(before),
         "before_sha256": hashlib.sha256(before.encode("utf-8")).hexdigest(),
-        "issue": args.issue,
+        "issue": canonical_issue_reference(args.issue),
         "mode": args.mode,
         "partial": True,
         "pr": canonical_pr_reference(args.pr),
@@ -632,6 +632,39 @@ def restore_issue_state(runner: GhRunner, value: str) -> dict[str, Any] | None:
             message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
             raise WorkError(f"cannot verify referenced issue {value}: {message}") from state_error
         raise state_error
+
+
+def restore_relationship_state(
+    runner: GhRunner,
+    endpoint: str,
+    response_name: str,
+    source: str,
+) -> list[str] | None:
+    """Return canonical related issue URLs, or None when the source was deleted."""
+    result = runner.run(["api", endpoint, "--paginate"], check=False)
+    if result.returncode != 0:
+        detail = f"{result.stderr}\n{result.stdout}".lower()
+        if "http 404" in detail and restore_issue_state(runner, source) is None:
+            return None
+        message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        raise WorkError(f"cannot verify {response_name} relationships for {source}: {message}")
+    try:
+        related_issues = json.loads(result.stdout or "null")
+    except json.JSONDecodeError as exc:
+        raise WorkError(f"{response_name} response is not valid JSON") from exc
+    if not isinstance(related_issues, list):
+        raise WorkError(f"{response_name} response must be an array")
+    canonical_urls: list[str] = []
+    for item in related_issues:
+        if not isinstance(item, dict) or not isinstance(item.get("html_url"), str):
+            raise WorkError(f"{response_name} response lacks html_url entries")
+        try:
+            canonical_urls.append(canonical_issue_reference(item["html_url"]))
+        except WorkError as exc:
+            raise WorkError(
+                f"{response_name} response contains an invalid issue URL: {item['html_url']}"
+            ) from exc
+    return canonical_urls
 
 
 def issue_labels(state: dict[str, Any]) -> set[str]:
@@ -792,7 +825,7 @@ def raise_issue_partial(
     completed_relationships: list[dict[str, str]] | None = None,
 ) -> NoReturn:
     requested_relationships = [
-        {"relation": relation, "source": source}
+        {"relation": relation, "source": canonical_issue_reference(source)}
         for attribute, relation, _ in RELATIONSHIP_SPECS
         if (source := getattr(args, attribute, None))
     ]
@@ -882,7 +915,11 @@ def command_issue_create(
             relationship_added=None,
         )
     relationships = [
-        ({"relation": relation, "source": source, "target": created_url}, flag)
+        ({
+            "relation": relation,
+            "source": canonical_issue_reference(source),
+            "target": canonical_issue_reference(created_url),
+        }, flag)
         for attribute, relation, flag in RELATIONSHIP_SPECS
         if (source := getattr(args, attribute, None))
     ]
@@ -1160,7 +1197,7 @@ def add_needs_owner(
                 "action": "create-label",
                 "candidates": candidates,
                 "dry_run": runner.dry_run,
-                "issue": issue,
+                "issue": canonical_issue_reference(issue),
                 "name": NEEDS_OWNER_LABEL[0],
                 "needs_owner_removed": False,
                 "ownership_source": ownership_source,
@@ -1178,7 +1215,7 @@ def add_needs_owner(
                     "action": "create-label",
                     "candidates": candidates,
                     "dry_run": runner.dry_run,
-                    "issue": issue,
+                    "issue": canonical_issue_reference(issue),
                     "name": NEEDS_OWNER_LABEL[0],
                     "needs_owner_removed": False,
                     "ownership_source": ownership_source,
@@ -1194,7 +1231,7 @@ def add_needs_owner(
             "action": "add-label",
             "candidates": candidates,
             "dry_run": runner.dry_run,
-            "issue": issue,
+            "issue": canonical_issue_reference(issue),
             "label_created": label_created,
             "name": NEEDS_OWNER_LABEL[0],
             "needs_owner_removed": False,
@@ -1212,7 +1249,7 @@ def add_needs_owner(
                 "action": "add-label",
                 "candidates": candidates,
                 "dry_run": runner.dry_run,
-                "issue": issue,
+                "issue": canonical_issue_reference(issue),
                 "label_created": label_created,
                 "name": NEEDS_OWNER_LABEL[0],
                 "needs_owner_removed": False,
@@ -1274,7 +1311,7 @@ def remove_needs_owner(
         json_print({
             **context,
             "action": "remove-label",
-            "issue": issue,
+            "issue": canonical_issue_reference(issue),
             "name": NEEDS_OWNER_LABEL[0],
             "needs_owner_removed": None,
             "partial": True,
@@ -1288,7 +1325,7 @@ def remove_needs_owner(
             json_print({
                 **context,
                 "action": "remove-label",
-                "issue": issue,
+                "issue": canonical_issue_reference(issue),
                 "name": NEEDS_OWNER_LABEL[0],
                 "needs_owner_removed": None,
                 "partial": True,
@@ -1413,7 +1450,7 @@ def command_assign(
         json_print({
             "assignee": assignee,
             "dry_run": runner.dry_run,
-            "issue": args.issue,
+            "issue": canonical_issue_reference(args.issue),
             "needs_owner_removed": False,
             "ownership_source": ownership_source,
             "partial": True,
@@ -1428,7 +1465,7 @@ def command_assign(
             json_print({
                 "assignee": assignee,
                 "dry_run": runner.dry_run,
-                "issue": args.issue,
+                "issue": canonical_issue_reference(args.issue),
                 "needs_owner_removed": False,
                 "ownership_source": ownership_source,
                 "partial": True,
@@ -1650,17 +1687,20 @@ def command_restore(
                 relationship_markers = (
                     "blocked-by not found", "no blocked-by", "not blocked"
                 )
-            related_issues = runner.json(["api", endpoint, "--paginate"])
-            if not isinstance(related_issues, list) or any(
-                not isinstance(item, dict) or not isinstance(item.get("html_url"), str)
-                for item in related_issues
-            ):
-                raise WorkError(f"{response_name} response lacks html_url entries")
-            target = canonical_issue_reference(operation["target"])
-            relationship_present = any(
-                canonical_issue_reference(item["html_url"]) == target
-                for item in related_issues
+            related_issues = restore_relationship_state(
+                runner,
+                endpoint,
+                response_name,
+                operation["source"],
             )
+            if related_issues is None:
+                if not runner.dry_run:
+                    receipt.mark_restored(operation, missing=True, mutated=False)
+                restored += 1
+                missing_issue_operations += 1
+                continue
+            target = canonical_issue_reference(operation["target"])
+            relationship_present = target in related_issues
             if relationship_present:
                 result = runner.run(
                     ["issue", "edit", operation["source"], flag, operation["target"]],
