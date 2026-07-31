@@ -673,10 +673,15 @@ class HelperTests(unittest.TestCase):
             "area": "web",
             "logins": ["one-user", "two-user"],
         }]}
-        responses = managed_preflight_responses() + [{
+        current_state = {
             "labels": [{"name": "needs-owner"}],
             "assignees": [{"login": "existing-user"}],
-        }, work.CommandResult()]
+        }
+        responses = managed_preflight_responses() + [
+            current_state,
+            current_state,
+            work.CommandResult(),
+        ]
         runner = FakeRunner(responses)
         args = Namespace(
             issue="sample-space/sample-app#4",
@@ -761,6 +766,58 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(payload["candidates"], ["one-user", "two-user"])
             self.assertEqual(payload["ownership_source"], "wildcard")
             self.assertEqual(payload["stage"], "audit")
+
+    def test_assign_dry_run_reports_planned_stale_label_removal(self):
+        ownership = {"mappings": [{
+            "repo": "sample-space/sample-app",
+            "area": "web",
+            "logins": ["existing-user"],
+        }]}
+        current_state = {
+            "labels": [{"name": "needs-owner"}],
+            "assignees": [{"login": "existing-user"}],
+        }
+        runner = FakeRunner(
+            managed_preflight_responses() + [current_state, current_state],
+            dry_run=True,
+        )
+        args = Namespace(
+            issue="sample-space/sample-app#4",
+            assignee=None,
+            from_ownership_map=True,
+            area="web",
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            work.command_assign(args, runner, config(), ownership, receipt())
+        payload = json.loads(output.getvalue())
+        self.assertTrue(payload["dry_run"])
+        self.assertTrue(payload["needs_owner_removed"])
+
+    def test_assign_success_tolerates_concurrent_stale_label_removal(self):
+        ownership = {"mappings": [{
+            "repo": "sample-space/sample-app",
+            "area": "web",
+            "logins": ["resolved-user"],
+        }]}
+        responses = managed_preflight_responses() + [
+            {"labels": [{"name": "needs-owner"}], "assignees": []},
+            work.CommandResult(),
+            work.CommandResult(),
+            {"labels": [], "assignees": [{"login": "resolved-user"}]},
+        ]
+        args = Namespace(
+            issue="sample-space/sample-app#4",
+            assignee=None,
+            from_ownership_map=True,
+            area="web",
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            work.command_assign(args, FakeRunner(responses), config(), ownership, receipt())
+        payload = json.loads(output.getvalue())
+        self.assertTrue(payload["assigned"])
+        self.assertFalse(payload["needs_owner_removed"])
 
     def test_assign_rejects_empty_or_irrelevant_area_before_preflight(self):
         for args, message in [
@@ -1146,6 +1203,78 @@ class HelperTests(unittest.TestCase):
                 ],
                 [call[0] for call in runner.calls],
             )
+
+    def test_restore_mixed_label_lifecycle_converges_in_real_and_dry_runs(self):
+        def make_receipt(path):
+            current = receipt(path)
+            current.add("label-created", repo="sample-space/sample-app", name="needs-owner")
+            current.add(
+                "issue-label-added",
+                issue="sample-space/sample-app#5",
+                name="needs-owner",
+            )
+            current.add(
+                "issue-label-removed",
+                issue="sample-space/sample-app#7",
+                name="needs-owner",
+            )
+            return current
+
+        with tempfile.TemporaryDirectory() as directory:
+            real = make_receipt(str(Path(directory) / "real.json"))
+            real_responses = restore_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                work.CommandResult(),
+                {"labels": [{"name": "needs-owner"}], "assignees": []},
+                work.CommandResult(),
+            ]
+            real_output = io.StringIO()
+            with contextlib.redirect_stdout(real_output):
+                result = work.command_restore(
+                    Namespace(receipt=str(real.path)),
+                    FakeRunner(real_responses),
+                    real,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(real_output.getvalue())["skipped_labels_in_use"], 0)
+            self.assertTrue(all(op["status"] == "restored" for op in real.data["operations"]))
+
+            dry = make_receipt(str(Path(directory) / "dry.json"))
+            dry_responses = restore_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                {"labels": [{"name": "needs-owner"}], "assignees": []},
+            ]
+            dry_output = io.StringIO()
+            with contextlib.redirect_stdout(dry_output):
+                result = work.command_restore(
+                    Namespace(receipt=str(dry.path)),
+                    FakeRunner(dry_responses, dry_run=True),
+                    dry,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(dry_output.getvalue())["skipped_labels_in_use"], 0)
+
+    def test_restore_tolerates_missing_definition_for_removed_label(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "issue-label-removed",
+                issue="sample-space/sample-app#4",
+                name="needs-owner",
+            )
+            responses = restore_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                work.CommandResult(returncode=1, stderr="label not found"),
+            ]
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = work.command_restore(
+                    Namespace(receipt=path),
+                    FakeRunner(responses),
+                    current,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(current.data["operations"][0]["status"], "restored")
 
     def test_restore_rejects_receipt_without_operations(self):
         current = receipt()

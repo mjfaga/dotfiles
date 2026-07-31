@@ -43,8 +43,10 @@ Assignment preserves existing assignees, adds a uniquely resolved owner when nee
 `needs-owner` only when an unassigned issue's lookup has zero or multiple human candidates. When an
 issue becomes human-owned, assignment removes a stale `needs-owner` label with a reversible receipt
 operation. Map ambiguity on an owned issue reports `existing-owner`; `already-assigned` results use
-stable `assignee`, `assignees`, and `candidates` keys. A bot-only matched tier remains fail-closed
-and reports its source. An empty `--receipt`, `--title`, `--assignee`, `--area`, `--parent`,
+stable `assignee`, `assignees`, and `candidates` keys. Every assignment result includes
+`needs_owner_removed`; `true` means removal occurred or would occur under `--dry-run`, while
+escalation and absent-label paths report `false`. A bot-only matched tier remains fail-closed and
+reports its source. An empty `--receipt`, `--title`, `--assignee`, `--area`, `--parent`,
 `--blocking`, or `--body-file`, or `--area` without `--from-ownership-map`, exits `2`. Empty target
 or ownership config exits `2` on commands that consume configuration; `standard-check` ignores both,
 while `restore` audits target config availability and ignores ownership config. Other commands fail

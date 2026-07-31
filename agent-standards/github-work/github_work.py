@@ -1216,19 +1216,28 @@ def remove_needs_owner(
     """Remove a stale needs-owner label and record the reversible mutation."""
     if NEEDS_OWNER_LABEL[0] not in issue_labels(state):
         return False
+    live_state = issue_state(runner, issue)
+    if NEEDS_OWNER_LABEL[0] not in issue_labels(live_state):
+        return False
     try:
-        runner.run(
+        result = runner.run(
             ["issue", "edit", issue, "--remove-label", NEEDS_OWNER_LABEL[0]],
             mutate=True,
+            check=False,
         )
+        if result.returncode != 0:
+            detail = f"{result.stderr}\n{result.stdout}".lower()
+            if any(marker in detail for marker in ("not found", "does not exist", "not labeled")):
+                return False
+            raise WorkError(result.stderr.strip() or result.stdout.strip() or "label removal failed")
     except WorkError:
         json_print({
+            **context,
             "action": "remove-label",
             "issue": issue,
             "name": NEEDS_OWNER_LABEL[0],
             "partial": True,
             "stage": "mutation-result-unknown",
-            **context,
         })
         raise
     if not runner.dry_run:
@@ -1236,15 +1245,15 @@ def remove_needs_owner(
             receipt.add("issue-label-removed", issue=issue, name=NEEDS_OWNER_LABEL[0])
         except WorkError:
             json_print({
+                **context,
                 "action": "remove-label",
                 "issue": issue,
                 "name": NEEDS_OWNER_LABEL[0],
                 "partial": True,
                 "stage": "audit",
-                **context,
             })
             raise
-    return not runner.dry_run
+    return True
 
 
 def command_assign(
@@ -1282,6 +1291,7 @@ def command_assign(
                 receipt,
                 {
                     "assignee": resolved_assignee,
+                    "assignee_added": False,
                     "assignees": human_assignees,
                     "candidates": candidates,
                     "ownership_source": ownership_source,
@@ -1310,6 +1320,7 @@ def command_assign(
                 "assigned": False,
                 "candidates": candidates,
                 "dry_run": runner.dry_run,
+                "needs_owner_removed": False,
                 "ownership_source": ownership_source,
                 "reason": "zero-matches" if not candidates else "multiple-matches",
             })
@@ -1330,6 +1341,7 @@ def command_assign(
             receipt,
             {
                 "assignee": assignee,
+                "assignee_added": False,
                 "assignees": assignees,
                 "candidates": [assignee],
                 "ownership_source": ownership_source,
@@ -1385,6 +1397,7 @@ def command_assign(
         {
             "assignee": assignee,
             "assignee_added": not runner.dry_run,
+            "assignees": sorted(set(issue_assignees(state)) | {assignee}),
             "candidates": [assignee],
             "ownership_source": ownership_source,
         },
@@ -1473,6 +1486,11 @@ def command_restore(
         for operation in receipt.data["operations"]
         if operation["status"] == "active" and operation["kind"] == "issue-label-added"
     }
+    pending_issue_label_reapplications = {
+        (canonical_issue_reference(operation["issue"]), operation["name"])
+        for operation in receipt.data["operations"]
+        if operation["status"] == "active" and operation["kind"] == "issue-label-removed"
+    }
     for operation in reversed(receipt.data["operations"]):
         if operation["status"] == "restored":
             already_restored += 1
@@ -1494,8 +1512,23 @@ def command_restore(
         elif kind == "issue-label-removed":
             state = issue_state(runner, operation["issue"])
             if operation["name"] not in issue_labels(state):
-                runner.run(["issue", "edit", operation["issue"], "--add-label", operation["name"]], mutate=True)
-                mutated = True
+                result = runner.run(
+                    ["issue", "edit", operation["issue"], "--add-label", operation["name"]],
+                    mutate=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    mutated = True
+                else:
+                    detail = f"{result.stderr}\n{result.stdout}".lower()
+                    if not any(
+                        marker in detail
+                        for marker in ("label not found", "does not exist", "unknown label")
+                    ):
+                        raise WorkError(
+                            result.stderr.strip() or result.stdout.strip()
+                            or "label reapplication failed"
+                        )
         elif kind == "relationship-added":
             flag = "--remove-sub-issue" if operation["relation"] == "sub-issue" else "--remove-blocked-by"
             result = runner.run(["issue", "edit", operation["source"], flag, operation["target"]], mutate=True, check=False)
@@ -1511,33 +1544,46 @@ def command_restore(
                 runner.run(["issue", "close", operation["issue"], "--reason", "not planned"], mutate=True)
                 mutated = True
         elif kind == "label-created":
-            current = runner.json([
-                "label", "list", "--repo", operation["repo"], "--limit", "200", "--json", "name",
-            ])
-            if not isinstance(current, list):
-                raise WorkError(f"cannot verify labels in {operation['repo']}")
-            if operation["name"] in {item.get("name") for item in current if isinstance(item, dict)}:
-                issue_uses = runner.json([
-                    "issue", "list", "--repo", operation["repo"], "--state", "all",
-                    "--label", operation["name"], "--limit", "100", "--json", "url",
+            retained_for_reapplication = any(
+                parse_issue_url(issue)[0] == operation["repo"] and name == operation["name"]
+                for issue, name in pending_issue_label_reapplications
+            )
+            if not retained_for_reapplication:
+                current = runner.json([
+                    "label", "list", "--repo", operation["repo"], "--limit", "200",
+                    "--json", "name",
                 ])
-                pr_uses = runner.json([
-                    "pr", "list", "--repo", operation["repo"], "--state", "all",
-                    "--label", operation["name"], "--limit", "1", "--json", "url",
-                ])
-                if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
-                    raise WorkError(f"cannot verify label usage in {operation['repo']}")
-                if runner.dry_run:
-                    issue_uses = [
-                        use for use in issue_uses
-                        if (canonical_issue_reference(use.get("url", "")), operation["name"])
-                        not in pending_issue_label_removals
-                    ]
-                if issue_uses or pr_uses:
-                    skipped_in_use += 1
-                    continue
-                runner.run(["label", "delete", operation["name"], "--repo", operation["repo"], "--yes"], mutate=True)
-                mutated = True
+                if not isinstance(current, list):
+                    raise WorkError(f"cannot verify labels in {operation['repo']}")
+                if operation["name"] in {
+                    item.get("name") for item in current if isinstance(item, dict)
+                }:
+                    issue_uses = runner.json([
+                        "issue", "list", "--repo", operation["repo"], "--state", "all",
+                        "--label", operation["name"], "--limit", "100", "--json", "url",
+                    ])
+                    pr_uses = runner.json([
+                        "pr", "list", "--repo", operation["repo"], "--state", "all",
+                        "--label", operation["name"], "--limit", "1", "--json", "url",
+                    ])
+                    if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
+                        raise WorkError(f"cannot verify label usage in {operation['repo']}")
+                    if runner.dry_run:
+                        issue_uses = [
+                            use for use in issue_uses
+                            if (
+                                canonical_issue_reference(use.get("url", "")),
+                                operation["name"],
+                            ) not in pending_issue_label_removals
+                        ]
+                    if issue_uses or pr_uses:
+                        skipped_in_use += 1
+                        continue
+                    runner.run([
+                        "label", "delete", operation["name"], "--repo", operation["repo"],
+                        "--yes",
+                    ], mutate=True)
+                    mutated = True
         if not runner.dry_run:
             receipt.mark_restored(operation, mutated=mutated)
         restored += 1
