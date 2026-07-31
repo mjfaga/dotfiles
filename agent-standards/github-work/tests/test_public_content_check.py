@@ -16,11 +16,15 @@ SPEC.loader.exec_module(check)
 class PublicContentTests(unittest.TestCase):
     def test_private_values_cover_repo_parts_paths_keys_areas_and_logins(self):
         values = check.private_values(
-            {"targets": [{"repo": "sample-space/private-app", "checkout": "/runtime/private-app", "ownership_key": "private-area"}]},
+            {
+                "targets": [{"repo": "sample-space/private-app", "checkout": "/runtime/private-app", "ownership_key": "private-area"}],
+                "auxiliary_repositories": [{"repo": "sample-space/.github", "classification": "native-type"}],
+            },
             {"mappings": [{"repo": "sample-space/private-app", "area": "private-area", "logins": ["private-user"]}]},
         )
-        for value in ("sample-space/private-app", "sample-space", "private-app", "/runtime/private-app", "private-area", "private-user"):
+        for value in ("sample-space/private-app", "sample-space/.github", "sample-space", "private-app", "/runtime/private-app", "private-area", "private-user"):
             self.assertIn(value, values)
+        self.assertNotIn(".github", values)
 
     def test_scan_finds_runtime_private_value_with_boundaries(self):
         with tempfile.TemporaryDirectory() as directory:

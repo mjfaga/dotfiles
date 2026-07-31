@@ -38,7 +38,10 @@ def add_repo_tokens(values: set[str], repo: Any) -> None:
     if not isinstance(repo, str) or "/" not in repo:
         return
     owner, name = repo.split("/", 1)
-    values.update(value for value in (repo, owner, name) if len(value) >= 5)
+    values.update(
+        value for value in (repo, owner, name)
+        if len(value) >= 5 and not value.startswith(".")
+    )
 
 
 def private_values(targets: dict[str, Any], ownership: dict[str, Any]) -> set[str]:
