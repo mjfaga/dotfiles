@@ -259,12 +259,46 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(work.WorkError, "work_title.*non-empty string"):
                 work.load_targets(path)
 
+    def test_load_targets_rejects_unhashable_auxiliary_classification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "targets.json"
+            path.write_text(json.dumps({
+                "targets": config()["targets"],
+                "auxiliary_repositories": [{
+                    "repo": "sample-space/aux-app",
+                    "classification": ["native-type"],
+                }],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(work.WorkError, "classification must be a non-empty string"):
+                work.load_targets(path)
+
     def test_load_targets_maps_non_utf8_config_to_operational_error(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "targets.json"
             path.write_bytes(b"bad-utf8-\x96")
             with self.assertRaisesRegex(work.WorkError, "cannot load JSON-compatible YAML"):
                 work.load_targets(path)
+
+    def test_ownership_candidates_prefers_default_then_wildcard_then_specific(self):
+        ownership = {
+            "mappings": [
+                {"repo": "sample-space/sample-app", "logins": ["default-user"]},
+                {"repo": "sample-space/sample-app", "area": "*", "logins": ["wild-user"]},
+                {"repo": "sample-space/sample-app", "area": "web", "logins": ["web-user"]},
+            ],
+        }
+        self.assertEqual(
+            work.ownership_candidates(ownership, "sample-space/sample-app", None),
+            ["default-user"],
+        )
+        self.assertEqual(
+            work.ownership_candidates(ownership, "sample-space/sample-app", "web"),
+            ["web-user"],
+        )
+        self.assertEqual(
+            work.ownership_candidates(ownership, "sample-space/sample-app", "api"),
+            ["wild-user"],
+        )
 
     def test_load_ownership_rejects_non_array_mappings(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -291,7 +325,7 @@ class HelperTests(unittest.TestCase):
             )
             self.assertEqual(
                 work.ownership_candidates(ownership, "sample-space/sample-app", "ui"),
-                [],
+                ["sample-user"],
             )
 
     def test_labels_ensure_creates_only_missing_after_preflight(self):
@@ -881,6 +915,7 @@ class HelperTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 result = work.main([
                     "--config", "",
+                    "--ownership-config", "",
                     "restore", "--receipt", path,
                 ], runner=FakeRunner(responses))
             self.assertEqual(result, 0)

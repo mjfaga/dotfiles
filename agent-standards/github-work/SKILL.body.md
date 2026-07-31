@@ -21,11 +21,12 @@ python3 scripts/github_work.py \
 
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
-array of `repo`, optional `area`, and `logins`. Omitted `area` is repo-wide only when no area filter
-is requested; use `*` to match every explicit area. Ownership config is loaded only when
-`--from-ownership-map` is used. The private operator supplies the files' locations. Consumer
-repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`,
-`*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
+array of `repo`, optional `area`, and `logins`. Ownership resolution prefers an exact area, then
+`*`, then an omitted-area default; without an area it prefers the omitted-area default, then `*`.
+Ownership config is loaded only when `--from-ownership-map` is used, so the global flag may remain
+in shared invocations including restore. The private operator supplies the files' locations.
+Consumer repositories must ignore `.github-work/`, `*github-work-targets*`,
+`*github-work-ownership*`, `*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
 
 Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep the path in
 a private location excluded from source control, such as `.github-work/receipts/`, and reuse it for
@@ -45,8 +46,8 @@ those references and retry. Restore output distinguishes `empty`, `already_resto
 and `labels_in_use`, and reports both restored and mutated operation counts. Receipts remain
 compatible across helper releases with a supported receipt schema even if the repository is later
 removed from active target configuration. Drain outstanding newer-schema receipts before pinning an
-older standard version. Each new operation records the active helper source and private-config
-digests as audit metadata.
+older standard version. Schema-v3 operations require creation and restore attribution. Each new
+operation records the active helper source and private-config digests as audit metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means

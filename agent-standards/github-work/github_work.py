@@ -190,6 +190,12 @@ class Receipt:
             identifiers.add(operation_id)
             if operation.get("status") not in {"active", "restored"}:
                 raise WorkError("receipt operation status must be active or restored")
+            if self.data["schema_version"] >= 3:
+                for attribution_field in ("source_sha", "config_digest"):
+                    if operation.get(attribution_field) is None:
+                        raise WorkError(
+                            f"receipt operation {attribution_field} is required at schema v3"
+                        )
             for metadata_field, pattern in (
                 ("source_sha", r"(?:[0-9a-f]{40}|development)"),
                 ("config_digest", r"[0-9a-f]{64}"),
@@ -358,16 +364,22 @@ def load_targets(path: str | None) -> dict[str, Any]:
             or not item["repo"]
         ):
             raise WorkError("auxiliary repository entries require a non-empty repo")
-        if item.get("classification") not in {"native-type", "managed-label"}:
+        if (
+            not isinstance(item.get("classification"), str)
+            or not item["classification"]
+        ):
+            raise WorkError("auxiliary classification must be a non-empty string")
+        if item["classification"] not in {"native-type", "managed-label"}:
             raise WorkError(f"unknown auxiliary classification for {item.get('repo')}")
         if "work_title" in item and (
             not isinstance(item["work_title"], str) or not item["work_title"]
         ):
             raise WorkError(f"work_title for {item['repo']} must be a non-empty string")
-        if "adapter" in item and item["adapter"] not in {
-            "generated-modern", "generated-legacy", "plain"
-        }:
-            raise WorkError(f"unknown adapter for {item['repo']}: {item['adapter']}")
+        if "adapter" in item:
+            if not isinstance(item["adapter"], str) or not item["adapter"]:
+                raise WorkError(f"adapter for {item['repo']} must be a non-empty string")
+            if item["adapter"] not in {"generated-modern", "generated-legacy", "plain"}:
+                raise WorkError(f"unknown adapter for {item['repo']}: {item['adapter']}")
         if item["repo"] in seen:
             raise WorkError(f"duplicate repository configuration: {item['repo']}")
         seen.add(item["repo"])
@@ -732,7 +744,7 @@ def raise_issue_partial(
     requested_relationships = [
         {"relation": relation, "source": source}
         for attribute, relation, _ in RELATIONSHIP_SPECS
-        if (source := getattr(args, attribute))
+        if (source := getattr(args, attribute, None))
     ]
     payload = {
         "completed_relationships": completed_relationships or [],
@@ -822,7 +834,7 @@ def command_issue_create(
     relationships = [
         ({"relation": relation, "source": source, "target": created_url}, flag)
         for attribute, relation, flag in RELATIONSHIP_SPECS
-        if (source := getattr(args, attribute))
+        if (source := getattr(args, attribute, None))
     ]
     completed_relationships: list[dict[str, str]] = []
     next_relationship = relationships[0][0] if relationships else None
@@ -1031,14 +1043,16 @@ def command_finality(args: argparse.Namespace, runner: GhRunner, config: dict[st
 
 
 def ownership_candidates(config: dict[str, Any], repo: str, area: str | None) -> list[str]:
-    candidates: list[str] = []
-    for mapping in config.get("mappings", []):
-        if mapping.get("repo") != repo:
-            continue
-        if area and mapping.get("area") not in {area, "*"}:
-            continue
-        candidates.extend(login for login in mapping.get("logins", []) if isinstance(login, str))
-    return sorted(set(candidates))
+    mappings = [mapping for mapping in config["mappings"] if mapping["repo"] == repo]
+    defaults = [mapping for mapping in mappings if "area" not in mapping]
+    wildcards = [mapping for mapping in mappings if mapping.get("area") == "*"]
+    if area:
+        exact = [mapping for mapping in mappings if mapping.get("area") == area]
+        selected = exact or wildcards or defaults
+    else:
+        specific = [mapping for mapping in mappings if mapping.get("area") not in {None, "*"}]
+        selected = defaults or wildcards or specific
+    return sorted({login for mapping in selected for login in mapping["logins"]})
 
 
 def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
@@ -1482,7 +1496,10 @@ def command_standard_check(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", help="JSON-compatible private target configuration")
-    parser.add_argument("--ownership-config", help="JSON-compatible private ownership configuration")
+    parser.add_argument(
+        "--ownership-config",
+        help="private ownership configuration used only by assign --from-ownership-map",
+    )
     parser.add_argument("--dry-run", action="store_true", help="read and validate but skip mutations")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -1562,8 +1579,6 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             return command_standard_check(args)
         source_sha = active_source_sha()
         if args.command == "restore":
-            if args.ownership_config is not None:
-                raise WorkError("--ownership-config is invalid with restore")
             config_requested = args.config is not None
             config_sha = None
             config_status = "absent"
