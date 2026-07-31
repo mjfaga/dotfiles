@@ -261,6 +261,25 @@ class HelperTests(unittest.TestCase):
         with self.assertRaisesRegex(work.WorkError, "returned no issue URL"):
             work.command_issue_create(args, FakeRunner(responses), config(), receipt())
 
+    def test_issue_create_reports_partial_url_when_relationship_fails(self):
+        created = "https://github.com/sample-space/sample-app/issues/7"
+        responses = managed_preflight_responses() + [
+            work.CommandResult(stdout=created + "\n"),
+            work.CommandResult(returncode=1, stderr="parent locked"),
+        ]
+        args = Namespace(
+            repo="sample-space/sample-app", type="Task", title="Sample", body_file=None,
+            parent="sample-space/sample-app#2", blocking=None, assignee=None,
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            with self.assertRaises(work.WorkError):
+                work.command_issue_create(args, FakeRunner(responses), config(), receipt())
+        self.assertEqual(
+            json.loads(output.getvalue()),
+            {"partial": True, "repo": "sample-space/sample-app", "type": "Task", "url": created},
+        )
+
     def test_issue_create_rejects_unassignable_login_before_creation(self):
         responses = managed_preflight_responses() + [work.CommandResult(returncode=1, stderr="not assignable")]
         runner = FakeRunner(responses)
@@ -322,10 +341,14 @@ class HelperTests(unittest.TestCase):
             current.add("label-created", repo="sample-space/sample-app", name="type:task")
             current.add("pr-body-changed", pr="https://github.com/sample-space/sample-app/pull/1", before="", after="Refs #1\n")
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
-            upgraded = work.Receipt(str(path), source_sha="c" * 40, config_digest=DIGEST)
+            upgraded = work.Receipt(str(path), source_sha="c" * 40, config_digest="d" * 64)
             self.assertEqual(upgraded.data["source_sha"], SOURCE)
-            with self.assertRaises(work.WorkError):
-                work.Receipt(str(path), source_sha="c" * 40, config_digest="d" * 64)
+            self.assertEqual(upgraded.data["config_digest"], DIGEST)
+            upgraded.add("label-created", repo="sample-space/sample-app", name="type:feature")
+            self.assertEqual(upgraded.data["operations"][0]["source_sha"], SOURCE)
+            self.assertEqual(upgraded.data["operations"][0]["config_digest"], DIGEST)
+            self.assertEqual(upgraded.data["operations"][-1]["source_sha"], "c" * 40)
+            self.assertEqual(upgraded.data["operations"][-1]["config_digest"], "d" * 64)
             path.chmod(0o644)
             with self.assertRaises(work.WorkError):
                 receipt(str(path))

@@ -124,8 +124,6 @@ class Receipt:
                 raise WorkError("existing receipt permissions must be exactly 0600")
             self.data = load_json(self.path)
             self.validate()
-            if self.data["config_digest"] != config_digest:
-                raise WorkError("receipt target-config digest does not match active config")
 
     def validate(self) -> None:
         required = {"schema_version", "receipt_id", "source_sha", "config_digest", "operations"}
@@ -165,6 +163,17 @@ class Receipt:
             identifiers.add(operation_id)
             if operation.get("status") not in {"active", "restored"}:
                 raise WorkError("receipt operation status must be active or restored")
+            for metadata_field, pattern in (
+                ("source_sha", r"(?:[0-9a-f]{40}|development)"),
+                ("config_digest", r"[0-9a-f]{64}"),
+                ("restored_by_source_sha", r"(?:[0-9a-f]{40}|development)"),
+                ("restored_by_config_digest", r"[0-9a-f]{64}"),
+            ):
+                metadata = operation.get(metadata_field)
+                if metadata is not None and (
+                    not isinstance(metadata, str) or not re.fullmatch(pattern, metadata)
+                ):
+                    raise WorkError(f"receipt operation {metadata_field} is malformed")
 
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
@@ -175,6 +184,8 @@ class Receipt:
             "operation_id": str(uuid.uuid4()),
             "status": "active",
             "kind": kind,
+            "source_sha": self.source_sha,
+            "config_digest": self.config_digest,
             **details,
         })
         self.save()
@@ -182,7 +193,13 @@ class Receipt:
     def mark_restored(self, operation: dict[str, Any], *, mutated: bool) -> None:
         operation["status"] = "restored"
         operation["restore_mutated"] = mutated
+        operation["restored_by_source_sha"] = self.source_sha
+        operation["restored_by_config_digest"] = self.config_digest
         self.save()
+
+    def ensure_saved(self) -> None:
+        if not self.loaded:
+            self.save()
 
     def save(self) -> None:
         if not self.path:
@@ -454,7 +471,7 @@ def command_labels_ensure(
                 receipt.add("label-created", repo=repo, name=name)
             created.append({"repo": repo, "name": name})
     if not runner.dry_run:
-        receipt.save()
+        receipt.ensure_saved()
     json_print({"created": created, "created_count": len(created), "unchanged": unchanged, "dry_run": runner.dry_run})
     return 0
 
@@ -507,16 +524,20 @@ def command_issue_create(
         raise WorkError("gh issue create returned no issue URL")
     created_url = output_lines[-1]
     parse_issue_url(created_url)
-    receipt.add("issue-created", issue=created_url)
-    if target["classification"] == "managed-label":
-        receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
-    if args.parent:
-        runner.run(["issue", "edit", args.parent, "--add-sub-issue", created_url], mutate=True)
-        receipt.add("relationship-added", relation="sub-issue", source=args.parent, target=created_url)
-    if args.blocking:
-        runner.run(["issue", "edit", args.blocking, "--add-blocked-by", created_url], mutate=True)
-        receipt.add("relationship-added", relation="blocked-by", source=args.blocking, target=created_url)
-    receipt.save()
+    try:
+        receipt.add("issue-created", issue=created_url)
+        if target["classification"] == "managed-label":
+            receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
+        if args.parent:
+            runner.run(["issue", "edit", args.parent, "--add-sub-issue", created_url], mutate=True)
+            receipt.add("relationship-added", relation="sub-issue", source=args.parent, target=created_url)
+        if args.blocking:
+            runner.run(["issue", "edit", args.blocking, "--add-blocked-by", created_url], mutate=True)
+            receipt.add("relationship-added", relation="blocked-by", source=args.blocking, target=created_url)
+        receipt.ensure_saved()
+    except WorkError:
+        json_print({"partial": True, "repo": args.repo, "type": args.type, "url": created_url})
+        raise
     json_print({"url": created_url, "repo": args.repo, "type": args.type})
     return 0
 
@@ -580,14 +601,14 @@ def command_pr_link(
     after = linked_body(before, args.issue, args.mode, pr_repo)
     if before == after:
         if not runner.dry_run:
-            receipt.save()
+            receipt.ensure_saved()
         json_print({"changed": False, "pr": args.pr, "mode": args.mode})
         return 0
     with temporary_body(after) as path:
         runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
     if not runner.dry_run:
         receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
-        receipt.save()
+        receipt.ensure_saved()
     json_print({"changed": True, "dry_run": runner.dry_run, "pr": args.pr, "mode": args.mode})
     return 0
 
@@ -690,7 +711,7 @@ def command_assign(
         if len(candidates) != 1:
             add_needs_owner(runner, args.issue, receipt)
             if not runner.dry_run:
-                receipt.save()
+                receipt.ensure_saved()
             json_print({"assigned": False, "reason": "zero-matches" if not candidates else "multiple-matches", "candidates": candidates})
             return 0
         assignee = candidates[0]
@@ -701,7 +722,7 @@ def command_assign(
     state = issue_state(runner, args.issue)
     if assignee in issue_assignees(state):
         if not runner.dry_run:
-            receipt.save()
+            receipt.ensure_saved()
         json_print({"assigned": False, "reason": "already-assigned", "assignee": assignee})
         return 0
     validation = runner.run(["api", f"repos/{repo}/assignees/{assignee}"], check=False)
@@ -710,7 +731,7 @@ def command_assign(
     runner.run(["issue", "edit", args.issue, "--add-assignee", assignee], mutate=True)
     if not runner.dry_run:
         receipt.add("assignee-added", issue=args.issue, login=assignee)
-        receipt.save()
+        receipt.ensure_saved()
     json_print({"assigned": True, "dry_run": runner.dry_run, "assignee": assignee})
     return 0
 
@@ -884,11 +905,15 @@ def command_work_graph_create(
             assignee=args.assignee,
         )
         captured = io.StringIO()
-        with contextlib.redirect_stdout(captured):
-            command_issue_create(child_args, runner, config, receipt)
+        try:
+            with contextlib.redirect_stdout(captured):
+                command_issue_create(child_args, runner, config, receipt)
+        except WorkError:
+            print(captured.getvalue(), end="")
+            raise
         created.append(json.loads(captured.getvalue()))
     if not runner.dry_run:
-        receipt.save()
+        receipt.ensure_saved()
     json_print({"created_tasks": len(created), "issues": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
     return 0
 

@@ -36,8 +36,9 @@ A second restore and a receipt from a successful no-op mutation are no-ops. A mi
 exit `2`. `restore` exits `3` when labels remain in use; resolve those references and retry. Restore
 output distinguishes `empty`, `already_restored`, `restored`, and `labels_in_use`, and reports both
 restored and mutated operation counts. Receipts remain compatible across helper releases with the
-same receipt schema; their source SHA is audit metadata. On interruption, recover created work from
-the receipt rather than terminal scrollback.
+same receipt schema; each new operation records the active helper source and private-config digests
+as audit metadata. On interruption or partial failure, recover created work from the receipt and any
+`partial: true` output rather than relying on normal success output.
 
 Exit `0` means success or eligibility. Exit `1` means a read-only eligibility, preflight, or finality
 check failed. Exit `2` means an operational or configuration error; mutating commands report
