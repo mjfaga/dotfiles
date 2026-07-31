@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
-import io
 import json
 from contextlib import contextmanager
 import os
@@ -41,6 +40,14 @@ class WorkError(RuntimeError):
 
 class EligibilityError(WorkError):
     """A reachable repository is missing required issue classification."""
+
+
+class PartialWorkError(WorkError):
+    """A mutation failed after producing structured partial state."""
+
+    def __init__(self, message: str, payload: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 @dataclass
@@ -105,11 +112,15 @@ class Receipt:
         *,
         source_sha: str,
         config_digest: str | None,
+        config_requested: bool = False,
+        config_unavailable: bool = False,
     ) -> None:
         self.path = Path(path) if path else None
         self.loaded = bool(self.path and self.path.exists())
         self.source_sha = source_sha
         self.config_digest = config_digest
+        self.config_requested = config_requested
+        self.config_unavailable = config_unavailable
         self.data: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "receipt_id": str(uuid.uuid4()),
@@ -180,6 +191,12 @@ class Receipt:
                     not isinstance(metadata, str) or not re.fullmatch(pattern, metadata)
                 ):
                     raise WorkError(f"receipt operation {metadata_field} is malformed")
+            for boolean_field in (
+                "restored_config_requested",
+                "restored_config_unavailable",
+            ):
+                if boolean_field in operation and not isinstance(operation[boolean_field], bool):
+                    raise WorkError(f"receipt operation {boolean_field} must be boolean")
 
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
@@ -201,6 +218,8 @@ class Receipt:
         operation["restore_mutated"] = mutated
         operation["restored_by_source_sha"] = self.source_sha
         operation["restored_by_config_digest"] = self.config_digest
+        operation["restored_config_requested"] = self.config_requested
+        operation["restored_config_unavailable"] = self.config_unavailable
         self.save()
 
     def ensure_saved(self) -> None:
@@ -369,21 +388,36 @@ def write_recovery_file(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-        path.chmod(0o600)
+        handle = os.fdopen(descriptor, "w", encoding="utf-8")
     except BaseException:
         with contextlib.suppress(OSError):
             os.close(descriptor)
         raise
+    with handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    path.chmod(0o600)
 
 
-def recovery_error_fields(exc: OSError, attempted_path: Path) -> dict[str, Any]:
+def recovery_fields() -> dict[str, Any]:
     return {
-        "recovery_attempted_path": str(attempted_path),
-        "recovery_detail": exc.strerror or str(exc),
-        "recovery_errno": exc.errno,
+        "recovery_error": None,
+        "recovery_fallback_attempted_path": None,
+        "recovery_fallback_detail": None,
+        "recovery_fallback_errno": None,
+        "recovery_fallback_used": False,
+        "recovery_path": None,
+        "recovery_primary_attempted_path": None,
+        "recovery_primary_detail": None,
+        "recovery_primary_errno": None,
+    }
+
+
+def recovery_error_fields(exc: BaseException, prefix: str, attempted_path: Path) -> dict[str, Any]:
+    return {
+        f"recovery_{prefix}_attempted_path": str(attempted_path),
+        f"recovery_{prefix}_detail": getattr(exc, "strerror", None) or str(exc),
+        f"recovery_{prefix}_errno": getattr(exc, "errno", None),
     }
 
 
@@ -391,48 +425,36 @@ def write_private_recovery_payload(
     payload: dict[str, Any],
     receipt_path: Path | None,
 ) -> dict[str, Any]:
+    result = recovery_fields()
     if receipt_path is None:
-        return {
-            "recovery_error": "receipt-path-unavailable",
-            "recovery_fallback": False,
-            "recovery_path": None,
-        }
-    primary_path = receipt_path.with_name(
-        f"{receipt_path.name}.github-work-recovery-{uuid.uuid4()}.json"
+        result["recovery_error"] = "receipt-path-unavailable"
+        return result
+    primary_path = receipt_path.parent / (
+        f"{receipt_path.name or 'receipt'}.github-work-recovery-{uuid.uuid4()}.json"
     )
-    primary_failure: dict[str, Any]
     try:
         write_recovery_file(primary_path, payload)
-        return {
-            "recovery_error": None,
-            "recovery_fallback": False,
-            "recovery_path": str(primary_path),
-        }
-    except OSError as primary_error:
-        primary_failure = recovery_error_fields(primary_error, primary_path)
+        result["recovery_path"] = str(primary_path)
+        result["recovery_primary_attempted_path"] = str(primary_path)
+        return result
+    except Exception as primary_error:
+        result.update(recovery_error_fields(primary_error, "primary", primary_path))
         with contextlib.suppress(OSError):
             primary_path.unlink(missing_ok=True)
     fallback_path = Path(tempfile.gettempdir()) / f"github-work-recovery-{uuid.uuid4()}.json"
+    result["recovery_fallback_attempted_path"] = str(fallback_path)
     try:
         write_recovery_file(fallback_path, payload)
-        return {
-            "recovery_error": "primary-write-failed",
-            "recovery_fallback": True,
-            "recovery_path": str(fallback_path),
-            **primary_failure,
-        }
-    except OSError as fallback_error:
+        result["recovery_error"] = "primary-write-failed"
+        result["recovery_fallback_used"] = True
+        result["recovery_path"] = str(fallback_path)
+        return result
+    except Exception as fallback_error:
+        result.update(recovery_error_fields(fallback_error, "fallback", fallback_path))
         with contextlib.suppress(OSError):
             fallback_path.unlink(missing_ok=True)
-        return {
-            "recovery_error": "primary-and-fallback-write-failed",
-            "recovery_fallback": True,
-            "recovery_fallback_detail": fallback_error.strerror or str(fallback_error),
-            "recovery_fallback_errno": fallback_error.errno,
-            "recovery_fallback_path": str(fallback_path),
-            "recovery_path": None,
-            **primary_failure,
-        }
+        result["recovery_error"] = "primary-and-fallback-write-failed"
+        return result
 
 
 def pr_link_partial_payload(
@@ -451,16 +473,6 @@ def pr_link_partial_payload(
         "stage": stage,
         **recovery,
     }
-
-
-def parse_captured_payload(text: str) -> dict[str, Any]:
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise WorkError("child command emitted malformed JSON") from exc
-    if not isinstance(payload, dict):
-        raise WorkError("child command emitted a non-object JSON payload")
-    return payload
 
 
 def gh_version(runner: GhRunner) -> tuple[int, int, int]:
@@ -629,6 +641,8 @@ def command_issue_create(
     runner: GhRunner,
     config: dict[str, Any],
     receipt: Receipt,
+    *,
+    emit: bool = True,
 ) -> dict[str, Any]:
     target = target_for(config, args.repo)
     related_repos = [args.repo]
@@ -658,7 +672,8 @@ def command_issue_create(
         result = runner.run(command, mutate=True)
     if runner.dry_run:
         payload = {"dry_run": True, "repo": args.repo, "type": args.type}
-        json_print(payload)
+        if emit:
+            json_print(payload)
         return payload
     output_lines = result.stdout.strip().splitlines()
     if not output_lines:
@@ -676,11 +691,14 @@ def command_issue_create(
             runner.run(["issue", "edit", args.blocking, "--add-blocked-by", created_url], mutate=True)
             receipt.add("relationship-added", relation="blocked-by", source=args.blocking, target=created_url)
         receipt.ensure_saved()
-    except WorkError:
-        json_print({"partial": True, "repo": args.repo, "type": args.type, "url": created_url})
-        raise
+    except WorkError as exc:
+        payload = {"partial": True, "repo": args.repo, "type": args.type, "url": created_url}
+        if emit:
+            json_print(payload)
+        raise PartialWorkError(str(exc), payload) from exc
     payload = {"url": created_url, "repo": args.repo, "type": args.type}
-    json_print(payload)
+    if emit:
+        json_print(payload)
     return payload
 
 
@@ -1003,6 +1021,8 @@ def command_restore(
             raise WorkError(f"receipt not found: {receipt.path}")
         json_print({
             "already_restored_operations": 0,
+            "config_requested": receipt.config_requested,
+            "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
             "mutated_operations": 0,
             "reason": "empty",
@@ -1014,6 +1034,8 @@ def command_restore(
     if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
+            "config_requested": receipt.config_requested,
+            "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
             "mutated_operations": 0,
             "reason": "already_restored",
@@ -1100,6 +1122,8 @@ def command_restore(
         mutated_operations += int(mutated)
     json_print({
         "already_restored_operations": already_restored,
+        "config_requested": receipt.config_requested,
+        "config_unavailable": receipt.config_unavailable,
         "dry_run": runner.dry_run,
         "mutated_operations": mutated_operations,
         "reason": "labels_in_use" if skipped_in_use else "restored",
@@ -1133,19 +1157,28 @@ def command_work_graph_create(
             assignee=args.assignee,
             preflighted=True,
         )
-        captured = io.StringIO()
         try:
-            with contextlib.redirect_stdout(captured):
-                child_payload = command_issue_create(child_args, runner, config, receipt)
-        except WorkError as child_error:
-            child_output = captured.getvalue().strip()
-            try:
-                failed_partial = parse_captured_payload(child_output) if child_output else None
-            except WorkError as parse_error:
-                failed_partial = {"parse_error": str(parse_error)}
+            child_payload = command_issue_create(
+                child_args,
+                runner,
+                config,
+                receipt,
+                emit=False,
+            )
+        except PartialWorkError as child_error:
             json_print({
                 "created_tasks": len(created),
-                "failed_partial": failed_partial,
+                "failed_partial": child_error.payload,
+                "failed_repo": repo,
+                "issues": created,
+                "partial": True,
+                "umbrella": args.umbrella,
+            })
+            raise
+        except WorkError:
+            json_print({
+                "created_tasks": len(created),
+                "failed_partial": None,
                 "failed_repo": repo,
                 "issues": created,
                 "partial": True,
@@ -1336,11 +1369,20 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "restore":
             if args.ownership_config:
                 raise WorkError("--ownership-config is invalid with restore")
+            config_requested = bool(args.config)
+            config_unavailable = False
             try:
                 config_sha = file_digest(args.config) if args.config else None
             except WorkError:
                 config_sha = None
-            receipt = Receipt(args.receipt, source_sha=source_sha, config_digest=config_sha)
+                config_unavailable = True
+            receipt = Receipt(
+                args.receipt,
+                source_sha=source_sha,
+                config_digest=config_sha,
+                config_requested=config_requested,
+                config_unavailable=config_unavailable,
+            )
             return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)
         config_sha = file_digest(args.config)

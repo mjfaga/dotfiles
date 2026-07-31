@@ -35,33 +35,37 @@ multiple candidates.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
 is exit `2`. Restore does not require the private target config and tolerates a supplied config path
-that is unavailable during rollback. It exits `3` when labels remain in use; resolve those
-references and retry. Restore output distinguishes `empty`, `already_restored`,
-`restored`, and `labels_in_use`, and reports both restored and mutated operation counts. Receipts
-remain compatible across helper releases with the same receipt schema even if the repository is
-later removed from active target configuration. Each new operation records the active helper source
-and private-config digests as audit metadata.
+that is unavailable during rollback. Its output and per-operation audit metadata distinguish an
+unavailable requested config from a deliberately config-free restore. It exits `3` when labels
+remain in use; resolve those references and retry. Restore output distinguishes `empty`,
+`already_restored`, `restored`, and `labels_in_use`, and reports both restored and mutated operation
+counts. Receipts remain compatible across helper releases with the same receipt schema even if the
+repository is later removed from active target configuration. Each new operation records the active
+helper source and private-config digests as audit metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
 the GitHub mutation succeeded but receipt persistence failed; `mutation-result-unknown` means verify
 live GitHub state. PR-body recovery data is written beside the receipt at the private mode-0600
-`recovery_path`, not stdout. A primary-write failure records errno/detail and falls back to a
-mode-0600 system-temp path with `recovery_fallback: true`. If both writes fail, `recovery_path` is
-null and both errors are reported. Delete a recovery file after reconciliation.
+`recovery_path`, not stdout. A primary-write failure records errno/detail and tries a mode-0600
+system-temp path. `recovery_fallback_used` is true only when that write succeeds. Recovery payloads
+always include stable primary/fallback attempted-path, errno, and detail keys with nulls where they
+do not apply. If both writes fail, `recovery_path` is null. Delete a recovery file after
+reconciliation.
 
-For `labels ensure`, `created` contains receipt-backed labels; in dry-run output it contains
-planned labels. `failed_label` requires the action indicated by `stage`. Work-graph failures include
+For `labels ensure`, `created` contains receipt-backed labels; in dry-run output it contains planned
+labels. `failed_label` requires the action indicated by `stage`. Work-graph failures include
 receipt-backed `issues`, `failed_repo`, and the child's `failed_partial`. A `needs-owner` failure
 reports `label_created` when it made the shared label during that invocation.
 
 Exit `0` means success or eligibility. Exit `1` means the read-only `preflight` or `finality`
-command found ineligibility. Exit `2` means an operational or configuration error; mutating
-commands report classification ineligibility as exit `2`. Read-only commands emit JSON on exits
-`0` and `1`; exit `2` reports the operational error on stderr. Finality consumers must check
-`reason` (`ready`, `not_ready`, or `classification`) before reading relationship counts. Multiline
-PR bodies are edited through a body file. Never let this generic lifecycle replace local land or
-deployment checks.
+command found ineligibility. The mutating `pr-link --mode closes` finality gate also returns exit
+`1` with a `finality` object and makes no PR edit. Exit `2` means an operational or configuration
+error; other mutating-command classification failures use exit `2`. Eligibility responses emit JSON
+on exits `0` and `1`; exit `2` reports the operational error on stderr. Finality consumers must
+check `reason` (`ready`, `not_ready`, or `classification`) before reading relationship counts.
+Multiline PR bodies are edited through a body file. Never let this generic lifecycle replace local
+land or deployment checks.
 
 The generated helper is tested at its immutable public source tag before distribution.
 

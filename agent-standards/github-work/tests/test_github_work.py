@@ -167,7 +167,7 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertTrue(payload["partial"])
             self.assertEqual(payload["stage"], "audit")
-            self.assertFalse(payload["recovery_fallback"])
+            self.assertFalse(payload["recovery_fallback_used"])
             self.assertIsNone(payload["recovery_error"])
             self.assertNotIn("before", payload)
             self.assertNotIn("after", payload)
@@ -334,9 +334,9 @@ class HelperTests(unittest.TestCase):
                 recovery = work.write_private_recovery_payload(
                     {"before": "private"}, receipt_path
                 )
-            self.assertTrue(recovery["recovery_fallback"])
+            self.assertTrue(recovery["recovery_fallback_used"])
             self.assertEqual(recovery["recovery_error"], "primary-write-failed")
-            self.assertEqual(recovery["recovery_errno"], 28)
+            self.assertEqual(recovery["recovery_primary_errno"], 28)
             self.assertIn("github-work-recovery", recovery["recovery_path"])
 
     def test_recovery_writer_double_failure_remains_structured(self):
@@ -349,8 +349,10 @@ class HelperTests(unittest.TestCase):
             recovery = work.write_private_recovery_payload({"before": "private"}, receipt_path)
         self.assertIsNone(recovery["recovery_path"])
         self.assertEqual(recovery["recovery_error"], "primary-and-fallback-write-failed")
-        self.assertEqual(recovery["recovery_errno"], 28)
+        self.assertFalse(recovery["recovery_fallback_used"])
+        self.assertEqual(recovery["recovery_primary_errno"], 28)
         self.assertEqual(recovery["recovery_fallback_errno"], 30)
+        self.assertEqual(set(recovery), set(work.recovery_fields()))
 
     def test_issue_create_fails_when_gh_returns_no_url(self):
         responses = managed_preflight_responses() + [work.CommandResult()]
@@ -465,13 +467,12 @@ class HelperTests(unittest.TestCase):
         current_receipt = receipt()
         calls = 0
 
-        def create(args, runner, config, receipt):
+        def create(args, runner, config, receipt, **_kwargs):
             nonlocal calls
             calls += 1
             if calls == 1:
                 receipt.add("issue-created", issue="https://github.com/sample-space/one-app/issues/1")
                 payload = {"repo": args.repo, "url": "https://github.com/sample-space/one-app/issues/1"}
-                print(json.dumps(payload))
                 return payload
             raise work.WorkError("second target failed")
 
@@ -487,7 +488,7 @@ class HelperTests(unittest.TestCase):
         self.assertIsNone(payload["failed_partial"])
         self.assertEqual(len(current_receipt.data["operations"]), 1)
 
-    def test_work_graph_preserves_aggregate_when_child_json_is_malformed(self):
+    def test_work_graph_preserves_structured_child_partial_payload(self):
         targets = config(repos=["sample-space/one-app"])
         responses = [
             work.CommandResult(stdout="gh version 2.96.0\n"),
@@ -496,9 +497,15 @@ class HelperTests(unittest.TestCase):
             ALL_LABELS,
         ]
 
-        def create(*_args):
-            print("not-json")
-            raise work.WorkError("child failed")
+        failed = {
+            "partial": True,
+            "repo": "sample-space/one-app",
+            "type": "Task",
+            "url": "https://github.com/sample-space/one-app/issues/2",
+        }
+
+        def create(*_args, **_kwargs):
+            raise work.PartialWorkError("child failed", failed)
 
         output = io.StringIO()
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
@@ -508,7 +515,7 @@ class HelperTests(unittest.TestCase):
         payload = json.loads(output.getvalue())
         self.assertTrue(payload["partial"])
         self.assertEqual(payload["failed_repo"], "sample-space/one-app")
-        self.assertIn("parse_error", payload["failed_partial"])
+        self.assertEqual(payload["failed_partial"], failed)
 
     def test_receipt_is_strict_private_and_bound(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -598,9 +605,15 @@ class HelperTests(unittest.TestCase):
                     "restore", "--receipt", path,
                 ], runner=FakeRunner(responses))
             self.assertEqual(result, 0)
-            self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["reason"], "restored")
+            self.assertTrue(payload["config_requested"])
+            self.assertTrue(payload["config_unavailable"])
             restored = receipt(path)
-            self.assertIsNone(restored.data["operations"][0]["restored_by_config_digest"])
+            operation = restored.data["operations"][0]
+            self.assertIsNone(operation["restored_by_config_digest"])
+            self.assertTrue(operation["restored_config_requested"])
+            self.assertTrue(operation["restored_config_unavailable"])
 
     def test_restore_marks_operations_and_second_run_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -770,15 +783,42 @@ class HelperTests(unittest.TestCase):
         with self.assertRaises(work.WorkError):
             work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
 
-    def test_captured_payload_errors_remain_operational(self):
-        with self.assertRaisesRegex(work.WorkError, "malformed JSON"):
-            work.parse_captured_payload("not-json")
-        with self.assertRaisesRegex(work.WorkError, "non-object"):
-            work.parse_captured_payload("[]")
-
-    def test_skill_body_respects_documented_line_width(self):
+    def test_skill_body_is_greedily_wrapped_at_documented_width(self):
         lines = (ROOT / "SKILL.body.md").read_text(encoding="utf-8").splitlines()
-        self.assertEqual([], [(index, len(line)) for index, line in enumerate(lines, 1) if len(line) > 100])
+        self.assertEqual(
+            [],
+            [(index, len(line)) for index, line in enumerate(lines, 1) if len(line) > 100],
+        )
+        underfilled: list[int] = []
+        paragraph: list[tuple[int, str]] = []
+        in_code = False
+        in_frontmatter = False
+
+        def flush() -> None:
+            for (line_number, line), (_, following) in zip(paragraph, paragraph[1:]):
+                next_word = following.split()[0]
+                if len(line) + 1 + len(next_word) <= 100:
+                    underfilled.append(line_number)
+            paragraph.clear()
+
+        for index, line in enumerate(lines, 1):
+            if index == 1 and line == "---":
+                in_frontmatter = True
+                continue
+            if in_frontmatter:
+                if line == "---":
+                    in_frontmatter = False
+                continue
+            if line.startswith("```"):
+                flush()
+                in_code = not in_code
+                continue
+            if in_code or not line or line.startswith(("#", "<!--")):
+                flush()
+                continue
+            paragraph.append((index, line))
+        flush()
+        self.assertEqual([], underfilled)
 
     def test_standard_check_requires_matching_provenance_and_content(self):
         helper_source = "#!/usr/bin/env python3\nprint('sample')\n"
