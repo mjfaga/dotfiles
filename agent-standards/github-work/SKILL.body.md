@@ -22,8 +22,8 @@ python3 scripts/github_work.py \
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
 array of `repo`, `area`, and `logins`. The private operator supplies their location. Consumer
-repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`, and
-`*.github-work-receipt.json*`.
+repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`,
+`*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
 
 Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep the path in
 a private location excluded from source control, such as `.github-work/receipts/`, and reuse it for
@@ -44,14 +44,19 @@ and private-config digests as audit metadata.
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
 the GitHub mutation succeeded but receipt persistence failed; `mutation-result-unknown` means verify
-live GitHub state. PR-body recovery data is written to the private mode-0600 `recovery_path`, not
-stdout.
+live GitHub state. PR-body recovery data is written beside the receipt at the private mode-0600
+`recovery_path`, not stdout. If that write fails, `recovery_path` is null and `recovery_error`
+explains why. Delete a recovery file after reconciliation.
 
-Exit `0` means success or eligibility. Exit `1` means a read-only eligibility, preflight, or
-finality check failed. Exit `2` means an operational or configuration error; mutating commands
-report classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`;
-exit `2`
-reports the operational error on stderr. Finality consumers must check `reason` (`ready`,
+For `labels ensure`, `created` contains receipt-backed labels and `failed_label` requires the action
+indicated by `stage`. Work-graph failures include receipt-backed `issues`, `failed_repo`, and the
+child's `failed_partial`. A `needs-owner` failure reports `label_created` when it made the shared
+label during that invocation.
+
+Exit `0` means success or eligibility. Exit `1` means a read-only eligibility or finality check
+failed. Exit `2` means an operational, preflight, or configuration error; mutating commands report
+classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`; exit
+`2` reports the operational error on stderr. Finality consumers must check `reason` (`ready`,
 `not_ready`, or `classification`) before reading relationship counts. Multiline PR bodies are edited
 through a body file. Never let this generic lifecycle replace local land or deployment checks.
 

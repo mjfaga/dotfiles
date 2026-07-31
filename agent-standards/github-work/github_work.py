@@ -133,9 +133,13 @@ class Receipt:
             raise WorkError("unsupported receipt schema")
         if not isinstance(self.data["receipt_id"], str) or not self.data["receipt_id"]:
             raise WorkError("receipt_id must be a non-empty string")
-        if not re.fullmatch(r"(?:[0-9a-f]{40}|development)", self.data["source_sha"]):
+        if not isinstance(self.data["source_sha"], str) or not re.fullmatch(
+            r"(?:[0-9a-f]{40}|development)", self.data["source_sha"]
+        ):
             raise WorkError("receipt source_sha is malformed")
-        if not re.fullmatch(r"[0-9a-f]{64}", self.data["config_digest"]):
+        if not isinstance(self.data["config_digest"], str) or not re.fullmatch(
+            r"[0-9a-f]{64}", self.data["config_digest"]
+        ):
             raise WorkError("receipt config_digest is malformed")
         if not isinstance(self.data["operations"], list):
             raise WorkError("receipt operations must be an array")
@@ -338,37 +342,59 @@ def json_print(value: Any) -> None:
 
 @contextmanager
 def temporary_body(content: str) -> Iterator[str]:
-    handle = tempfile.NamedTemporaryFile("w", delete=False, suffix=".md", encoding="utf-8")
-    try:
-        handle.write(content)
-        handle.close()
-        yield handle.name
-    finally:
-        Path(handle.name).unlink(missing_ok=True)
-
-
-def write_private_recovery_payload(payload: dict[str, Any]) -> str:
+    path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            "w",
-            delete=False,
-            prefix="github-work-recovery-",
-            suffix=".json",
-            encoding="utf-8",
+            "w", delete=False, suffix=".md", encoding="utf-8"
         ) as handle:
+            handle.write(content)
+            path = Path(handle.name)
+    except OSError as exc:
+        if path is not None:
+            with contextlib.suppress(OSError):
+                path.unlink(missing_ok=True)
+        raise WorkError(f"cannot write temporary body file: {exc}") from exc
+    if path is None:
+        raise WorkError("temporary body path was not created")
+    try:
+        yield str(path)
+    finally:
+        with contextlib.suppress(OSError):
+            path.unlink(missing_ok=True)
+
+
+def write_private_recovery_payload(
+    payload: dict[str, Any],
+    receipt_path: Path | None,
+) -> tuple[str | None, str | None]:
+    if receipt_path is None:
+        return None, "receipt-path-unavailable"
+    recovery_path = receipt_path.with_name(
+        f"{receipt_path.name}.github-work-recovery-{uuid.uuid4()}.json"
+    )
+    try:
+        recovery_path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(
+            recovery_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
-            path = Path(handle.name)
-        path.chmod(0o600)
-        return str(path)
-    except OSError as exc:
-        raise WorkError(f"cannot write private recovery payload: {exc}") from exc
+        recovery_path.chmod(0o600)
+        return str(recovery_path), None
+    except OSError:
+        with contextlib.suppress(OSError):
+            recovery_path.unlink(missing_ok=True)
+        return None, "write-failed"
 
 
 def pr_link_partial_payload(
     args: argparse.Namespace,
     before: str,
-    recovery_path: str,
+    recovery_path: str | None,
+    recovery_error: str | None,
     stage: str,
 ) -> dict[str, Any]:
     return {
@@ -378,6 +404,7 @@ def pr_link_partial_payload(
         "mode": args.mode,
         "partial": True,
         "pr": args.pr,
+        "recovery_error": recovery_error,
         "recovery_path": recovery_path,
         "stage": stage,
     }
@@ -524,7 +551,6 @@ def command_labels_ensure(
                     "stage": "mutation-result-unknown",
                 })
                 raise
-            created.append(label)
             if not runner.dry_run:
                 try:
                     receipt.add("label-created", repo=repo, name=name)
@@ -536,6 +562,7 @@ def command_labels_ensure(
                         "stage": "audit",
                     })
                     raise
+            created.append(label)
     if not runner.dry_run:
         receipt.ensure_saved()
     json_print({"created": created, "created_count": len(created), "unchanged": unchanged, "dry_run": runner.dry_run})
@@ -671,20 +698,36 @@ def command_pr_link(
             receipt.ensure_saved()
         json_print({"changed": False, "pr": args.pr, "mode": args.mode})
         return 0
-    try:
-        with temporary_body(after) as path:
+    with temporary_body(after) as path:
+        try:
             runner.run(["pr", "edit", args.pr, "--body-file", path], mutate=True)
-    except WorkError:
-        recovery = write_private_recovery_payload({"after": after, "before": before})
-        json_print(pr_link_partial_payload(args, before, recovery, "mutation-result-unknown"))
-        raise
+        except WorkError:
+            recovery, recovery_error = write_private_recovery_payload(
+                {"after": after, "before": before}, receipt.path
+            )
+            json_print(pr_link_partial_payload(
+                args,
+                before,
+                recovery,
+                recovery_error,
+                "mutation-result-unknown",
+            ))
+            raise
     if not runner.dry_run:
         try:
             receipt.add("pr-body-changed", pr=args.pr, before=before, after=after)
             receipt.ensure_saved()
         except WorkError:
-            recovery = write_private_recovery_payload({"after": after, "before": before})
-            json_print(pr_link_partial_payload(args, before, recovery, "audit"))
+            recovery, recovery_error = write_private_recovery_payload(
+                {"after": after, "before": before}, receipt.path
+            )
+            json_print(pr_link_partial_payload(
+                args,
+                before,
+                recovery,
+                recovery_error,
+                "audit",
+            ))
             raise
     json_print({"changed": True, "dry_run": runner.dry_run, "pr": args.pr, "mode": args.mode})
     return 0
@@ -1048,9 +1091,12 @@ def command_work_graph_create(
         try:
             with contextlib.redirect_stdout(captured):
                 command_issue_create(child_args, runner, config, receipt)
-        except WorkError:
+        except WorkError as child_error:
             child_output = captured.getvalue().strip()
-            failed_partial = parse_captured_payload(child_output) if child_output else None
+            try:
+                failed_partial = parse_captured_payload(child_output) if child_output else None
+            except WorkError as parse_error:
+                failed_partial = {"parse_error": str(parse_error)}
             json_print({
                 "created_tasks": len(created),
                 "failed_partial": failed_partial,
@@ -1059,8 +1105,19 @@ def command_work_graph_create(
                 "partial": True,
                 "umbrella": args.umbrella,
             })
+            raise child_error
+        try:
+            created.append(parse_captured_payload(captured.getvalue()))
+        except WorkError as parse_error:
+            json_print({
+                "created_tasks": len(created),
+                "failed_partial": {"parse_error": str(parse_error)},
+                "failed_repo": repo,
+                "issues": created,
+                "partial": True,
+                "umbrella": args.umbrella,
+            })
             raise
-        created.append(parse_captured_payload(captured.getvalue()))
     if not runner.dry_run:
         receipt.ensure_saved()
     json_print({"created_tasks": len(created), "issues": created, "umbrella": args.umbrella, "dry_run": runner.dry_run})
@@ -1242,6 +1299,8 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             return command_standard_check(args)
         source_sha = active_source_sha()
         if args.command == "restore":
+            if args.ownership_config:
+                raise WorkError("--ownership-config is invalid with restore")
             config_sha = file_digest(args.config) if args.config else None
             receipt = Receipt(args.receipt, source_sha=source_sha, config_digest=config_sha)
             return command_restore(args, active_runner, receipt)

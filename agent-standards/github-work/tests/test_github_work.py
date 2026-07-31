@@ -167,9 +167,12 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertTrue(payload["partial"])
             self.assertEqual(payload["stage"], "audit")
+            self.assertIsNone(payload["recovery_error"])
             self.assertNotIn("before", payload)
             self.assertNotIn("after", payload)
             recovery_path = Path(payload["recovery_path"])
+            self.assertEqual(recovery_path.parent, Path(directory))
+            self.assertIn("github-work-recovery", recovery_path.name)
             self.assertEqual(stat.S_IMODE(recovery_path.stat().st_mode), 0o600)
             recovery = json.loads(recovery_path.read_text(encoding="utf-8"))
             self.assertEqual(recovery["before"], "Original body\n")
@@ -244,8 +247,11 @@ class HelperTests(unittest.TestCase):
                 )
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["stage"], "audit")
-        self.assertEqual(payload["created"], [{"name": "type:bug", "repo": "sample-space/sample-app"}])
-        self.assertEqual(payload["failed_label"], payload["created"][0])
+        self.assertEqual(payload["created"], [])
+        self.assertEqual(
+            payload["failed_label"],
+            {"name": "type:bug", "repo": "sample-space/sample-app"},
+        )
 
     def test_labels_dry_run_never_records_mutation(self):
         runner = FakeRunner([
@@ -293,6 +299,27 @@ class HelperTests(unittest.TestCase):
     def test_temporary_body_writes_utf8(self):
         with work.temporary_body("Unicode — body 🤖") as path:
             self.assertEqual(Path(path).read_text(encoding="utf-8"), "Unicode — body 🤖")
+
+    def test_temporary_body_maps_filesystem_errors(self):
+        with mock.patch.object(
+            work.tempfile,
+            "NamedTemporaryFile",
+            side_effect=OSError("read-only filesystem"),
+        ):
+            with self.assertRaisesRegex(work.WorkError, "cannot write temporary body"):
+                with work.temporary_body("body"):
+                    pass
+
+    def test_recovery_writer_failure_returns_structured_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            receipt_path = Path(directory) / "receipt.json"
+            with mock.patch.object(work.os, "open", side_effect=OSError("disk full")):
+                path, error = work.write_private_recovery_payload(
+                    {"before": "private"}, receipt_path
+                )
+            self.assertIsNone(path)
+            self.assertEqual(error, "write-failed")
+            self.assertEqual(list(Path(directory).iterdir()), [])
 
     def test_issue_create_fails_when_gh_returns_no_url(self):
         responses = managed_preflight_responses() + [work.CommandResult()]
@@ -428,6 +455,29 @@ class HelperTests(unittest.TestCase):
         self.assertIsNone(payload["failed_partial"])
         self.assertEqual(len(current_receipt.data["operations"]), 1)
 
+    def test_work_graph_preserves_aggregate_when_child_json_is_malformed(self):
+        targets = config(repos=["sample-space/one-app"])
+        responses = [
+            work.CommandResult(stdout="gh version 2.96.0\n"),
+            work.CommandResult(),
+            work.CommandResult(),
+            ALL_LABELS,
+        ]
+
+        def create(*_args):
+            print("not-json")
+            return 0
+
+        output = io.StringIO()
+        args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
+        with mock.patch.object(work, "command_issue_create", side_effect=create):
+            with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+                work.command_work_graph_create(args, FakeRunner(responses), targets, receipt())
+        payload = json.loads(output.getvalue())
+        self.assertTrue(payload["partial"])
+        self.assertEqual(payload["failed_repo"], "sample-space/one-app")
+        self.assertIn("parse_error", payload["failed_partial"])
+
     def test_receipt_is_strict_private_and_bound(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "receipt.json"
@@ -456,6 +506,20 @@ class HelperTests(unittest.TestCase):
             path.chmod(0o600)
             with self.assertRaises(work.WorkError):
                 receipt(str(path))
+
+    def test_receipt_validation_maps_null_metadata_to_work_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "receipt.json"
+            path.write_text(json.dumps({
+                "schema_version": work.SCHEMA_VERSION,
+                "receipt_id": "receipt",
+                "source_sha": SOURCE,
+                "config_digest": None,
+                "operations": [],
+            }), encoding="utf-8")
+            path.chmod(0o600)
+            with self.assertRaisesRegex(work.WorkError, "config_digest is malformed"):
+                work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
 
     def test_receipt_save_maps_os_errors_to_work_error(self):
         with tempfile.TemporaryDirectory() as directory:
