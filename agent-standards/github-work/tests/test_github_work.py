@@ -177,6 +177,28 @@ class HelperTests(unittest.TestCase):
         self.assertIn(["issue", "edit", "sample-space/sample-app#2", "--add-sub-issue", "https://github.com/sample-space/sample-app/issues/7"], commands)
         self.assertEqual([operation["kind"] for operation in current_receipt.data["operations"]], ["issue-created", "relationship-added"])
 
+    def test_managed_issue_creation_records_classification_label_for_restore(self):
+        responses = managed_preflight_responses() + [
+            work.CommandResult(stdout="https://github.com/sample-space/sample-app/issues/7\n")
+        ]
+        runner = FakeRunner(responses)
+        args = Namespace(
+            repo="sample-space/sample-app", type="Task", title="Sample", body_file=None,
+            parent=None, blocking=None, assignee=None,
+        )
+        current_receipt = receipt()
+        with contextlib.redirect_stdout(io.StringIO()):
+            work.command_issue_create(args, runner, config(), current_receipt)
+        self.assertEqual(
+            [operation["kind"] for operation in current_receipt.data["operations"]],
+            ["issue-created", "issue-label-added"],
+        )
+        self.assertEqual(current_receipt.data["operations"][1]["name"], "type:task")
+
+    def test_temporary_body_writes_utf8(self):
+        with work.temporary_body("Unicode — body 🤖") as path:
+            self.assertEqual(Path(path).read_text(encoding="utf-8"), "Unicode — body 🤖")
+
     def test_issue_create_rejects_unassignable_login_before_creation(self):
         responses = managed_preflight_responses() + [work.CommandResult(returncode=1, stderr="not assignable")]
         runner = FakeRunner(responses)
@@ -354,7 +376,13 @@ class HelperTests(unittest.TestCase):
             )
             with mock.patch.object(work, "__file__", str(helper)), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(work.command_standard_check(args), 0)
-            skill.write_text(skill.read_text().replace("managed content", "changed content"))
+            skill.write_text(skill.read_text().replace(
+                "managed content",
+                "# github-work-standard: version=fake source=fake target=fake content=fake\nmanaged content",
+            ))
+            with mock.patch.object(work, "__file__", str(helper)), self.assertRaises(work.WorkError):
+                work.command_standard_check(args)
+            skill.write_text(managed_text.replace("managed content", "changed content"))
             with mock.patch.object(work, "__file__", str(helper)), self.assertRaises(work.WorkError):
                 work.command_standard_check(args)
 

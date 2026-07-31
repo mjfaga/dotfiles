@@ -306,7 +306,7 @@ def json_print(value: Any) -> None:
 
 @contextmanager
 def temporary_body(content: str) -> Iterator[str]:
-    handle = tempfile.NamedTemporaryFile("w", delete=False, suffix=".md")
+    handle = tempfile.NamedTemporaryFile("w", delete=False, suffix=".md", encoding="utf-8")
     try:
         handle.write(content)
         handle.close()
@@ -489,6 +489,8 @@ def command_issue_create(
     created_url = result.stdout.strip().splitlines()[-1]
     parse_issue_url(created_url)
     receipt.add("issue-created", issue=created_url)
+    if target["classification"] == "managed-label":
+        receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
     if args.parent:
         runner.run(["issue", "edit", args.parent, "--add-sub-issue", created_url], mutate=True)
         receipt.add("relationship-added", relation="sub-issue", source=args.parent, target=created_url)
@@ -837,10 +839,20 @@ def content_without_provenance(text: str, *, managed_region: bool) -> str:
         start = candidate.rfind("\n", 0, begin) + 1
         finish = candidate.find("\n", end)
         candidate = candidate[start : len(candidate) if finish < 0 else finish]
-    lines = [
-        line for line in candidate.splitlines(keepends=True)
-        if not line.lstrip().startswith(("# github-work-standard: version=", "<!-- github-work-standard: version="))
-    ]
+    marker_line = re.compile(
+        r"(?:# github-work-standard: version=\S+ source=[0-9a-f]{40} target=[0-9a-f]{64} "
+        r"content=[0-9a-f]{64}|<!-- github-work-standard: version=\S+ source=[0-9a-f]{40} "
+        r"target=[0-9a-f]{64} content=[0-9a-f]{64} -->)(?:\r?\n)?"
+    )
+    lines: list[str] = []
+    removed = 0
+    for line in candidate.splitlines(keepends=True):
+        if marker_line.fullmatch(line.strip(" \t")):
+            removed += 1
+        else:
+            lines.append(line)
+    if removed != 1:
+        raise WorkError("github-work-standard provenance marker must occupy exactly one complete line")
     return "".join(lines)
 
 

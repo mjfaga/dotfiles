@@ -25,13 +25,15 @@ array of `repo`, `area`, and `logins`. The private operator supplies their locat
 under `.github-work/receipts/`; consumer repositories must ignore `.github-work/`,
 `*github-work-targets*`, `*github-work-ownership*`, and `*.github-work-receipt.json*`.
 
-Assign before creating a branch. Use `issue-create` with Feature, Bug, or Task and native
-parent/blocking relationships. Use `pr-link --mode refs` by default. Run read-only `finality` before
+Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep that path
+private and reuse it for compensating `restore`. Use `issue-create` with Feature, Bug, or Task and
+native parent/blocking relationships. Use `pr-link --mode refs` by default. Run read-only `finality` before
 promotion to `--mode closes`. Assignment preserves existing assignees and uses `needs-owner` when an
 ownership lookup has zero or multiple candidates. Save receipts for mutations and use `restore` for
 compensating rollback; a second restore is a no-op. `restore` exits `3` when labels remain in use,
-meaning rollback is incomplete and should be retried after those references are resolved. Multiline
-PR bodies are edited through a body file. Never let this generic lifecycle replace local land/deploy
+meaning rollback is incomplete and should be retried after those references are resolved. Exit `0`
+means success or eligibility, `1` means a read-only eligibility/preflight check failed, and `2`
+means an operational/configuration error. Multiline PR bodies are edited through a body file. Never let this generic lifecycle replace local land/deploy
 checks.
 
 The generated helper is tested at its immutable public source tag before distribution.
