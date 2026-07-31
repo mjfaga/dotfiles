@@ -122,7 +122,9 @@ class Receipt:
         config_unavailable: bool = False,
         config_status: str = "absent",
     ) -> None:
-        self.path = Path(path) if path else None
+        if path == "":
+            raise WorkError("receipt path was supplied but is empty")
+        self.path = Path(path) if path is not None else None
         self.loaded = bool(self.path and self.path.exists())
         self.source_sha = source_sha
         self.config_digest = config_digest
@@ -1049,11 +1051,9 @@ def ownership_resolution(
     mappings = [mapping for mapping in config["mappings"] if mapping["repo"] == repo]
     defaults = [mapping for mapping in mappings if "area" not in mapping]
     wildcards = [mapping for mapping in mappings if mapping.get("area") == "*"]
-    source = "none"
+    source = "repo-unmapped" if not mappings else "none"
     selected: list[dict[str, Any]] = []
-    if area is not None and not mappings:
-        source = "repo-unmapped"
-    elif area is not None:
+    if area is not None and mappings:
         exact = [mapping for mapping in mappings if mapping.get("area") == area]
         if exact:
             selected, source = exact, "exact"
@@ -1107,6 +1107,7 @@ def add_needs_owner(
                 "action": "create-label",
                 "candidates": candidates,
                 "dry_run": runner.dry_run,
+                "issue": issue,
                 "name": NEEDS_OWNER_LABEL[0],
                 "ownership_source": ownership_source,
                 "partial": True,
@@ -1123,6 +1124,7 @@ def add_needs_owner(
                     "action": "create-label",
                     "candidates": candidates,
                     "dry_run": runner.dry_run,
+                    "issue": issue,
                     "name": NEEDS_OWNER_LABEL[0],
                     "ownership_source": ownership_source,
                     "partial": True,
@@ -1165,14 +1167,18 @@ def add_needs_owner(
             raise
 
 
-def validate_assignment_args(args: argparse.Namespace) -> None:
-    """Reject supplied-but-empty or incompatible assignment options."""
-    if hasattr(args, "assignee") and args.assignee is not None and not args.assignee:
-        raise WorkError("--assignee was supplied but is empty")
-    if hasattr(args, "area") and args.area is not None:
-        if not args.area:
+def validate_cli_args(args: argparse.Namespace) -> None:
+    """Reject supplied-but-empty or incompatible string options."""
+    for attribute in ("receipt", "assignee", "parent", "blocking", "body_file"):
+        value = getattr(args, attribute, None)
+        if value is not None and not value:
+            option = attribute.replace("_", "-")
+            raise WorkError(f"--{option} was supplied but is empty")
+    area = getattr(args, "area", None)
+    if area is not None:
+        if not area:
             raise WorkError("--area was supplied but is empty")
-        if not args.from_ownership_map:
+        if not getattr(args, "from_ownership_map", False):
             raise WorkError("--area requires --from-ownership-map")
 
 
@@ -1183,7 +1189,8 @@ def command_assign(
     ownership: dict[str, Any] | None,
     receipt: Receipt,
 ) -> int:
-    validate_assignment_args(args)
+    # Keep the CLI invariant for direct in-process callers too.
+    validate_cli_args(args)
     repo, _ = parse_issue_url(args.issue)
     mutation_preflight(runner, config, [repo])
     assignee = args.assignee
@@ -1598,7 +1605,7 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--body-file")
     issue.add_argument("--parent")
     issue.add_argument("--blocking")
-    issue.add_argument("--assignee")
+    issue.add_argument("--assignee", help="non-empty login to assign")
     issue.add_argument("--receipt", required=True)
 
     pr_link = subparsers.add_parser("pr-link")
@@ -1614,7 +1621,7 @@ def build_parser() -> argparse.ArgumentParser:
     assign = subparsers.add_parser("assign")
     assign.add_argument("--issue", required=True)
     group = assign.add_mutually_exclusive_group(required=True)
-    group.add_argument("--assignee")
+    group.add_argument("--assignee", help="non-empty login to assign")
     group.add_argument("--from-ownership-map", action="store_true")
     assign.add_argument(
         "--area",
@@ -1628,7 +1635,7 @@ def build_parser() -> argparse.ArgumentParser:
     work_graph_create = work_graph_sub.add_parser("create")
     work_graph_create.add_argument("--umbrella", required=True)
     work_graph_create.add_argument("--repos", default="all")
-    work_graph_create.add_argument("--assignee")
+    work_graph_create.add_argument("--assignee", help="non-empty login to assign")
     work_graph_create.add_argument("--receipt", required=True)
 
     standard_check = subparsers.add_parser("standard-check")
@@ -1655,7 +1662,7 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
     active_runner = runner or GhRunner(dry_run=args.dry_run)
     active_runner.dry_run = args.dry_run
     try:
-        validate_assignment_args(args)
+        validate_cli_args(args)
         if args.command == "standard-check":
             return command_standard_check(args)
         source_sha = active_source_sha()

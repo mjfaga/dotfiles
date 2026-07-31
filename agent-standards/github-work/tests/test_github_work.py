@@ -331,6 +331,10 @@ class HelperTests(unittest.TestCase):
             work.ownership_resolution(ownership, "sample-space/other-app", "web"),
             ([], "repo-unmapped"),
         )
+        self.assertEqual(
+            work.ownership_resolution(ownership, "sample-space/other-app", None),
+            ([], "repo-unmapped"),
+        )
 
     def test_load_ownership_rejects_non_array_mappings(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1095,6 +1099,49 @@ class HelperTests(unittest.TestCase):
                 self.assertEqual(result, 2)
                 self.assertIn("--assignee was supplied but is empty", stderr.getvalue())
                 self.assertEqual(runner.calls, [])
+
+    def test_main_rejects_empty_receipt_for_every_receipt_command(self):
+        commands = [
+            ["labels", "ensure", "--repos", "all", "--receipt", ""],
+            ["issue-create", "--repo", "sample-space/sample-app", "--type", "Task",
+             "--title", "Sample", "--receipt", ""],
+            ["pr-link", "--pr", "sample-space/sample-app#2", "--issue",
+             "sample-space/sample-app#1", "--mode", "refs", "--receipt", ""],
+            ["assign", "--issue", "sample-space/sample-app#1", "--assignee",
+             "sample-user", "--receipt", ""],
+            ["work-graph", "create", "--umbrella", "sample-space/sample-app#1",
+             "--repos", "all", "--receipt", ""],
+            ["restore", "--receipt", ""],
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                runner = FakeRunner([])
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    result = work.main(["--config", "missing.json", *command], runner=runner)
+                self.assertEqual(result, 2)
+                self.assertIn("--receipt was supplied but is empty", stderr.getvalue())
+                self.assertEqual(runner.calls, [])
+
+    def test_main_rejects_empty_optional_issue_strings(self):
+        for option in ("--parent", "--blocking", "--body-file"):
+            with self.subTest(option=option):
+                runner = FakeRunner([])
+                stderr = io.StringIO()
+                command = [
+                    "--config", "missing.json",
+                    "issue-create", "--repo", "sample-space/sample-app", "--type", "Task",
+                    "--title", "Sample", option, "", "--receipt", "receipt.json",
+                ]
+                with contextlib.redirect_stderr(stderr):
+                    result = work.main(command, runner=runner)
+                self.assertEqual(result, 2)
+                self.assertIn("was supplied but is empty", stderr.getvalue())
+                self.assertEqual(runner.calls, [])
+
+    def test_receipt_rejects_empty_path_for_in_process_callers(self):
+        with self.assertRaisesRegex(work.WorkError, "receipt path was supplied but is empty"):
+            work.Receipt("", source_sha=SOURCE, config_digest=DIGEST)
 
     def test_main_assign_from_ownership_map_uses_loaded_config(self):
         with tempfile.TemporaryDirectory() as directory:
