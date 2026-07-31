@@ -22,6 +22,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, NoReturn, Sequence
+from urllib.parse import quote
 
 SCHEMA_VERSION = 3
 SUPPORTED_SCHEMA_VERSIONS = frozenset(range(1, SCHEMA_VERSION + 1))
@@ -584,7 +585,7 @@ def pr_link_partial_payload(
         "issue": args.issue,
         "mode": args.mode,
         "partial": True,
-        "pr": args.pr,
+        "pr": canonical_pr_reference(args.pr),
         "stage": stage,
         **recovery,
     }
@@ -606,6 +607,21 @@ def issue_state(runner: GhRunner, value: str) -> dict[str, Any]:
     if not isinstance(state, dict):
         raise WorkError(f"cannot verify issue state: {value}")
     return state
+
+
+def restore_issue_state(runner: GhRunner, value: str) -> dict[str, Any] | None:
+    """Read issue state, returning None only when exact REST lookup confirms deletion."""
+    try:
+        return issue_state(runner, value)
+    except WorkError as state_error:
+        repo, number = parse_issue_url(value)
+        result = runner.run(["api", f"repos/{repo}/issues/{number}"], check=False)
+        detail = f"{result.stderr}\n{result.stdout}".lower()
+        if result.returncode != 0 and "http 404" in detail:
+            return None
+        if result.returncode != 0:
+            raise WorkError(f"cannot verify referenced issue: {value}") from state_error
+        raise state_error
 
 
 def issue_labels(state: dict[str, Any]) -> set[str]:
@@ -1490,6 +1506,7 @@ def command_restore(
             "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
+            "missing_issue_operations": 0,
             "mutated_operations": 0,
             "reason": "empty",
             "restored_operations": 0,
@@ -1505,6 +1522,7 @@ def command_restore(
             "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
+            "missing_issue_operations": 0,
             "mutated_operations": 0,
             "reason": "already_restored",
             "restored_operations": 0,
@@ -1517,6 +1535,7 @@ def command_restore(
     for repo in sorted(receipt_repositories(receipt)):
         repository_preflight(runner, repo)
     restored = 0
+    missing_issue_operations = 0
     mutated_operations = 0
     already_restored = 0
     skipped_in_use = 0
@@ -1536,15 +1555,31 @@ def command_restore(
             continue
         kind = operation["kind"]
         mutated = False
+        operation_state: dict[str, Any] | None = None
+        issue_reference = operation.get("issue")
+        if kind == "relationship-added":
+            issue_reference = operation["source"]
+        if isinstance(issue_reference, str):
+            operation_state = restore_issue_state(runner, issue_reference)
+            if operation_state is None:
+                if not runner.dry_run:
+                    receipt.mark_restored(operation, mutated=False)
+                restored += 1
+                missing_issue_operations += 1
+                continue
         if kind == "pr-body-changed":
             mutated = restore_pr_body(runner, operation, simulated_pr_bodies)
         elif kind == "assignee-added":
-            state = issue_state(runner, operation["issue"])
+            if operation_state is None:
+                raise WorkError("assignee restore lacks issue state")
+            state = operation_state
             if operation["login"] in issue_assignees(state):
                 runner.run(["issue", "edit", operation["issue"], "--remove-assignee", operation["login"]], mutate=True)
                 mutated = True
         elif kind == "issue-label-added":
-            state = issue_state(runner, operation["issue"])
+            if operation_state is None:
+                raise WorkError("label restore lacks issue state")
+            state = operation_state
             label_key = (canonical_issue_reference(operation["issue"]), operation["name"])
             label_present = simulated_issue_labels.get(
                 label_key, operation["name"] in issue_labels(state)
@@ -1555,7 +1590,9 @@ def command_restore(
                 if runner.dry_run:
                     simulated_issue_labels[label_key] = False
         elif kind == "issue-label-removed":
-            state = issue_state(runner, operation["issue"])
+            if operation_state is None:
+                raise WorkError("label reapplication lacks issue state")
+            state = operation_state
             label_key = (canonical_issue_reference(operation["issue"]), operation["name"])
             label_present = simulated_issue_labels.get(
                 label_key, operation["name"] in issue_labels(state)
@@ -1583,12 +1620,28 @@ def command_restore(
                             or "label reapplication failed"
                         )
         elif kind == "relationship-added":
-            state = issue_state(runner, operation["source"])
+            if operation_state is None:
+                raise WorkError("relationship restore lacks source issue state")
+            state = operation_state
             if operation["relation"] == "sub-issue":
                 summary = state.get("subIssuesSummary")
                 if not isinstance(summary, dict) or not isinstance(summary.get("total"), int):
                     raise WorkError("relationship response lacks subIssuesSummary.total")
-                relationship_present = summary["total"] > 0
+                source_repo, source_number = parse_issue_url(operation["source"])
+                sub_issues = runner.json([
+                    "api", f"repos/{source_repo}/issues/{source_number}/sub_issues",
+                    "--paginate",
+                ])
+                if not isinstance(sub_issues, list) or any(
+                    not isinstance(item, dict) or not isinstance(item.get("html_url"), str)
+                    for item in sub_issues
+                ):
+                    raise WorkError("sub-issue response lacks html_url entries")
+                target = canonical_issue_reference(operation["target"])
+                relationship_present = any(
+                    canonical_issue_reference(item["html_url"]) == target
+                    for item in sub_issues
+                )
                 flag = "--remove-sub-issue"
                 relationship_markers = (
                     "sub-issue not found", "no sub-issue", "not a sub-issue"
@@ -1598,10 +1651,14 @@ def command_restore(
                 if not isinstance(blocked_by, list):
                     raise WorkError("relationship response lacks blockedBy")
                 target = canonical_issue_reference(operation["target"])
+                if any(
+                    not isinstance(blocker, dict)
+                    or not isinstance(blocker.get("url"), str)
+                    for blocker in blocked_by
+                ):
+                    raise WorkError("blockedBy entries lack issue URLs")
                 relationship_present = any(
-                    isinstance(blocker, dict)
-                    and isinstance(blocker.get("url"), str)
-                    and canonical_issue_reference(blocker["url"]) == target
+                    canonical_issue_reference(blocker["url"]) == target
                     for blocker in blocked_by
                 )
                 flag = "--remove-blocked-by"
@@ -1627,7 +1684,9 @@ def command_restore(
                             f"{result.stderr.strip() or result.stdout.strip()}"
                         )
         elif kind == "issue-created":
-            state = issue_state(runner, operation["issue"])
+            if operation_state is None:
+                raise WorkError("issue restore lacks issue state")
+            state = operation_state
             if str(state.get("state")).upper() == "OPEN":
                 runner.run(["issue", "close", operation["issue"], "--reason", "not planned"], mutate=True)
                 mutated = True
@@ -1635,7 +1694,7 @@ def command_restore(
             label_result = runner.run(
                 [
                     "api",
-                    f"repos/{operation['repo']}/labels/{operation['name']}",
+                    f"repos/{operation['repo']}/labels/{quote(operation['name'], safe='')}",
                 ],
                 check=False,
             )
@@ -1644,7 +1703,7 @@ def command_restore(
                 detail = f"{label_result.stderr}\n{label_result.stdout}".lower()
                 # Repository preflight already established access, so HTTP 404 identifies the
                 # exact label resource as absent rather than an inaccessible repository.
-                if "(http 404)" not in detail:
+                if "http 404" not in detail:
                     raise WorkError(
                         f"cannot verify label {operation['name']} in {operation['repo']}: "
                         f"{label_result.stderr.strip() or label_result.stdout.strip()}"
@@ -1702,10 +1761,12 @@ def command_restore(
         "config_status": receipt.config_status,
         "config_unavailable": receipt.config_unavailable,
         "dry_run": runner.dry_run,
+        "missing_issue_operations": missing_issue_operations,
         "mutated_operations": mutated_operations,
         "reason": (
             "labels_in_use" if skipped_in_use
             else "retained_labels" if retained_label_definitions
+            else "missing_issues" if missing_issue_operations
             else "restored"
         ),
         "restored_operations": restored,

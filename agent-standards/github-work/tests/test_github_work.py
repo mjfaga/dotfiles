@@ -1236,6 +1236,65 @@ class HelperTests(unittest.TestCase):
                 [call[0] for call in runner.calls],
             )
 
+    def test_restore_rejects_unrecognized_blocked_by_entries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="blocked-by",
+            )
+            responses = restore_preflight_responses() + [{
+                "subIssuesSummary": {"total": 0},
+                "blockedBy": [{"number": 12, "state": "OPEN"}],
+            }]
+            with self.assertRaisesRegex(work.WorkError, "blockedBy entries lack issue URLs"):
+                work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+
+    def test_restore_skips_exactly_absent_sub_issue_without_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add(
+                "relationship-added",
+                source="sample-space/sample-app#9",
+                target="sample-space/sample-app#12",
+                relation="sub-issue",
+            )
+            responses = restore_preflight_responses() + [
+                {"subIssuesSummary": {"total": 1}, "blockedBy": []},
+                [{"html_url": "https://github.com/sample-space/sample-app/issues/13"}],
+            ]
+            runner = FakeRunner(responses)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["mutated_operations"], 0)
+            self.assertFalse(any("--remove-sub-issue" in call[0] for call in runner.calls))
+
+    def test_restore_terminally_reconciles_deleted_issue_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("issue-created", issue="sample-space/sample-app#4")
+            responses = restore_preflight_responses() + [
+                work.CommandResult(returncode=1, stderr="issue view failed"),
+                work.CommandResult(returncode=1, stderr="gh: Not Found (HTTP 404)"),
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), FakeRunner(responses), current)
+            self.assertEqual(result, 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["reason"], "missing_issues")
+            self.assertEqual(payload["missing_issue_operations"], 1)
+            self.assertEqual(current.data["operations"][0]["status"], "restored")
+
     def test_restore_does_not_tolerate_non_relationship_missing_resource(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -1248,6 +1307,7 @@ class HelperTests(unittest.TestCase):
             )
             responses = restore_preflight_responses() + [
                 {"subIssuesSummary": {"total": 1}, "blockedBy": []},
+                [{"html_url": "https://github.com/sample-space/sample-app/issues/12"}],
                 work.CommandResult(returncode=1, stderr="source issue not found"),
             ]
             with self.assertRaisesRegex(work.WorkError, "relationship restore failed"):
@@ -1287,7 +1347,7 @@ class HelperTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 work.command_restore(Namespace(receipt=path), runner, current)
             self.assertIn(
-                ["api", "repos/sample-space/sample-app/labels/type:task"],
+                ["api", "repos/sample-space/sample-app/labels/type%3Atask"],
                 [call[0] for call in runner.calls],
             )
 
@@ -1805,6 +1865,7 @@ class HelperTests(unittest.TestCase):
         current.add("relationship-added", relation="sub-issue", source="sample-space/sample-app#1", target="sample-space/sample-app#2")
         responses = restore_preflight_responses() + [
             {"subIssuesSummary": {"total": 1}, "blockedBy": []},
+            [{"html_url": "https://github.com/sample-space/sample-app/issues/2"}],
             work.CommandResult(returncode=1, stderr="permission denied"),
         ]
         with self.assertRaises(work.WorkError):
