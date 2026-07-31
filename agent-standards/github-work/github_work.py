@@ -231,6 +231,8 @@ class Receipt:
             ):
                 if boolean_field in operation and not isinstance(operation[boolean_field], bool):
                     raise WorkError(f"receipt operation {boolean_field} must be boolean")
+            if operation.get("restore_unverified") is True and kind != "relationship-added":
+                raise WorkError("restore_unverified is only valid for relationship operations")
             restore_probe_error = operation.get("restore_probe_error")
             if restore_probe_error is not None and (
                 not isinstance(restore_probe_error, str) or not restore_probe_error
@@ -1612,6 +1614,15 @@ def receipt_issue_repositories(receipt: Receipt) -> set[str]:
     return repos
 
 
+def operation_issue_repository(operation: dict[str, Any]) -> str | None:
+    if operation.get("kind") == "pr-body-changed":
+        return None
+    if isinstance(operation.get("repo"), str):
+        return operation["repo"]
+    reference = operation.get("issue", operation.get("source"))
+    return parse_issue_url(reference)[0] if isinstance(reference, str) else None
+
+
 def unverified_relationship_details(operation: dict[str, Any]) -> dict[str, Any]:
     return {
         "fallback_succeeded": operation.get("restore_fallback_succeeded"),
@@ -1632,6 +1643,7 @@ def command_restore(
             raise WorkError(f"receipt not found: {receipt.path}")
         json_print({
             "already_restored_operations": 0,
+            "blocked_repositories": [],
             "config_requested": receipt.config_requested,
             "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
@@ -1663,6 +1675,7 @@ def command_restore(
     if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
+            "blocked_repositories": [],
             "config_requested": receipt.config_requested,
             "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
@@ -1683,10 +1696,14 @@ def command_restore(
     basic_preflight(runner)
     repositories = receipt_repositories(receipt)
     issue_repositories = receipt_issue_repositories(receipt)
+    blocked_repositories: dict[str, str] = {}
     for repo in sorted(repositories):
-        repository_preflight(runner, repo)
-        if repo in issue_repositories:
-            issue_read_preflight(runner, repo)
+        try:
+            repository_preflight(runner, repo)
+            if repo in issue_repositories:
+                issue_read_preflight(runner, repo)
+        except WorkError as exc:
+            blocked_repositories[repo] = str(exc)
     restored = 0
     missing_issue_operations = 0
     mutated_operations = 0
@@ -1709,6 +1726,9 @@ def command_restore(
             already_restored += 1
             continue
         kind = operation["kind"]
+        issue_repo = operation_issue_repository(operation)
+        if issue_repo in blocked_repositories:
+            continue
         fallback_succeeded: bool | None = None
         probe_error: str | None = None
         mutated = False
@@ -1822,7 +1842,11 @@ def command_restore(
                     check=False,
                 )
                 if result.returncode == 0:
-                    fallback_succeeded = True if unverified else None
+                    fallback_succeeded = (
+                        None if runner.dry_run
+                        else True if unverified
+                        else None
+                    )
                     mutated = not unverified
                 else:
                     detail = f"{result.stderr}\n{result.stdout}".lower()
@@ -1830,16 +1854,16 @@ def command_restore(
                         marker in detail
                         for marker in (*relationship_markers, "no relationship", "not related")
                     )
-                    if unverified and tolerated:
+                    if unverified:
                         fallback_succeeded = False
-                    if not tolerated:
+                        if not tolerated:
+                            mutation_error = result.stderr.strip() or result.stdout.strip()
+                            probe_error = (
+                                f"{probe_error}; fallback mutation failed: {mutation_error}"
+                            )
+                    elif not tolerated:
                         mutation_error = result.stderr.strip() or result.stdout.strip()
-                        prefix = (
-                            f"{probe_error}; fallback mutation failed"
-                            if probe_error
-                            else "relationship restore failed"
-                        )
-                        raise WorkError(f"{prefix}: {mutation_error}")
+                        raise WorkError(f"relationship restore failed: {mutation_error}")
         elif kind == "issue-created":
             if operation_state is None:
                 raise WorkError("issue restore lacks issue state")
@@ -1928,6 +1952,10 @@ def command_restore(
             run_unverified_details.append(unverified_relationship_details(details_operation))
     json_print({
         "already_restored_operations": already_restored,
+        "blocked_repositories": [
+            {"error": error, "repo": repo}
+            for repo, error in sorted(blocked_repositories.items())
+        ],
         "config_requested": receipt.config_requested,
         "config_status": receipt.config_status,
         "config_unavailable": receipt.config_unavailable,
@@ -1935,7 +1963,8 @@ def command_restore(
         "missing_issue_operations": missing_issue_operations,
         "mutated_operations": mutated_operations,
         "reason": (
-            "labels_in_use" if skipped_in_use
+            "blocked_repositories" if blocked_repositories
+            else "labels_in_use" if skipped_in_use
             else "retained_labels" if retained_label_definitions
             else "unverified_relationships" if unverified_relationship_operations
             else "missing_issues" if missing_issue_operations
@@ -1952,7 +1981,7 @@ def command_restore(
         "unverified_relationships": standing_unverified_details + run_unverified_details,
         "total_operations": len(receipt.data["operations"]),
     })
-    return 3 if skipped_in_use else 0
+    return 3 if skipped_in_use or blocked_repositories else 0
 
 
 def command_work_graph_create(

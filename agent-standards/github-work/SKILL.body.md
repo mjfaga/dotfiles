@@ -62,27 +62,31 @@ unavailable requested config from a deliberately config-free restore. `config_st
 `absent`, `empty`, `unreadable`, or `invalid`; older receipts without these audit fields mean
 unknown. It exits `3` when labels remain in use; resolve those references and retry. Restore output
 distinguishes `empty`, `already_restored`, `restored`, `missing_issues`, `unverified_relationships`,
-`retained_labels`, and `labels_in_use`, and reports restored, mutated, and unverified-relationship
-operation counts. A retained label definition is intentionally left behind to preserve a reversed
-removal; remove it after its reapplied labels are no longer needed. `missing_issues` with
-`missing_issue_operations` means exact REST lookup proved referenced issues were already deleted, so
-those compensation operations completed as no-ops; each affected receipt operation durably records
-`restore_missing: true`. Older restored operations without `restore_missing` or `restore_unverified`
-have unknown status for that field. Relationship membership is read through REST. When that endpoint
-is unavailable for a confirmed live source, restore falls back to the GitHub mutation and records
-`restore_unverified: true`; this exits `0`, and neither real nor dry-run output counts an unproven
-mutation. The receipt records whether the fallback command returned success in
-`restore_fallback_succeeded`. Per-run reason and operation counts describe only that invocation;
-`standing_missing_operations` and `standing_unverified_operations` preserve receipt-wide evidence on
-later runs. `unverified_relationships` lists each relation, source, target, probe error, and
-fallback outcome. This state is terminal: confirm the relationship is absent in GitHub because the
-helper could not verify it. For relationship operations, `restore_missing: true` refers to the
-source issue. Receipts remain compatible across helper releases with a supported receipt schema even
-if the repository is later removed from active target configuration. Drain outstanding newer-schema
-receipts before pinning an older standard version. Schema-v3 operations require creation and restore
-attribution. Each new operation records the active helper source and private-config digests as audit
-metadata. Label-definition rollback requires issue usage to be readable; re-enable repository Issues
-before retrying when that verification is unavailable.
+`blocked_repositories`, `retained_labels`, and `labels_in_use`, and reports restored, mutated, and
+unverified-relationship operation counts. A retained label definition is intentionally left behind
+to preserve a reversed removal; remove it after its reapplied labels are no longer needed.
+`missing_issues` with `missing_issue_operations` means exact REST lookup proved referenced issues
+were already deleted, so those compensation operations completed as no-ops; each affected receipt
+operation durably records `restore_missing: true`. Older restored operations without
+`restore_missing` or `restore_unverified` have unknown status for that field. Relationship
+membership is read through REST. When that endpoint is unavailable for a confirmed live source,
+restore falls back to the GitHub mutation and records `restore_unverified: true`; this exits `0`,
+and neither real nor dry-run output counts an unproven mutation. The receipt records whether the
+fallback command returned success in `restore_fallback_succeeded`. Per-run reason and operation
+counts describe only that invocation; `standing_missing_operations` and
+`standing_unverified_operations` preserve receipt-wide evidence on later runs.
+`unverified_relationships` lists each relation, source, target, probe error, and fallback outcome.
+This state is terminal: confirm the relationship is absent in GitHub because the helper could not
+verify it. Dry-run leaves `fallback_succeeded` unset because it issues no command; any real fallback
+failure remains terminal-unverified for manual confirmation. For relationship operations,
+`restore_missing: true` refers to the source issue. Receipts remain compatible across helper
+releases with a supported receipt schema even if the repository is later removed from active target
+configuration. Drain outstanding newer-schema receipts before pinning an older standard version.
+Schema-v3 operations require creation and restore attribution. Each new operation records the active
+helper source and private-config digests as audit metadata. Label-definition rollback requires issue
+usage to be readable; re-enable repository Issues before retrying when that verification is
+unavailable. A blocked repository remains active while other repositories compensate; restore
+reports it and exits `3` for operator follow-up.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means

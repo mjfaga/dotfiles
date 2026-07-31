@@ -1333,6 +1333,36 @@ class HelperTests(unittest.TestCase):
             self.assertTrue(any("--slurp" in call[0] for call in runner.calls))
             self.assertTrue(any("--remove-sub-issue" in call[0] for call in runner.calls))
 
+    def test_restore_rejects_unverified_flag_on_non_relationship_operation(self):
+        current = receipt()
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        current.mark_restored(current.data["operations"][0], mutated=False)
+        current.data["operations"][0]["restore_unverified"] = True
+        with self.assertRaisesRegex(work.WorkError, "only valid for relationship"):
+            current.validate()
+
+    def test_restore_skips_blocked_repo_and_compensates_healthy_repo(self):
+        current = receipt()
+        current.add("issue-created", issue="sample-space/blocked#1")
+        current.add("issue-created", issue="sample-space/healthy#2")
+        responses = [
+            work.CommandResult(stdout="gh version 2.96.0\n"),
+            work.CommandResult(),
+            work.CommandResult(),
+            work.CommandResult(returncode=1, stderr="Forbidden (HTTP 403)"),
+            work.CommandResult(),
+            work.CommandResult(stdout="[]"),
+            {"state": "CLOSED", "labels": [], "assignees": []},
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
+        self.assertEqual(result, 3)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["blocked_repositories"][0]["repo"], "sample-space/blocked")
+        self.assertEqual(current.data["operations"][0]["status"], "active")
+        self.assertEqual(current.data["operations"][1]["status"], "restored")
+
     def test_restore_requires_issue_read_access_before_replay(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -1345,8 +1375,13 @@ class HelperTests(unittest.TestCase):
                 work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
             ]
             runner = FakeRunner(responses)
-            with self.assertRaisesRegex(work.WorkError, "cannot verify issue read access"):
-                work.command_restore(Namespace(receipt=path), runner, current)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertEqual(result, 3)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["reason"], "blocked_repositories")
+            self.assertEqual(payload["blocked_repositories"][0]["repo"], "sample-space/sample-app")
             self.assertFalse(any(call[0][:2] == ["issue", "close"] for call in runner.calls))
             self.assertEqual(current.data["operations"][0]["status"], "active")
 
@@ -1442,6 +1477,29 @@ class HelperTests(unittest.TestCase):
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["mutated_operations"], 0)
         self.assertEqual(payload["unverified_relationship_operations"], 1)
+        self.assertIsNone(payload["unverified_relationships"][0]["fallback_succeeded"])
+
+    def test_restore_terminally_records_unknown_unverified_fallback_failure(self):
+        current = receipt()
+        current.add(
+            "relationship-added",
+            source="sample-space/sample-app#9",
+            target="sample-space/sample-app#12",
+            relation="blocked-by",
+        )
+        responses = restore_preflight_responses() + [
+            work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            {"state": "OPEN"},
+            work.CommandResult(returncode=1, stderr="unexpected dependency failure"),
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), current)
+        self.assertEqual(result, 0)
+        details = json.loads(output.getvalue())["unverified_relationships"][0]
+        self.assertFalse(details["fallback_succeeded"])
+        self.assertIn("fallback mutation failed", details["probe_error"])
+        self.assertEqual(current.data["operations"][0]["status"], "restored")
 
     def test_restore_skips_exactly_absent_sub_issue_without_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1534,8 +1592,11 @@ class HelperTests(unittest.TestCase):
                 work.CommandResult(),
             ]
             runner = FakeRunner(responses)
-            with self.assertRaisesRegex(work.WorkError, "cannot verify issue read access"):
-                work.command_restore(Namespace(receipt=path), runner, current)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertEqual(result, 3)
+            self.assertEqual(json.loads(output.getvalue())["reason"], "blocked_repositories")
             self.assertEqual(current.data["operations"][0]["status"], "active")
             self.assertFalse(any(call[0][:2] == ["label", "delete"] for call in runner.calls))
 
