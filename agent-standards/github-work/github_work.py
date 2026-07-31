@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, NoReturn, Sequence
 
 SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = frozenset(range(1, SCHEMA_VERSION + 1))
 MIN_GH_VERSION = (2, 96, 0)
 MANAGED_LABELS = {
     "bug": ("type:bug", "B60205", "Unexpected problem or incorrect behavior"),
@@ -114,6 +115,7 @@ class Receipt:
         config_digest: str | None,
         config_requested: bool = False,
         config_unavailable: bool = False,
+        config_status: str = "absent",
     ) -> None:
         self.path = Path(path) if path else None
         self.loaded = bool(self.path and self.path.exists())
@@ -121,6 +123,7 @@ class Receipt:
         self.config_digest = config_digest
         self.config_requested = config_requested
         self.config_unavailable = config_unavailable
+        self.config_status = config_status
         self.data: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "receipt_id": str(uuid.uuid4()),
@@ -140,7 +143,7 @@ class Receipt:
         required = {"schema_version", "receipt_id", "source_sha", "config_digest", "operations"}
         if required - self.data.keys():
             raise WorkError("receipt is missing required metadata")
-        if self.data["schema_version"] not in {1, SCHEMA_VERSION}:
+        if self.data["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS:
             raise WorkError("unsupported receipt schema")
         if not isinstance(self.data["receipt_id"], str) or not self.data["receipt_id"]:
             raise WorkError("receipt_id must be a non-empty string")
@@ -192,17 +195,31 @@ class Receipt:
                 ):
                     raise WorkError(f"receipt operation {metadata_field} is malformed")
             for boolean_field in (
+                "restore_mutated",
                 "restored_config_requested",
                 "restored_config_unavailable",
             ):
                 if boolean_field in operation and not isinstance(operation[boolean_field], bool):
                     raise WorkError(f"receipt operation {boolean_field} must be boolean")
-                if (
-                    self.data["schema_version"] >= 2
-                    and operation["status"] == "restored"
-                    and boolean_field not in operation
-                ):
-                    raise WorkError(f"receipt operation {boolean_field} is required")
+            if "restored_config_status" in operation and operation["restored_config_status"] not in {
+                "absent", "empty", "invalid", "ok", "unreadable"
+            }:
+                raise WorkError("receipt operation restored_config_status is invalid")
+            if self.data["schema_version"] >= 2 and operation["status"] == "restored":
+                required_restore_fields = {
+                    "restore_mutated",
+                    "restored_by_config_digest",
+                    "restored_by_source_sha",
+                    "restored_config_requested",
+                    "restored_config_status",
+                    "restored_config_unavailable",
+                }
+                missing_restore_fields = required_restore_fields - operation.keys()
+                if missing_restore_fields:
+                    raise WorkError(
+                        "receipt restored operation is missing: "
+                        + ", ".join(sorted(missing_restore_fields))
+                    )
 
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
@@ -226,6 +243,7 @@ class Receipt:
         operation["restored_by_config_digest"] = self.config_digest
         operation["restored_config_requested"] = self.config_requested
         operation["restored_config_unavailable"] = self.config_unavailable
+        operation["restored_config_status"] = self.config_status
         self.save()
 
     def ensure_saved(self) -> None:
@@ -255,7 +273,7 @@ class Receipt:
 def load_json(path: str | Path) -> dict[str, Any]:
     try:
         value = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise WorkError(f"cannot load JSON-compatible YAML: {path}") from exc
     if not isinstance(value, dict):
         raise WorkError(f"expected object in {path}")
@@ -299,6 +317,9 @@ def load_targets(path: str | None) -> dict[str, Any]:
         missing = sorted(required - target.keys())
         if missing:
             raise WorkError(f"target missing fields: {', '.join(missing)}")
+        for field in required:
+            if not isinstance(target[field], str) or not target[field]:
+                raise WorkError(f"target field {field} must be a non-empty string")
         if target["repo"] in seen:
             raise WorkError(f"duplicate target: {target['repo']}")
         seen.add(target["repo"])
@@ -645,14 +666,16 @@ def default_issue_body(kind: str, title: str) -> str:
 def raise_issue_partial(
     exc: WorkError,
     args: argparse.Namespace,
-    created_url: str,
+    created_url: str | None,
     *,
     emit: bool,
     stage: str,
     relationship: dict[str, str] | None = None,
     relationship_added: bool | None = False,
+    completed_relationships: list[dict[str, str]] | None = None,
 ) -> NoReturn:
     payload = {
+        "completed_relationships": completed_relationships or [],
         "partial": True,
         "relationship": relationship,
         "relationship_added": relationship_added,
@@ -695,7 +718,7 @@ def command_issue_create(
             if args.body_file
             else default_issue_body(args.type, args.title)
         )
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise WorkError(f"cannot read issue body file: {exc}") from exc
     command = ["issue", "create", "--repo", args.repo, "--title", args.title]
     if target["classification"] == "native-type":
@@ -714,38 +737,56 @@ def command_issue_create(
         return payload
     output_lines = result.stdout.strip().splitlines()
     if not output_lines:
-        raise WorkError("gh issue create returned no issue URL")
+        raise_issue_partial(
+            WorkError("gh issue create returned no issue URL"),
+            args,
+            None,
+            emit=emit,
+            stage="mutation-result-unknown",
+            relationship_added=None,
+        )
     created_url = output_lines[-1]
     parse_issue_url(created_url)
+    relationship_specs = [
+        (args.parent, "sub-issue", "--add-sub-issue"),
+        (args.blocking, "blocked-by", "--add-blocked-by"),
+    ]
+    relationships = [
+        ({"relation": relation, "source": source, "target": created_url}, flag)
+        for source, relation, flag in relationship_specs
+        if source
+    ]
+    completed_relationships: list[dict[str, str]] = []
+    next_relationship = relationships[0][0] if relationships else None
     try:
         receipt.add("issue-created", issue=created_url)
     except WorkError as exc:
-        raise_issue_partial(exc, args, created_url, emit=emit, stage="audit")
+        raise_issue_partial(
+            exc,
+            args,
+            created_url,
+            emit=emit,
+            stage="audit",
+            relationship=next_relationship,
+            completed_relationships=completed_relationships,
+        )
     if target["classification"] == "managed-label":
         try:
             receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
         except WorkError as exc:
-            raise_issue_partial(exc, args, created_url, emit=emit, stage="audit")
-    relationships = [
-        (
-            args.parent,
-            "sub-issue",
-            ["issue", "edit", args.parent, "--add-sub-issue", created_url]
-            if args.parent
-            else None,
-        ),
-        (
-            args.blocking,
-            "blocked-by",
-            ["issue", "edit", args.blocking, "--add-blocked-by", created_url]
-            if args.blocking
-            else None,
-        ),
-    ]
-    for source, relation, relationship_command in relationships:
-        if not source or relationship_command is None:
-            continue
-        relationship = {"relation": relation, "source": source, "target": created_url}
+            raise_issue_partial(
+                exc,
+                args,
+                created_url,
+                emit=emit,
+                stage="audit",
+                relationship=next_relationship,
+                completed_relationships=completed_relationships,
+            )
+    for relationship, flag in relationships:
+        relationship_command = [
+            "issue", "edit", relationship["source"], flag, created_url,
+        ]
         try:
             runner.run(relationship_command, mutate=True)
         except WorkError as exc:
@@ -757,6 +798,7 @@ def command_issue_create(
                 stage="mutation-result-unknown",
                 relationship=relationship,
                 relationship_added=None,
+                completed_relationships=completed_relationships,
             )
         try:
             receipt.add("relationship-added", **relationship)
@@ -769,7 +811,9 @@ def command_issue_create(
                 stage="audit",
                 relationship=relationship,
                 relationship_added=True,
+                completed_relationships=completed_relationships,
             )
+        completed_relationships.append(relationship)
     payload = {"url": created_url, "repo": args.repo, "type": args.type}
     if emit:
         json_print(payload)
@@ -1096,6 +1140,7 @@ def command_restore(
         json_print({
             "already_restored_operations": 0,
             "config_requested": receipt.config_requested,
+            "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
             "mutated_operations": 0,
@@ -1109,6 +1154,7 @@ def command_restore(
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
             "config_requested": receipt.config_requested,
+            "config_status": receipt.config_status,
             "config_unavailable": receipt.config_unavailable,
             "dry_run": runner.dry_run,
             "mutated_operations": 0,
@@ -1197,6 +1243,7 @@ def command_restore(
     json_print({
         "already_restored_operations": already_restored,
         "config_requested": receipt.config_requested,
+        "config_status": receipt.config_status,
         "config_unavailable": receipt.config_unavailable,
         "dry_run": runner.dry_run,
         "mutated_operations": mutated_operations,
@@ -1251,16 +1298,19 @@ def command_work_graph_create(
             json_print(aggregate)
             raise PartialWorkError(str(child_error), aggregate) from child_error
         except WorkError as child_error:
+            is_partial = bool(created) and not runner.dry_run
             aggregate = {
                 "created_tasks": len(created),
                 "failed_partial": None,
                 "failed_repo": repo,
                 "issues": created,
-                "partial": True,
+                "partial": is_partial,
                 "umbrella": args.umbrella,
             }
             json_print(aggregate)
-            raise PartialWorkError(str(child_error), aggregate) from child_error
+            if is_partial:
+                raise PartialWorkError(str(child_error), aggregate) from child_error
+            raise
         created.append(child_payload)
     if not runner.dry_run:
         receipt.ensure_saved()
@@ -1446,20 +1496,31 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             if args.ownership_config:
                 raise WorkError("--ownership-config is invalid with restore")
             config_requested = args.config is not None
-            config_unavailable = False
             config_sha = None
-            if config_requested:
+            config_status = "absent"
+            if config_requested and not args.config:
+                config_status = "empty"
+            elif config_requested:
                 try:
-                    load_targets(args.config)
                     config_sha = file_digest(args.config)
-                except WorkError:
-                    config_unavailable = True
+                except Exception:
+                    config_status = "unreadable"
+                else:
+                    try:
+                        load_targets(args.config)
+                    except Exception:
+                        config_sha = None
+                        config_status = "invalid"
+                    else:
+                        config_status = "ok"
+            config_unavailable = config_status in {"empty", "invalid", "unreadable"}
             receipt = Receipt(
                 args.receipt,
                 source_sha=source_sha,
                 config_digest=config_sha,
                 config_requested=config_requested,
                 config_unavailable=config_unavailable,
+                config_status=config_status,
             )
             return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)

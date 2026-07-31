@@ -223,6 +223,26 @@ class HelperTests(unittest.TestCase):
             with self.assertRaises(work.WorkError):
                 work.load_targets(path)
 
+    def test_load_targets_rejects_non_string_target_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "targets.json"
+            path.write_text(json.dumps({
+                "targets": [{
+                    "repo": ["sample-space/sample-app"],
+                    "adapter": "plain",
+                    "classification": "native-type",
+                }],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(work.WorkError, "repo must be a non-empty string"):
+                work.load_targets(path)
+
+    def test_load_targets_maps_non_utf8_config_to_operational_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "targets.json"
+            path.write_bytes(b"bad-utf8-\x96")
+            with self.assertRaisesRegex(work.WorkError, "cannot load JSON-compatible YAML"):
+                work.load_targets(path)
+
     def test_labels_ensure_creates_only_missing_after_preflight(self):
         existing = [{"name": "type:bug", "color": "000000", "description": "preserved"}]
         runner = FakeRunner([
@@ -354,14 +374,20 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(recovery["recovery_fallback_errno"], 30)
         self.assertEqual(set(recovery), set(work.recovery_fields()))
 
-    def test_issue_create_fails_when_gh_returns_no_url(self):
+    def test_issue_create_reports_unknown_mutation_when_gh_returns_no_url(self):
         responses = managed_preflight_responses() + [work.CommandResult()]
         args = Namespace(
             repo="sample-space/sample-app", type="Task", title="Sample", body_file=None,
             parent=None, blocking=None, assignee=None,
         )
-        with self.assertRaisesRegex(work.WorkError, "returned no issue URL"):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaisesRegex(
+            work.PartialWorkError, "returned no issue URL"
+        ):
             work.command_issue_create(args, FakeRunner(responses), config(), receipt())
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["stage"], "mutation-result-unknown")
+        self.assertIsNone(payload["url"])
 
     def test_issue_create_reports_partial_url_when_relationship_fails(self):
         created = "https://github.com/sample-space/sample-app/issues/7"
@@ -380,6 +406,7 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(
             json.loads(output.getvalue()),
             {
+                "completed_relationships": [],
                 "partial": True,
                 "relationship": {
                     "relation": "sub-issue",
@@ -416,8 +443,30 @@ class HelperTests(unittest.TestCase):
                     work.command_issue_create(args, FakeRunner(responses), config(), current)
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["stage"], "audit")
+            self.assertEqual(payload["completed_relationships"], [])
             self.assertIsNone(payload["relationship"])
             self.assertFalse(payload["relationship_added"])
+
+    def test_issue_create_maps_non_utf8_body_to_operational_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            body_path = Path(directory) / "body.md"
+            body_path.write_bytes(b"bad-utf8-\x96")
+            args = Namespace(
+                repo="sample-space/sample-app",
+                type="Task",
+                title="Sample",
+                body_file=str(body_path),
+                parent=None,
+                blocking=None,
+                assignee=None,
+            )
+            with self.assertRaisesRegex(work.WorkError, "cannot read issue body file"):
+                work.command_issue_create(
+                    args,
+                    FakeRunner(managed_preflight_responses()),
+                    config(),
+                    receipt(),
+                )
 
     def test_issue_create_rejects_unassignable_login_before_creation(self):
         responses = managed_preflight_responses() + [work.CommandResult(returncode=1, stderr="not assignable")]
@@ -556,6 +605,28 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(payload["failed_repo"], "sample-space/one-app")
         self.assertEqual(payload["failed_partial"], failed)
 
+    def test_work_graph_first_child_failure_is_not_partial(self):
+        targets = config(repos=["sample-space/one-app"])
+        responses = [
+            work.CommandResult(stdout="gh version 2.96.0\n"),
+            work.CommandResult(),
+            work.CommandResult(),
+            ALL_LABELS,
+        ]
+        args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
+        output = io.StringIO()
+        with mock.patch.object(
+            work,
+            "command_issue_create",
+            side_effect=work.WorkError("create rejected"),
+        ):
+            with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError) as caught:
+                work.command_work_graph_create(args, FakeRunner(responses), targets, receipt())
+        self.assertNotIsInstance(caught.exception, work.PartialWorkError)
+        payload = json.loads(output.getvalue())
+        self.assertFalse(payload["partial"])
+        self.assertEqual(payload["created_tasks"], 0)
+
     def test_receipt_is_strict_private_and_bound(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "receipt.json"
@@ -603,7 +674,7 @@ class HelperTests(unittest.TestCase):
         current = receipt()
         current.add("label-created", repo="sample-space/sample-app", name="type:task")
         current.data["operations"][0]["status"] = "restored"
-        with self.assertRaisesRegex(work.WorkError, "restored_config_requested is required"):
+        with self.assertRaisesRegex(work.WorkError, "restored operation is missing"):
             current.validate()
 
     def test_receipt_validation_accepts_explicitly_unavailable_config_digest(self):
@@ -670,11 +741,13 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["reason"], "restored")
             self.assertTrue(payload["config_requested"])
+            self.assertEqual(payload["config_status"], "invalid")
             self.assertTrue(payload["config_unavailable"])
             restored = receipt(path)
             operation = restored.data["operations"][0]
             self.assertIsNone(operation["restored_by_config_digest"])
             self.assertTrue(operation["restored_config_requested"])
+            self.assertEqual(operation["restored_config_status"], "invalid")
             self.assertTrue(operation["restored_config_unavailable"])
 
     def test_main_restore_records_empty_supplied_config_as_unavailable(self):
@@ -696,6 +769,7 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(result, 0)
             payload = json.loads(output.getvalue())
             self.assertTrue(payload["config_requested"])
+            self.assertEqual(payload["config_status"], "empty")
             self.assertTrue(payload["config_unavailable"])
 
     def test_restore_marks_operations_and_second_run_is_noop(self):

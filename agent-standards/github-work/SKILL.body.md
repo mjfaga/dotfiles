@@ -35,14 +35,16 @@ multiple candidates.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
 is exit `2`. Restore does not require the private target config and tolerates a supplied config path
-that is missing, empty, or invalid during rollback. Its output and schema-v2 per-operation audit
-metadata distinguish an unavailable requested config from a deliberately config-free restore;
-schema-v1 receipts without those fields mean unknown. It exits `3` when labels remain in use;
+that is missing, empty, unreadable, or invalid during rollback. Its output and schema-v2
+per-operation audit metadata distinguish an unavailable requested config from a deliberately
+config-free restore. `config_status` is `ok`, `absent`, `empty`, `unreadable`, or `invalid`;
+schema-v1 receipts without these audit fields mean unknown. It exits `3` when labels remain in use;
 resolve those references and retry. Restore output distinguishes `empty`, `already_restored`,
 `restored`, and `labels_in_use`, and reports both restored and mutated operation counts. Receipts
-remain compatible across helper releases with the same receipt schema even if the repository is
-later removed from active target configuration. Each new operation records the active helper source
-and private-config digests as audit metadata.
+remain compatible across helper releases with a supported receipt schema even if the repository is
+later removed from active target configuration. Drain outstanding newer-schema receipts before
+pinning an older standard version. Each new operation records the active helper source and
+private-config digests as audit metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
@@ -57,8 +59,9 @@ recovery file after reconciliation.
 
 For `labels ensure`, `created` contains receipt-backed labels; in dry-run output it contains planned
 labels. `failed_label` requires the action indicated by `stage`. Issue-create partials include
-`relationship`, `relationship_added`, and `stage`. Work-graph failures include receipt-backed
-`issues`, `failed_repo`, and the child's `failed_partial`; dry-run issue objects are plans without
+`relationship`, `relationship_added`, `completed_relationships`, and `stage`. Work-graph failures
+are partial only when a child or prior mutation needs reconciliation; they include receipt-backed
+`issues`, `failed_repo`, and the child's `failed_partial`. Dry-run issue objects are plans without
 URLs. A `needs-owner` failure reports `label_created` when it made the shared label during that
 invocation.
 
