@@ -218,6 +218,7 @@ class Receipt:
                 ):
                     raise WorkError(f"receipt operation {metadata_field} is malformed")
             for boolean_field in (
+                "restore_missing",
                 "restore_mutated",
                 "restored_config_requested",
                 "restored_config_unavailable",
@@ -257,8 +258,9 @@ class Receipt:
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
             raise WorkError(f"invalid receipt operation: {kind}")
-        if "issue" in details and isinstance(details["issue"], str):
-            details["issue"] = canonical_issue_reference(details["issue"])
+        for field in ("issue", "source", "target"):
+            if field in details and isinstance(details[field], str):
+                details[field] = canonical_issue_reference(details[field])
         if "pr" in details and isinstance(details["pr"], str):
             details["pr"] = canonical_pr_reference(details["pr"])
         self.data["operations"].append({
@@ -271,8 +273,15 @@ class Receipt:
         })
         self.save()
 
-    def mark_restored(self, operation: dict[str, Any], *, mutated: bool) -> None:
+    def mark_restored(
+        self,
+        operation: dict[str, Any],
+        *,
+        missing: bool = False,
+        mutated: bool,
+    ) -> None:
         operation["status"] = "restored"
+        operation["restore_missing"] = missing
         operation["restore_mutated"] = mutated
         operation["restored_by_source_sha"] = self.source_sha
         operation["restored_by_config_digest"] = self.config_digest
@@ -620,7 +629,8 @@ def restore_issue_state(runner: GhRunner, value: str) -> dict[str, Any] | None:
         if result.returncode != 0 and "http 404" in detail:
             return None
         if result.returncode != 0:
-            raise WorkError(f"cannot verify referenced issue: {value}") from state_error
+            message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+            raise WorkError(f"cannot verify referenced issue {value}: {message}") from state_error
         raise state_error
 
 
@@ -1563,7 +1573,7 @@ def command_restore(
             operation_state = restore_issue_state(runner, issue_reference)
             if operation_state is None:
                 if not runner.dry_run:
-                    receipt.mark_restored(operation, mutated=False)
+                    receipt.mark_restored(operation, missing=True, mutated=False)
                 restored += 1
                 missing_issue_operations += 1
                 continue
@@ -1622,49 +1632,35 @@ def command_restore(
         elif kind == "relationship-added":
             if operation_state is None:
                 raise WorkError("relationship restore lacks source issue state")
-            state = operation_state
+            # The state read establishes that the source exists; exact membership comes from REST.
+            source_repo, source_number = parse_issue_url(operation["source"])
             if operation["relation"] == "sub-issue":
-                summary = state.get("subIssuesSummary")
-                if not isinstance(summary, dict) or not isinstance(summary.get("total"), int):
-                    raise WorkError("relationship response lacks subIssuesSummary.total")
-                source_repo, source_number = parse_issue_url(operation["source"])
-                sub_issues = runner.json([
-                    "api", f"repos/{source_repo}/issues/{source_number}/sub_issues",
-                    "--paginate",
-                ])
-                if not isinstance(sub_issues, list) or any(
-                    not isinstance(item, dict) or not isinstance(item.get("html_url"), str)
-                    for item in sub_issues
-                ):
-                    raise WorkError("sub-issue response lacks html_url entries")
-                target = canonical_issue_reference(operation["target"])
-                relationship_present = any(
-                    canonical_issue_reference(item["html_url"]) == target
-                    for item in sub_issues
-                )
+                endpoint = f"repos/{source_repo}/issues/{source_number}/sub_issues"
+                response_name = "sub-issue"
                 flag = "--remove-sub-issue"
                 relationship_markers = (
                     "sub-issue not found", "no sub-issue", "not a sub-issue"
                 )
             else:
-                blocked_by = state.get("blockedBy")
-                if not isinstance(blocked_by, list):
-                    raise WorkError("relationship response lacks blockedBy")
-                target = canonical_issue_reference(operation["target"])
-                if any(
-                    not isinstance(blocker, dict)
-                    or not isinstance(blocker.get("url"), str)
-                    for blocker in blocked_by
-                ):
-                    raise WorkError("blockedBy entries lack issue URLs")
-                relationship_present = any(
-                    canonical_issue_reference(blocker["url"]) == target
-                    for blocker in blocked_by
+                endpoint = (
+                    f"repos/{source_repo}/issues/{source_number}/dependencies/blocked_by"
                 )
+                response_name = "blocked-by"
                 flag = "--remove-blocked-by"
                 relationship_markers = (
                     "blocked-by not found", "no blocked-by", "not blocked"
                 )
+            related_issues = runner.json(["api", endpoint, "--paginate"])
+            if not isinstance(related_issues, list) or any(
+                not isinstance(item, dict) or not isinstance(item.get("html_url"), str)
+                for item in related_issues
+            ):
+                raise WorkError(f"{response_name} response lacks html_url entries")
+            target = canonical_issue_reference(operation["target"])
+            relationship_present = any(
+                canonical_issue_reference(item["html_url"]) == target
+                for item in related_issues
+            )
             if relationship_present:
                 result = runner.run(
                     ["issue", "edit", operation["source"], flag, operation["target"]],

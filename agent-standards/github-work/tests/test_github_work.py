@@ -1236,7 +1236,7 @@ class HelperTests(unittest.TestCase):
                 [call[0] for call in runner.calls],
             )
 
-    def test_restore_rejects_unrecognized_blocked_by_entries(self):
+    def test_restore_rejects_unrecognized_blocked_by_rest_entries(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
@@ -1246,11 +1246,11 @@ class HelperTests(unittest.TestCase):
                 target="sample-space/sample-app#12",
                 relation="blocked-by",
             )
-            responses = restore_preflight_responses() + [{
-                "subIssuesSummary": {"total": 0},
-                "blockedBy": [{"number": 12, "state": "OPEN"}],
-            }]
-            with self.assertRaisesRegex(work.WorkError, "blockedBy entries lack issue URLs"):
+            responses = restore_preflight_responses() + [
+                {"subIssuesSummary": {"total": 0}, "blockedBy": []},
+                [{"number": 12, "state": "OPEN"}],
+            ]
+            with self.assertRaisesRegex(work.WorkError, "blocked-by response lacks html_url"):
                 work.command_restore(
                     Namespace(receipt=path), FakeRunner(responses), current,
                 )
@@ -1266,7 +1266,7 @@ class HelperTests(unittest.TestCase):
                 relation="sub-issue",
             )
             responses = restore_preflight_responses() + [
-                {"subIssuesSummary": {"total": 1}, "blockedBy": []},
+                {"blockedBy": []},
                 [{"html_url": "https://github.com/sample-space/sample-app/issues/13"}],
             ]
             runner = FakeRunner(responses)
@@ -1293,7 +1293,25 @@ class HelperTests(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["reason"], "missing_issues")
             self.assertEqual(payload["missing_issue_operations"], 1)
-            self.assertEqual(current.data["operations"][0]["status"], "restored")
+            operation = current.data["operations"][0]
+            self.assertEqual(operation["status"], "restored")
+            self.assertTrue(operation["restore_missing"])
+
+    def test_restore_preserves_issue_probe_failure_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("issue-created", issue="sample-space/sample-app#4")
+            responses = restore_preflight_responses() + [
+                work.CommandResult(returncode=1, stderr="GraphQL rate limited"),
+                work.CommandResult(returncode=1, stderr="HTTP 429 secondary rate limit"),
+            ]
+            with self.assertRaisesRegex(
+                work.WorkError, "cannot verify referenced issue.*HTTP 429 secondary rate limit"
+            ):
+                work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
 
     def test_restore_does_not_tolerate_non_relationship_missing_resource(self):
         with tempfile.TemporaryDirectory() as directory:
