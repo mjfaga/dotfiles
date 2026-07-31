@@ -121,10 +121,16 @@ class Receipt:
         config_requested: bool = False,
         config_unavailable: bool = False,
         config_status: str = "absent",
+        transient: bool = False,
     ) -> None:
         if path == "":
             raise WorkError("receipt path was supplied but is empty")
+        if path is None and not transient:
+            raise WorkError("receipt path is required; use transient=True for in-memory receipts")
+        if path is not None and transient:
+            raise WorkError("transient receipts must not have a path")
         self.path = Path(path) if path is not None else None
+        self.transient = transient
         self.loaded = bool(self.path and self.path.exists())
         self.source_sha = source_sha
         self.config_digest = config_digest
@@ -277,9 +283,12 @@ class Receipt:
             self.save()
 
     def save(self) -> None:
-        if not self.path:
-            return
         self.validate()
+        if self.transient:
+            self.loaded = True
+            return
+        if self.path is None:
+            raise WorkError("persistent receipt has no path")
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -328,8 +337,10 @@ def active_source_sha() -> str:
 
 
 def load_targets(path: str | None) -> dict[str, Any]:
-    if not path:
+    if path is None:
         raise WorkError("--config is required")
+    if not path:
+        raise WorkError("--config was supplied but is empty")
     config = load_json(path)
     targets = config.get("targets")
     if not isinstance(targets, list):
@@ -1051,9 +1062,10 @@ def ownership_resolution(
     mappings = [mapping for mapping in config["mappings"] if mapping["repo"] == repo]
     defaults = [mapping for mapping in mappings if "area" not in mapping]
     wildcards = [mapping for mapping in mappings if mapping.get("area") == "*"]
-    source = "repo-unmapped" if not mappings else "none"
     selected: list[dict[str, Any]] = []
-    if area is not None and mappings:
+    if not mappings:
+        source = "repo-unmapped"
+    elif area is not None:
         exact = [mapping for mapping in mappings if mapping.get("area") == area]
         if exact:
             selected, source = exact, "exact"
@@ -1071,6 +1083,8 @@ def ownership_resolution(
             selected, source = wildcards, "wildcard"
         elif specific:
             selected, source = specific, "specific-union"
+        else:
+            raise WorkError("validated ownership mappings could not be resolved")
     candidates = sorted({login for mapping in selected for login in mapping["logins"]})
     return candidates, source
 
@@ -1169,7 +1183,10 @@ def add_needs_owner(
 
 def validate_cli_args(args: argparse.Namespace) -> None:
     """Reject supplied-but-empty or incompatible string options."""
-    for attribute in ("receipt", "assignee", "parent", "blocking", "body_file"):
+    attributes = ["receipt", "assignee", "parent", "blocking", "body_file", "title"]
+    if getattr(args, "command", None) != "restore":
+        attributes.append("config")
+    for attribute in attributes:
         value = getattr(args, attribute, None)
         if value is not None and not value:
             option = attribute.replace("_", "-")

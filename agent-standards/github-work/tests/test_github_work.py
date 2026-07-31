@@ -55,7 +55,12 @@ def config(classification="managed-label", repos=None):
 
 
 def receipt(path=None):
-    return work.Receipt(path, source_sha=SOURCE, config_digest=DIGEST)
+    return work.Receipt(
+        path,
+        source_sha=SOURCE,
+        config_digest=DIGEST,
+        transient=path is None,
+    )
 
 
 def managed_preflight_responses(*, labels=None):
@@ -1139,9 +1144,38 @@ class HelperTests(unittest.TestCase):
                 self.assertIn("was supplied but is empty", stderr.getvalue())
                 self.assertEqual(runner.calls, [])
 
-    def test_receipt_rejects_empty_path_for_in_process_callers(self):
+    def test_receipt_requires_explicit_validated_transient_mode(self):
         with self.assertRaisesRegex(work.WorkError, "receipt path was supplied but is empty"):
             work.Receipt("", source_sha=SOURCE, config_digest=DIGEST)
+        with self.assertRaisesRegex(work.WorkError, "receipt path is required"):
+            work.Receipt(None, source_sha=SOURCE, config_digest=DIGEST)
+        current = work.Receipt(
+            None,
+            source_sha=SOURCE,
+            config_digest=DIGEST,
+            transient=True,
+        )
+        current.data["operations"].append({"kind": "invalid"})
+        with self.assertRaisesRegex(work.WorkError, "unsupported receipt operation"):
+            current.save()
+
+    def test_main_rejects_empty_config_and_title_before_external_work(self):
+        commands = [
+            ["--config", "", "labels", "ensure", "--repos", "all",
+             "--receipt", "receipt.json"],
+            ["--config", "missing.json", "issue-create", "--repo",
+             "sample-space/sample-app", "--type", "Task", "--title", "",
+             "--receipt", "receipt.json"],
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                runner = FakeRunner([])
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    result = work.main(command, runner=runner)
+                self.assertEqual(result, 2)
+                self.assertIn("was supplied but is empty", stderr.getvalue())
+                self.assertEqual(runner.calls, [])
 
     def test_main_assign_from_ownership_map_uses_loaded_config(self):
         with tempfile.TemporaryDirectory() as directory:
