@@ -5,7 +5,6 @@ import importlib.util
 import io
 import hashlib
 import json
-import os
 import stat
 import sys
 import tempfile
@@ -300,7 +299,7 @@ class HelperTests(unittest.TestCase):
             ["wild-user"],
         )
 
-    def test_ownership_resolution_does_not_default_unknown_explicit_area(self):
+    def test_ownership_resolution_reports_ineligible_default_for_unknown_explicit_area(self):
         ownership = {
             "mappings": [
                 {"repo": "sample-space/sample-app", "logins": ["default-user"]},
@@ -313,7 +312,7 @@ class HelperTests(unittest.TestCase):
         )
         self.assertEqual(
             work.ownership_resolution(ownership, "sample-space/sample-app", "webb"),
-            ([], "none"),
+            ([], "default-ineligible"),
         )
 
     def test_load_ownership_rejects_non_array_mappings(self):
@@ -611,6 +610,50 @@ class HelperTests(unittest.TestCase):
         commands = [call[0] for call in runner.calls]
         self.assertIn(["issue", "edit", "sample-space/sample-app#4", "--add-label", "needs-owner"], commands)
         self.assertFalse(any("--add-assignee" in command for command in commands))
+
+    def test_assign_needs_owner_partial_preserves_resolution_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ownership = {"mappings": [{
+                "repo": "sample-space/sample-app",
+                "area": "*",
+                "logins": ["one-user", "two-user"],
+            }]}
+            responses = managed_preflight_responses() + [
+                {"labels": [], "assignees": []},
+                [],
+                work.CommandResult(),
+            ]
+            args = Namespace(
+                issue="sample-space/sample-app#4",
+                assignee=None,
+                from_ownership_map=True,
+                area=None,
+            )
+            output = io.StringIO()
+            with mock.patch.object(work.os, "open", side_effect=PermissionError("denied")):
+                with contextlib.redirect_stdout(output), self.assertRaises(work.WorkError):
+                    work.command_assign(
+                        args,
+                        FakeRunner(responses),
+                        config(),
+                        ownership,
+                        receipt(str(Path(directory) / "receipt.json")),
+                    )
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["candidates"], ["one-user", "two-user"])
+            self.assertEqual(payload["ownership_source"], "wildcard")
+            self.assertEqual(payload["stage"], "audit")
+
+    def test_assign_rejects_empty_or_irrelevant_area_before_preflight(self):
+        for args, message in [
+            (Namespace(issue="sample-space/sample-app#4", assignee=None,
+                       from_ownership_map=True, area=""), "empty"),
+            (Namespace(issue="sample-space/sample-app#4", assignee="sample-user",
+                       from_ownership_map=False, area="web"), "requires"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(work.WorkError, message):
+                    work.command_assign(args, FakeRunner([]), config(), None, receipt())
 
     def test_pr_link_uses_body_file_and_preflight(self):
         responses = managed_preflight_responses() + [{"body": "Closes #4\n", "url": "https://github.com/sample-space/sample-app/pull/2"}, work.CommandResult()]

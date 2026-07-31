@@ -1051,12 +1051,14 @@ def ownership_resolution(
     wildcards = [mapping for mapping in mappings if mapping.get("area") == "*"]
     source = "none"
     selected: list[dict[str, Any]] = []
-    if area:
+    if area is not None:
         exact = [mapping for mapping in mappings if mapping.get("area") == area]
         if exact:
             selected, source = exact, "exact"
         elif wildcards:
             selected, source = wildcards, "wildcard"
+        elif defaults:
+            source = "default-ineligible"
     else:
         specific = [mapping for mapping in mappings if mapping.get("area") not in {None, "*"}]
         if defaults:
@@ -1073,7 +1075,13 @@ def ownership_candidates(config: dict[str, Any], repo: str, area: str | None) ->
     return ownership_resolution(config, repo, area)[0]
 
 
-def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
+def add_needs_owner(
+    runner: GhRunner,
+    issue: str,
+    receipt: Receipt,
+    candidates: list[str],
+    ownership_source: str,
+) -> None:
     state = issue_state(runner, issue)
     if NEEDS_OWNER_LABEL[0] in issue_labels(state):
         return
@@ -1093,7 +1101,10 @@ def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
         except WorkError:
             json_print({
                 "action": "create-label",
+                "candidates": candidates,
+                "dry_run": runner.dry_run,
                 "name": NEEDS_OWNER_LABEL[0],
+                "ownership_source": ownership_source,
                 "partial": True,
                 "repo": repo,
                 "stage": "mutation-result-unknown",
@@ -1106,7 +1117,10 @@ def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
             except WorkError:
                 json_print({
                     "action": "create-label",
+                    "candidates": candidates,
+                    "dry_run": runner.dry_run,
                     "name": NEEDS_OWNER_LABEL[0],
+                    "ownership_source": ownership_source,
                     "partial": True,
                     "repo": repo,
                     "stage": "audit",
@@ -1117,9 +1131,12 @@ def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
     except WorkError:
         json_print({
             "action": "add-label",
+            "candidates": candidates,
+            "dry_run": runner.dry_run,
             "issue": issue,
             "label_created": label_created,
             "name": NEEDS_OWNER_LABEL[0],
+            "ownership_source": ownership_source,
             "partial": True,
             "repo": repo,
             "stage": "mutation-result-unknown",
@@ -1131,9 +1148,12 @@ def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
         except WorkError:
             json_print({
                 "action": "add-label",
+                "candidates": candidates,
+                "dry_run": runner.dry_run,
                 "issue": issue,
                 "label_created": label_created,
                 "name": NEEDS_OWNER_LABEL[0],
+                "ownership_source": ownership_source,
                 "partial": True,
                 "repo": repo,
                 "stage": "audit",
@@ -1148,6 +1168,11 @@ def command_assign(
     ownership: dict[str, Any] | None,
     receipt: Receipt,
 ) -> int:
+    if args.area is not None:
+        if not args.area:
+            raise WorkError("--area was supplied but is empty")
+        if not args.from_ownership_map:
+            raise WorkError("--area requires --from-ownership-map")
     repo, _ = parse_issue_url(args.issue)
     mutation_preflight(runner, config, [repo])
     assignee = args.assignee
@@ -1159,7 +1184,7 @@ def command_assign(
         candidates, ownership_source = ownership_resolution(ownership, repo, args.area)
         candidates = [candidate for candidate in candidates if not candidate.endswith("[bot]")]
         if len(candidates) != 1:
-            add_needs_owner(runner, args.issue, receipt)
+            add_needs_owner(runner, args.issue, receipt, candidates, ownership_source)
             if not runner.dry_run:
                 receipt.ensure_saved()
             json_print({
