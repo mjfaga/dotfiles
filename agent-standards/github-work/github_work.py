@@ -733,13 +733,17 @@ def command_restore(
             if not isinstance(current, list):
                 raise WorkError(f"cannot verify labels in {operation['repo']}")
             if operation["name"] in {item.get("name") for item in current if isinstance(item, dict)}:
-                uses = runner.json([
+                issue_uses = runner.json([
                     "issue", "list", "--repo", operation["repo"], "--state", "all",
                     "--label", operation["name"], "--limit", "1", "--json", "url",
                 ])
-                if not isinstance(uses, list):
+                pr_uses = runner.json([
+                    "pr", "list", "--repo", operation["repo"], "--state", "all",
+                    "--label", operation["name"], "--limit", "1", "--json", "url",
+                ])
+                if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
                     raise WorkError(f"cannot verify label usage in {operation['repo']}")
-                if uses:
+                if issue_uses or pr_uses:
                     skipped_in_use += 1
                     continue
                 runner.run(["label", "delete", operation["name"], "--repo", operation["repo"], "--yes"], mutate=True)
@@ -753,7 +757,7 @@ def command_restore(
         "skipped_labels_in_use": skipped_in_use,
         "dry_run": runner.dry_run,
     })
-    return 0
+    return 3 if skipped_in_use else 0
 
 
 def command_work_graph_create(
@@ -799,7 +803,13 @@ def provenance_from_text(text: str) -> dict[str, str]:
 def command_standard_check(args: argparse.Namespace) -> int:
     helper = provenance_from_text(Path(__file__).read_text())
     checked: dict[str, str] = {}
-    for label, raw_path in (("agents", args.agents_path), ("skill", args.skill_path)):
+    paths = [
+        ("agents", args.agents_path),
+        ("skill", args.skill_path),
+        ("pull-request-template", args.pr_template_path),
+        *((f"issue-form-{index + 1}", path) for index, path in enumerate(args.issue_form_path)),
+    ]
+    for label, raw_path in paths:
         path = Path(raw_path)
         if not path.is_file():
             raise WorkError(f"standard-check path is missing: {path}")
@@ -875,6 +885,16 @@ def build_parser() -> argparse.ArgumentParser:
     standard_check = subparsers.add_parser("standard-check")
     standard_check.add_argument("--agents-path", default="AGENTS.md")
     standard_check.add_argument("--skill-path", default=".claude/skills/github-work/SKILL.md")
+    standard_check.add_argument("--pr-template-path", default=".github/pull_request_template.md")
+    standard_check.add_argument(
+        "--issue-form-path",
+        action="append",
+        default=[
+            ".github/ISSUE_TEMPLATE/bug.yml",
+            ".github/ISSUE_TEMPLATE/feature.yml",
+            ".github/ISSUE_TEMPLATE/task.yml",
+        ],
+    )
     standard_check.add_argument("--expected-version")
     standard_check.add_argument("--expected-source-sha")
     standard_check.add_argument("--expected-target-digest")

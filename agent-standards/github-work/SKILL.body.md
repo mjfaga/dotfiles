@@ -1,7 +1,8 @@
 ---
 name: github-work
 description:
-  Create, classify, relate, assign, link, finalize, or restore GitHub work items and pull requests.
+  Use when creating, classifying, relating, assigning, linking, finalizing, or restoring GitHub work
+  items and pull requests.
 ---
 
 <!-- BEGIN github-work-standard -->
@@ -20,7 +21,9 @@ python3 scripts/github_work.py \
 
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
-array of `repo`, `area`, and `logins`. The private operator supplies their location.
+array of `repo`, `area`, and `logins`. The private operator supplies their location. Keep receipts
+under `.github-work/receipts/`; consumer repositories must ignore `.github-work/`,
+`github-work-targets.y*ml`, `github-work-ownership.y*ml`, and `*.github-work-receipt.json`.
 
 Assign before creating a branch. Use `issue-create` with Feature, Bug, or Task and native
 parent/blocking relationships. Use `pr-link --mode refs` by default. Run read-only `finality` before

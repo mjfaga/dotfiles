@@ -258,7 +258,7 @@ class HelperTests(unittest.TestCase):
             path = str(Path(directory) / "receipt.json")
             current = receipt(path)
             current.add("label-created", repo="sample-space/sample-app", name="type:task")
-            first_responses = managed_preflight_responses() + [[{"name": "type:task"}], [], work.CommandResult()]
+            first_responses = managed_preflight_responses() + [[{"name": "type:task"}], [], [], work.CommandResult()]
             first = FakeRunner(first_responses)
             with contextlib.redirect_stdout(io.StringIO()):
                 work.command_restore(Namespace(receipt=path), first, config(), current)
@@ -273,10 +273,15 @@ class HelperTests(unittest.TestCase):
     def test_label_restore_skips_labels_that_are_in_use(self):
         current = receipt()
         current.add("label-created", repo="sample-space/sample-app", name="type:task")
-        responses = managed_preflight_responses() + [[{"name": "type:task"}], [{"url": "https://github.com/sample-space/sample-app/issues/9"}]]
+        responses = managed_preflight_responses() + [
+            [{"name": "type:task"}],
+            [{"url": "https://github.com/sample-space/sample-app/issues/9"}],
+            [],
+        ]
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
+            result = work.command_restore(Namespace(receipt="unused"), FakeRunner(responses), config(), current)
+        self.assertEqual(result, 3)
         self.assertEqual(json.loads(output.getvalue())["skipped_labels_in_use"], 1)
         self.assertEqual(current.data["operations"][0]["status"], "active")
 
@@ -294,10 +299,19 @@ class HelperTests(unittest.TestCase):
             helper = root / "github_work.py"
             agents = root / "AGENTS.md"
             skill = root / "SKILL.md"
+            pr_template = root / "pull_request_template.md"
+            issue_forms = [root / name for name in ("bug.yml", "feature.yml", "task.yml")]
             helper.write_text(marker)
             agents.write_text("x" * 12000 + "\n<!-- github-work-standard: version=1.0.0 source=" + SOURCE + " target=" + DIGEST + " -->\n")
             skill.write_text(agents.read_text())
-            args = Namespace(agents_path=str(agents), skill_path=str(skill), expected_version=None, expected_source_sha=None, expected_target_digest=None)
+            pr_template.write_text(agents.read_text())
+            for form in issue_forms:
+                form.write_text(agents.read_text())
+            args = Namespace(
+                agents_path=str(agents), skill_path=str(skill), pr_template_path=str(pr_template),
+                issue_form_path=[str(path) for path in issue_forms], expected_version=None,
+                expected_source_sha=None, expected_target_digest=None,
+            )
             with mock.patch.object(work, "__file__", str(helper)), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(work.command_standard_check(args), 0)
             skill.write_text(skill.read_text().replace(DIGEST, "c" * 64))

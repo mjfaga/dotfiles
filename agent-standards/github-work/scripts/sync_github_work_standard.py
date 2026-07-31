@@ -139,9 +139,16 @@ def render_skill_file(original: str, source: str, version: str, source_sha: str,
     return frontmatter + "\n\n" + merged
 
 
-def form_header(kind: str, classification: str, labels: list[str] | None = None) -> str:
+def form_header(
+    kind: str,
+    classification: str,
+    labels: list[str] | None = None,
+    provenance_marker: str | None = None,
+) -> str:
     managed_labels = list(dict.fromkeys(labels or []))
     lines = [f"# {BEGIN}"]
+    if provenance_marker:
+        lines.append(f"# {provenance_marker}")
     if classification == "native-type":
         lines.append(f"type: {kind.title()}")
     else:
@@ -200,13 +207,14 @@ def merge_form(
     classification: str,
     new_form: str,
     remove_labels: list[str] | None = None,
+    provenance_marker: str | None = None,
 ) -> str:
     begin = f"# {BEGIN}"
     end = f"# {END}"
     remove = set(remove_labels or [])
     if not existing:
         data = json.loads(new_form)
-        block = form_header(kind, classification)
+        block = form_header(kind, classification, provenance_marker=provenance_marker)
         lines = [
             block,
             f"name: {json.dumps(data['name'])}",
@@ -232,11 +240,11 @@ def merge_form(
         old_block = existing[start : finish + len(end)]
         _, adopted_labels = adopt_existing_classification(old_block)
         labels = [label for label in adopted_labels if label not in remove and not label.startswith("type:")]
-        block = form_header(kind, classification, labels)
+        block = form_header(kind, classification, labels, provenance_marker)
         return existing[:start] + block + existing[finish + len(end) :]
     remainder, adopted_labels = adopt_existing_classification(existing)
     labels = [label for label in adopted_labels if label not in remove and not label.startswith("type:")]
-    return form_header(kind, classification, labels) + "\n" + remainder
+    return form_header(kind, classification, labels, provenance_marker) + "\n" + remainder
 
 
 def marked_helper(source: str, version: str, source_sha: str, target_digest: str) -> str:
@@ -286,12 +294,14 @@ def expected_files(
         path = safe_output_path(checkout, str(Path(form_dir_relative) / filenames[kind]))
         existing = path.read_text() if path.exists() else ""
         source = (source_root / "issue-forms" / f"{kind}.yml").read_text()
+        form_marker = f"github-work-standard: version={version} source={source_sha} target={target_digest}"
         files[path] = merge_form(
             existing,
             kind,
             target["classification"],
             source,
             target.get("remove_labels", []),
+            form_marker,
         )
     pr_path = safe_output_path(checkout, target.get("pr_template_path", ".github/pull_request_template.md"))
     existing_pr = pr_path.read_text() if pr_path.exists() else ""
