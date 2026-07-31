@@ -1499,20 +1499,11 @@ def command_restore(
     already_restored = 0
     skipped_in_use = 0
     retained_label_definitions = 0
-    pending_issue_label_removals = {
-        (canonical_issue_reference(operation["issue"]), operation["name"])
-        for operation in receipt.data["operations"]
-        if operation["status"] == "active" and operation["kind"] == "issue-label-added"
-    }
+    simulated_issue_labels: dict[tuple[str, str], bool] = {}
     all_issue_label_reapplications = {
         (canonical_issue_reference(operation["issue"]), operation["name"])
         for operation in receipt.data["operations"]
         if operation["kind"] == "issue-label-removed"
-    }
-    pending_issue_label_reapplications = {
-        (canonical_issue_reference(operation["issue"]), operation["name"])
-        for operation in receipt.data["operations"]
-        if operation["status"] == "active" and operation["kind"] == "issue-label-removed"
     }
     for operation in reversed(receipt.data["operations"]):
         if operation["status"] == "restored":
@@ -1529,12 +1520,22 @@ def command_restore(
                 mutated = True
         elif kind == "issue-label-added":
             state = issue_state(runner, operation["issue"])
-            if operation["name"] in issue_labels(state):
+            label_key = (canonical_issue_reference(operation["issue"]), operation["name"])
+            label_present = simulated_issue_labels.get(
+                label_key, operation["name"] in issue_labels(state)
+            )
+            if label_present:
                 runner.run(["issue", "edit", operation["issue"], "--remove-label", operation["name"]], mutate=True)
                 mutated = True
+                if runner.dry_run:
+                    simulated_issue_labels[label_key] = False
         elif kind == "issue-label-removed":
             state = issue_state(runner, operation["issue"])
-            if operation["name"] not in issue_labels(state):
+            label_key = (canonical_issue_reference(operation["issue"]), operation["name"])
+            label_present = simulated_issue_labels.get(
+                label_key, operation["name"] in issue_labels(state)
+            )
+            if not label_present:
                 result = runner.run(
                     ["issue", "edit", operation["issue"], "--add-label", operation["name"]],
                     mutate=True,
@@ -1542,11 +1543,15 @@ def command_restore(
                 )
                 if result.returncode == 0:
                     mutated = True
+                    if runner.dry_run:
+                        simulated_issue_labels[label_key] = True
                 else:
                     detail = f"{result.stderr}\n{result.stdout}".lower()
                     if not any(
                         marker in detail
-                        for marker in ("label not found", "does not exist", "unknown label")
+                        for marker in (
+                            "label not found", "label does not exist", "unknown label"
+                        )
                     ):
                         raise WorkError(
                             result.stderr.strip() or result.stdout.strip()
@@ -1592,16 +1597,15 @@ def command_restore(
                     if isinstance(use, dict)
                 }
                 if runner.dry_run:
-                    observed_issue_uses.update(
-                        issue for issue, name in pending_issue_label_reapplications
-                        if name == operation["name"]
-                        and parse_issue_url(issue)[0] == operation["repo"]
-                    )
-                    observed_issue_uses.difference_update(
-                        issue for issue, name in pending_issue_label_removals
-                        if name == operation["name"]
-                        and parse_issue_url(issue)[0] == operation["repo"]
-                    )
+                    for (issue, name), present in simulated_issue_labels.items():
+                        if (
+                            name == operation["name"]
+                            and parse_issue_url(issue)[0] == operation["repo"]
+                        ):
+                            if present:
+                                observed_issue_uses.add(issue)
+                            else:
+                                observed_issue_uses.discard(issue)
                 reapplication_targets = {
                     issue for issue, name in all_issue_label_reapplications
                     if name == operation["name"]

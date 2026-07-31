@@ -61,12 +61,14 @@ or invalid during rollback. Its output and schema-v3 per-operation audit metadat
 unavailable requested config from a deliberately config-free restore. `config_status` is `ok`,
 `absent`, `empty`, `unreadable`, or `invalid`; older receipts without these audit fields mean
 unknown. It exits `3` when labels remain in use; resolve those references and retry. Restore output
-distinguishes `empty`, `already_restored`, `restored`, and `labels_in_use`, and reports both
-restored and mutated operation counts. Receipts remain compatible across helper releases with a
-supported receipt schema even if the repository is later removed from active target configuration.
-Drain outstanding newer-schema receipts before pinning an older standard version. Schema-v3
-operations require creation and restore attribution. Each new operation records the active helper
-source and private-config digests as audit metadata.
+distinguishes `empty`, `already_restored`, `restored`, `retained_labels`, and `labels_in_use`, and
+reports both restored and mutated operation counts. A retained label definition is intentionally
+left behind to preserve a reversed removal; remove it after its reapplied labels are no longer
+needed. Receipts remain compatible across helper releases with a supported receipt schema even if
+the repository is later removed from active target configuration. Drain outstanding newer-schema
+receipts before pinning an older standard version. Schema-v3 operations require creation and restore
+attribution. Each new operation records the active helper source and private-config digests as audit
+metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
