@@ -161,6 +161,8 @@ class Receipt:
     def add(self, kind: str, **details: Any) -> None:
         if kind not in OPERATION_FIELDS or OPERATION_FIELDS[kind] - details.keys():
             raise WorkError(f"invalid receipt operation: {kind}")
+        if "issue" in details and isinstance(details["issue"], str):
+            details["issue"] = canonical_issue_reference(details["issue"])
         self.data["operations"].append({
             "operation_id": str(uuid.uuid4()),
             "status": "active",
@@ -181,7 +183,7 @@ class Receipt:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(descriptor, "w") as handle:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(json.dumps(self.data, indent=2, sort_keys=True) + "\n")
         temporary.replace(self.path)
         self.path.chmod(0o600)
@@ -189,7 +191,7 @@ class Receipt:
 
 def load_json(path: str | Path) -> dict[str, Any]:
     try:
-        value = json.loads(Path(path).read_text())
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise WorkError(f"cannot load JSON-compatible YAML: {path}") from exc
     if not isinstance(value, dict):
@@ -205,7 +207,7 @@ def file_digest(path: str | Path) -> str:
 
 
 def active_source_sha() -> str:
-    source = Path(__file__).read_text(errors="replace")[:1000]
+    source = Path(__file__).read_text(encoding="utf-8", errors="replace")[:1000]
     marker = re.search(r"github-work-standard: version=\S+ source=([0-9a-f]{40})\b", source)
     if marker:
         return marker.group(1)
@@ -285,6 +287,10 @@ def parse_issue_url(value: str) -> tuple[str, int]:
 
 def issue_url(repo: str, number: int) -> str:
     return f"https://github.com/{repo}/issues/{number}"
+
+
+def canonical_issue_reference(value: str) -> str:
+    return issue_url(*parse_issue_url(value))
 
 
 def parse_pr_url(value: str) -> tuple[str, int]:
@@ -466,7 +472,7 @@ def command_issue_create(
         validation = runner.run(["api", f"repos/{args.repo}/assignees/{args.assignee}"], check=False)
         if validation.returncode != 0:
             raise WorkError(f"not assignable in {args.repo}: {args.assignee}")
-    body = Path(args.body_file).read_text() if args.body_file else default_issue_body(args.type, args.title)
+    body = Path(args.body_file).read_text(encoding="utf-8") if args.body_file else default_issue_body(args.type, args.title)
     command = ["issue", "create", "--repo", args.repo, "--title", args.title]
     if target["classification"] == "native-type":
         command.extend(["--type", args.type.title()])
@@ -695,7 +701,7 @@ def command_restore(
     already_restored = 0
     skipped_in_use = 0
     pending_issue_label_removals = {
-        (operation["issue"], operation["name"])
+        (canonical_issue_reference(operation["issue"]), operation["name"])
         for operation in receipt.data["operations"]
         if operation["status"] == "active" and operation["kind"] == "issue-label-added"
     }
@@ -751,7 +757,8 @@ def command_restore(
                 if runner.dry_run:
                     issue_uses = [
                         use for use in issue_uses
-                        if (use.get("url"), operation["name"]) not in pending_issue_label_removals
+                        if (canonical_issue_reference(use.get("url", "")), operation["name"])
+                        not in pending_issue_label_removals
                     ]
                 if issue_uses or pr_uses:
                     skipped_in_use += 1
@@ -839,13 +846,13 @@ def content_without_provenance(text: str, *, managed_region: bool) -> str:
 
 def verify_content(text: str, marker: dict[str, str], *, managed_region: bool) -> None:
     content = content_without_provenance(text, managed_region=managed_region)
-    actual = hashlib.sha256(content.encode()).hexdigest()
+    actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
     if actual != marker["content"]:
         raise WorkError("github-work-standard managed content digest does not match provenance")
 
 
 def command_standard_check(args: argparse.Namespace) -> int:
-    helper_text = Path(__file__).read_text()
+    helper_text = Path(__file__).read_text(encoding="utf-8")
     helper = provenance_from_text(helper_text)
     verify_content(helper_text, helper, managed_region=False)
     identity = {key: helper[key] for key in ("version", "source", "target")}
@@ -866,7 +873,7 @@ def command_standard_check(args: argparse.Namespace) -> int:
         path = Path(raw_path)
         if not path.is_file():
             raise WorkError(f"standard-check path is missing: {path}")
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         marker = provenance_from_text(text)
         verify_content(text, marker, managed_region=True)
         if {key: marker[key] for key in identity} != identity:

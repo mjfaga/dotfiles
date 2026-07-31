@@ -290,7 +290,8 @@ class HelperTests(unittest.TestCase):
         current = receipt()
         issue = "https://github.com/sample-space/sample-app/issues/9"
         current.add("label-created", repo="sample-space/sample-app", name="needs-owner")
-        current.add("issue-label-added", issue=issue, name="needs-owner")
+        current.add("issue-label-added", issue=issue + "#issuecomment-123", name="needs-owner")
+        self.assertEqual(current.data["operations"][1]["issue"], issue)
         responses = managed_preflight_responses() + [
             {"labels": [{"name": "needs-owner"}], "assignees": []},
             [{"name": "needs-owner"}],

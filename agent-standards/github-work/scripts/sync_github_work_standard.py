@@ -25,7 +25,7 @@ class RenderError(RuntimeError):
 
 def load_object(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RenderError(f"cannot load JSON-compatible YAML: {path}") from exc
     if not isinstance(value, dict):
@@ -82,7 +82,7 @@ def validate_targets(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def digest_target(target: dict[str, Any]) -> str:
-    encoded = json.dumps(target, sort_keys=True, separators=(",", ":")).encode()
+    encoded = json.dumps(target, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -134,7 +134,7 @@ def provenance(
 
 def render_marked_source(source: str, version: str, source_sha: str, target_digest: str) -> str:
     block = marker_payload(source)
-    content_digest = hashlib.sha256(block.encode()).hexdigest()
+    content_digest = hashlib.sha256(block.encode("utf-8")).hexdigest()
     marker = provenance(version, source_sha, target_digest, content_digest).rstrip("\n")
     return block.replace(BEGIN, f"{BEGIN}\n{marker}", 1)
 
@@ -171,7 +171,7 @@ def form_header(
     lines.append(f"# {END}")
     if provenance_marker:
         unmanaged_block = "\n".join(lines)
-        content_digest = hashlib.sha256(unmanaged_block.encode()).hexdigest()
+        content_digest = hashlib.sha256(unmanaged_block.encode("utf-8")).hexdigest()
         lines.insert(provenance_index, f"# {provenance_marker} content={content_digest}")
     return "\n".join(lines)
 
@@ -263,7 +263,7 @@ def merge_form(
 
 def marked_helper(source: str, version: str, source_sha: str, target_digest: str) -> str:
     lines = source.splitlines(keepends=True)
-    content_digest = hashlib.sha256(source.encode()).hexdigest()
+    content_digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     marker = provenance(version, source_sha, target_digest, content_digest, prefix="#")
     if lines and lines[0].startswith("#!"):
         return lines[0] + marker + "".join(lines[1:])
@@ -292,10 +292,10 @@ def expected_files(
     target_digest = digest_target(target)
     agents_path = safe_output_path(checkout, target["agents_source_path"])
     skill_path = safe_output_path(checkout, target["skill_source_path"])
-    agents_original = agents_path.read_text() if agents_path.exists() else ""
-    skill_original = skill_path.read_text() if skill_path.exists() else ""
-    agents_source = (source_root / "AGENTS.fragment.md").read_text()
-    skill_source = (source_root / "SKILL.body.md").read_text()
+    agents_original = agents_path.read_text(encoding="utf-8") if agents_path.exists() else ""
+    skill_original = skill_path.read_text(encoding="utf-8") if skill_path.exists() else ""
+    agents_source = (source_root / "AGENTS.fragment.md").read_text(encoding="utf-8")
+    skill_source = (source_root / "SKILL.body.md").read_text(encoding="utf-8")
     agents_block = render_marked_source(agents_source, version, source_sha, target_digest)
     files = {
         agents_path: merge_marker(agents_original, agents_block),
@@ -307,8 +307,8 @@ def expected_files(
         raise RenderError(f"issue_form_files must define bug, feature, and task for {target['repo']}")
     for kind in ("bug", "feature", "task"):
         path = safe_output_path(checkout, str(Path(form_dir_relative) / filenames[kind]))
-        existing = path.read_text() if path.exists() else ""
-        source = (source_root / "issue-forms" / f"{kind}.yml").read_text()
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
+        source = (source_root / "issue-forms" / f"{kind}.yml").read_text(encoding="utf-8")
         form_marker = f"github-work-standard: version={version} source={source_sha} target={target_digest}"
         files[path] = merge_form(
             existing,
@@ -319,11 +319,21 @@ def expected_files(
             form_marker,
         )
     pr_path = safe_output_path(checkout, target.get("pr_template_path", ".github/pull_request_template.md"))
-    existing_pr = pr_path.read_text() if pr_path.exists() else ""
-    pr_block = render_marked_source((source_root / "pull_request_template.md").read_text(), version, source_sha, target_digest)
+    existing_pr = pr_path.read_text(encoding="utf-8") if pr_path.exists() else ""
+    pr_block = render_marked_source(
+        (source_root / "pull_request_template.md").read_text(encoding="utf-8"),
+        version,
+        source_sha,
+        target_digest,
+    )
     files[pr_path] = merge_marker(existing_pr, pr_block)
     helper_path = safe_output_path(checkout, target.get("helper_path", "scripts/github_work.py"))
-    files[helper_path] = marked_helper((source_root / "github_work.py").read_text(), version, source_sha, target_digest)
+    files[helper_path] = marked_helper(
+        (source_root / "github_work.py").read_text(encoding="utf-8"),
+        version,
+        source_sha,
+        target_digest,
+    )
     return files
 
 
@@ -409,14 +419,14 @@ def sync(args: argparse.Namespace) -> int:
             args.source_sha,
             overrides.get(target["repo"]),
         ).items():
-            current = path.read_text() if path.exists() else None
+            current = path.read_text(encoding="utf-8") if path.exists() else None
             if current == content:
                 continue
             drift.append(str(path))
             if args.check or args.dry_run:
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content)
+            path.write_text(content, encoding="utf-8")
             if path.name == "github_work.py":
                 path.chmod(0o755)
             changed.append(str(path))
