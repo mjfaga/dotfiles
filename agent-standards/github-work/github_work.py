@@ -414,10 +414,10 @@ def load_ownership(path: str | Path) -> dict[str, Any]:
         ):
             raise WorkError("ownership mapping area must be a non-empty string when present")
         logins = mapping.get("logins")
-        if not isinstance(logins, list) or any(
+        if not isinstance(logins, list) or not logins or any(
             not isinstance(login, str) or not login for login in logins
         ):
-            raise WorkError("ownership mapping logins must be an array of non-empty strings")
+            raise WorkError("ownership mapping logins must be a non-empty array of strings")
     return config
 
 
@@ -1101,8 +1101,8 @@ def add_needs_owner(
     receipt: Receipt,
     candidates: list[str],
     ownership_source: str,
+    state: dict[str, Any],
 ) -> None:
-    state = issue_state(runner, issue)
     if NEEDS_OWNER_LABEL[0] in issue_labels(state):
         return
     repo, _ = parse_issue_url(issue)
@@ -1215,14 +1215,32 @@ def command_assign(
     mutation_preflight(runner, config, [repo])
     assignee = args.assignee
     ownership_source = "explicit"
+    state: dict[str, Any] | None = None
     if args.from_ownership_map:
         if ownership is None:
             # In-process callers may bypass main's ownership-config validation.
             raise WorkError("--ownership-config is required with --from-ownership-map")
         candidates, ownership_source = ownership_resolution(ownership, repo, args.area)
         candidates = [candidate for candidate in candidates if not candidate.endswith("[bot]")]
+        state = issue_state(runner, args.issue)
+        human_assignees = sorted(
+            assignee for assignee in issue_assignees(state) if not assignee.endswith("[bot]")
+        )
+        if human_assignees:
+            if not runner.dry_run:
+                receipt.ensure_saved()
+            json_print({
+                "assigned": False,
+                "assignees": human_assignees,
+                "dry_run": runner.dry_run,
+                "ownership_source": ownership_source,
+                "reason": "already-assigned",
+            })
+            return 0
         if len(candidates) != 1:
-            add_needs_owner(runner, args.issue, receipt, candidates, ownership_source)
+            add_needs_owner(
+                runner, args.issue, receipt, candidates, ownership_source, state
+            )
             if not runner.dry_run:
                 receipt.ensure_saved()
             json_print({
@@ -1238,7 +1256,8 @@ def command_assign(
         raise WorkError("provide --assignee or --from-ownership-map")
     if assignee.endswith("[bot]"):
         raise WorkError("bot identities cannot be planned issue owners")
-    state = issue_state(runner, args.issue)
+    if state is None:
+        state = issue_state(runner, args.issue)
     if assignee in issue_assignees(state):
         if not runner.dry_run:
             receipt.ensure_saved()

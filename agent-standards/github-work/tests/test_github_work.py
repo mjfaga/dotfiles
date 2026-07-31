@@ -352,6 +352,18 @@ class HelperTests(unittest.TestCase):
             ([], "repo-unmapped"),
         )
 
+    def test_load_ownership_rejects_empty_login_mapping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ownership.json"
+            path.write_text(json.dumps({
+                "mappings": [{
+                    "repo": "sample-space/sample-app",
+                    "logins": [],
+                }],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(work.WorkError, "non-empty array"):
+                work.load_ownership(str(path))
+
     def test_load_ownership_rejects_non_array_mappings(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ownership.json"
@@ -647,6 +659,33 @@ class HelperTests(unittest.TestCase):
         commands = [call[0] for call in runner.calls]
         self.assertIn(["issue", "edit", "sample-space/sample-app#4", "--add-label", "needs-owner"], commands)
         self.assertFalse(any("--add-assignee" in command for command in commands))
+
+    def test_assign_map_preserves_existing_human_owner_without_escalation(self):
+        ownership = {"mappings": [{
+            "repo": "sample-space/sample-app",
+            "area": "web",
+            "logins": ["one-user", "two-user"],
+        }]}
+        responses = managed_preflight_responses() + [{
+            "labels": [],
+            "assignees": [{"login": "existing-user"}],
+        }]
+        runner = FakeRunner(responses)
+        args = Namespace(
+            issue="sample-space/sample-app#4",
+            assignee=None,
+            from_ownership_map=True,
+            area="web",
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            work.command_assign(args, runner, config(), ownership, receipt())
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["assignees"], ["existing-user"])
+        self.assertEqual(payload["reason"], "already-assigned")
+        commands = [call[0] for call in runner.calls]
+        self.assertFalse(any("--add-label" in command for command in commands))
+        self.assertFalse(any("label" in command and "create" in command for command in commands))
 
     def test_assign_needs_owner_partial_preserves_resolution_context(self):
         with tempfile.TemporaryDirectory() as directory:
