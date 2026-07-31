@@ -1042,17 +1042,35 @@ def command_finality(args: argparse.Namespace, runner: GhRunner, config: dict[st
     return 0 if result["eligible"] else 1
 
 
-def ownership_candidates(config: dict[str, Any], repo: str, area: str | None) -> list[str]:
+def ownership_resolution(
+    config: dict[str, Any], repo: str, area: str | None
+) -> tuple[list[str], str]:
+    """Resolve a validated ownership config with fail-closed explicit-area matching."""
     mappings = [mapping for mapping in config["mappings"] if mapping["repo"] == repo]
     defaults = [mapping for mapping in mappings if "area" not in mapping]
     wildcards = [mapping for mapping in mappings if mapping.get("area") == "*"]
+    source = "none"
+    selected: list[dict[str, Any]] = []
     if area:
         exact = [mapping for mapping in mappings if mapping.get("area") == area]
-        selected = exact or wildcards or defaults
+        if exact:
+            selected, source = exact, "exact"
+        elif wildcards:
+            selected, source = wildcards, "wildcard"
     else:
         specific = [mapping for mapping in mappings if mapping.get("area") not in {None, "*"}]
-        selected = defaults or wildcards or specific
-    return sorted({login for mapping in selected for login in mapping["logins"]})
+        if defaults:
+            selected, source = defaults, "default"
+        elif wildcards:
+            selected, source = wildcards, "wildcard"
+        elif specific:
+            selected, source = specific, "specific-union"
+    candidates = sorted({login for mapping in selected for login in mapping["logins"]})
+    return candidates, source
+
+
+def ownership_candidates(config: dict[str, Any], repo: str, area: str | None) -> list[str]:
+    return ownership_resolution(config, repo, area)[0]
 
 
 def add_needs_owner(runner: GhRunner, issue: str, receipt: Receipt) -> None:
@@ -1133,16 +1151,23 @@ def command_assign(
     repo, _ = parse_issue_url(args.issue)
     mutation_preflight(runner, config, [repo])
     assignee = args.assignee
+    ownership_source = "explicit"
     if args.from_ownership_map:
         if ownership is None:
+            # In-process callers may bypass main's ownership-config validation.
             raise WorkError("--ownership-config is required with --from-ownership-map")
-        candidates = ownership_candidates(ownership, repo, args.area)
+        candidates, ownership_source = ownership_resolution(ownership, repo, args.area)
         candidates = [candidate for candidate in candidates if not candidate.endswith("[bot]")]
         if len(candidates) != 1:
             add_needs_owner(runner, args.issue, receipt)
             if not runner.dry_run:
                 receipt.ensure_saved()
-            json_print({"assigned": False, "reason": "zero-matches" if not candidates else "multiple-matches", "candidates": candidates})
+            json_print({
+                "assigned": False,
+                "candidates": candidates,
+                "ownership_source": ownership_source,
+                "reason": "zero-matches" if not candidates else "multiple-matches",
+            })
             return 0
         assignee = candidates[0]
     if not assignee:
@@ -1153,7 +1178,12 @@ def command_assign(
     if assignee in issue_assignees(state):
         if not runner.dry_run:
             receipt.ensure_saved()
-        json_print({"assigned": False, "reason": "already-assigned", "assignee": assignee})
+        json_print({
+            "assigned": False,
+            "assignee": assignee,
+            "ownership_source": ownership_source,
+            "reason": "already-assigned",
+        })
         return 0
     validation = runner.run(["api", f"repos/{repo}/assignees/{assignee}"], check=False)
     if validation.returncode != 0:
@@ -1180,7 +1210,12 @@ def command_assign(
                 "stage": "audit",
             })
             raise
-    json_print({"assigned": True, "dry_run": runner.dry_run, "assignee": assignee})
+    json_print({
+        "assigned": True,
+        "assignee": assignee,
+        "dry_run": runner.dry_run,
+        "ownership_source": ownership_source,
+    })
     return 0
 
 
@@ -1608,6 +1643,7 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             return command_restore(args, active_runner, receipt)
         config = load_targets(args.config)
         config_sha = file_digest(args.config)
+        ownership = load_ownership(args.ownership_config) if args.ownership_config else None
         if args.command == "preflight":
             return command_preflight(args, active_runner, config)
         if args.command == "finality":
@@ -1633,7 +1669,8 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
                     raise WorkError("--ownership-config is required with --from-ownership-map")
                 if not args.ownership_config:
                     raise WorkError("--ownership-config was supplied but is empty")
-                ownership = load_ownership(args.ownership_config)
+                if ownership is None:
+                    raise WorkError("ownership config was not loaded")
             return command_assign(args, active_runner, config, ownership, receipt)
         if args.command == "work-graph":
             return command_work_graph_create(args, active_runner, config, receipt)

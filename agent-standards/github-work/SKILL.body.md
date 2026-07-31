@@ -21,12 +21,14 @@ python3 scripts/github_work.py \
 
 The target file is JSON-compatible YAML with `targets` and optional `auxiliary_repositories` arrays.
 Each target declares `repo`, `adapter`, and `classification`; the ownership file has a `mappings`
-array of `repo`, optional `area`, and `logins`. Ownership resolution prefers an exact area, then
-`*`, then an omitted-area default; without an area it prefers the omitted-area default, then `*`.
-Ownership config is loaded only when `--from-ownership-map` is used, so the global flag may remain
-in shared invocations including restore. The private operator supplies the files' locations.
-Consumer repositories must ignore `.github-work/`, `*github-work-targets*`,
-`*github-work-ownership*`, `*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
+array of `repo`, optional `area`, and `logins`. With `--area`, ownership resolution prefers exact,
+then `*`, then no match; without it, resolution prefers the omitted-area default, then `*`, then a
+union of specific areas. Assignment emits `ownership_source` as `exact`, `wildcard`, `default`,
+`specific-union`, `none`, or `explicit`. A supplied non-empty ownership config is validated before
+non-restore commands but used only by `assign --from-ownership-map`; restore ignores it so the
+shared invocation remains safe. The private operator supplies the files' locations. Consumer
+repositories must ignore `.github-work/`, `*github-work-targets*`, `*github-work-ownership*`,
+`*.github-work-receipt.json*`, and `*github-work-recovery*.json*`.
 
 Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep the path in
 a private location excluded from source control, such as `.github-work/receipts/`, and reuse it for

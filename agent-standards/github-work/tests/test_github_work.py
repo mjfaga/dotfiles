@@ -300,6 +300,22 @@ class HelperTests(unittest.TestCase):
             ["wild-user"],
         )
 
+    def test_ownership_resolution_does_not_default_unknown_explicit_area(self):
+        ownership = {
+            "mappings": [
+                {"repo": "sample-space/sample-app", "logins": ["default-user"]},
+                {"repo": "sample-space/sample-app", "area": "web", "logins": ["web-user"]},
+            ],
+        }
+        self.assertEqual(
+            work.ownership_resolution(ownership, "sample-space/sample-app", "web"),
+            (["web-user"], "exact"),
+        )
+        self.assertEqual(
+            work.ownership_resolution(ownership, "sample-space/sample-app", "webb"),
+            ([], "none"),
+        )
+
     def test_load_ownership_rejects_non_array_mappings(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ownership.json"
@@ -325,7 +341,7 @@ class HelperTests(unittest.TestCase):
             )
             self.assertEqual(
                 work.ownership_candidates(ownership, "sample-space/sample-app", "ui"),
-                ["sample-user"],
+                [],
             )
 
     def test_labels_ensure_creates_only_missing_after_preflight(self):
@@ -965,21 +981,22 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(payload["restored_operations"], 0)
             self.assertEqual(payload["reason"], "empty")
 
-    def test_main_preflight_does_not_load_unused_ownership_config(self):
+    def test_main_preflight_fails_fast_on_supplied_invalid_ownership_config(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config_path = root / "targets.json"
             ownership_path = root / "ownership.json"
             config_path.write_text(json.dumps(config()), encoding="utf-8")
             ownership_path.write_text('{"mappings": {}}', encoding="utf-8")
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
                 result = work.main([
                     "--config", str(config_path),
                     "--ownership-config", str(ownership_path),
                     "preflight", "--repos", "sample-space/sample-app",
-                ], runner=FakeRunner(managed_preflight_responses()))
-            self.assertEqual(result, 0)
+                ], runner=FakeRunner([]))
+            self.assertEqual(result, 2)
+            self.assertIn("mappings array", stderr.getvalue())
 
     def test_main_assign_distinguishes_empty_ownership_config(self):
         with tempfile.TemporaryDirectory() as directory:
