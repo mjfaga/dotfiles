@@ -15,4 +15,5 @@
 - Before closing an unmerged or superseded PR, record the reason and successor link. Convert
   follow-ups to typed related issues.
 - Preserve repository-specific validation, merge, deployment, and cleanup guidance.
+
 <!-- END github-work-standard -->

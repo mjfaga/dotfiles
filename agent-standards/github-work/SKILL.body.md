@@ -1,8 +1,8 @@
 ---
 name: github-work
 description:
-  Use when creating, classifying, relating, assigning, linking, finalizing, or restoring GitHub work
-  items and pull requests.
+  Create, classify, relate, assign, link, finalize, and restore GitHub work items and pull requests.
+  Use BEFORE opening an issue or PR, or WHEN rolling back a work-item mutation.
 ---
 
 <!-- BEGIN github-work-standard -->
@@ -27,8 +27,9 @@ under `.github-work/receipts/`; consumer repositories must ignore `.github-work/
 
 Assign before creating a branch. Every mutating command requires `--receipt PATH`; keep that path
 private and reuse it for compensating `restore`. Use `issue-create` with Feature, Bug, or Task and
-native parent/blocking relationships. Use `pr-link --mode refs` by default. Run read-only `finality` before
-promotion to `--mode closes`. Assignment preserves existing assignees and uses `needs-owner` when an
+native parent/blocking relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes`
+enforces the read-only finality check before it edits a PR body; run `finality` separately to inspect
+eligibility first. Assignment preserves existing assignees and uses `needs-owner` when an
 ownership lookup has zero or multiple candidates. Save receipts for mutations and use `restore` for
 compensating rollback; a second restore is a no-op. `restore` exits `3` when labels remain in use,
 meaning rollback is incomplete and should be retried after those references are resolved. Exit `0`

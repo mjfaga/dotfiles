@@ -39,6 +39,10 @@ class WorkError(RuntimeError):
     """A hard precondition or mutation failure."""
 
 
+class EligibilityError(WorkError):
+    """A reachable repository is missing required issue classification."""
+
+
 @dataclass
 class CommandResult:
     stdout: str = ""
@@ -59,12 +63,15 @@ class GhRunner:
     ) -> CommandResult:
         if mutate and self.dry_run:
             return CommandResult()
-        process = subprocess.run(
-            ["gh", *args],
-            check=False,
-            text=True,
-            capture_output=True,
-        )
+        try:
+            process = subprocess.run(
+                ["gh", *args],
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+        except OSError as exc:
+            raise WorkError(f"cannot execute GitHub CLI: {exc}") from exc
         result = CommandResult(process.stdout, process.stderr, process.returncode)
         if check and process.returncode != 0:
             detail = process.stderr.strip() or process.stdout.strip() or "unknown gh failure"
@@ -361,7 +368,7 @@ def target_preflight(runner: GhRunner, target: dict[str, Any]) -> None:
         names = {item.get("name") for item in issue_types if isinstance(item, dict)}
         missing = {"Bug", "Feature", "Task"} - names
         if missing:
-            raise WorkError(f"{owner} missing issue types: {sorted(missing)}")
+            raise EligibilityError(f"{owner} missing issue types: {sorted(missing)}")
     else:
         current = runner.json([
             "label", "list", "--repo", repo, "--limit", "200",
@@ -372,7 +379,7 @@ def target_preflight(runner: GhRunner, target: dict[str, Any]) -> None:
         names = {item.get("name") for item in current if isinstance(item, dict)}
         missing = {definition[0] for definition in MANAGED_LABELS.values()} - names
         if missing:
-            raise WorkError(f"{repo} missing labels: {sorted(missing)}")
+            raise EligibilityError(f"{repo} missing labels: {sorted(missing)}")
 
 
 def mutation_preflight(runner: GhRunner, config: dict[str, Any], repos: Iterable[str]) -> None:
@@ -383,11 +390,7 @@ def mutation_preflight(runner: GhRunner, config: dict[str, Any], repos: Iterable
 
 def command_preflight(args: argparse.Namespace, runner: GhRunner, config: dict[str, Any]) -> int:
     failures: list[str] = []
-    try:
-        version = basic_preflight(runner)
-    except WorkError as exc:
-        version = (0, 0, 0)
-        failures.append(str(exc))
+    version = basic_preflight(runner)
     repos = parse_repositories(config, args.repos)
     native = sum(target_for(config, repo)["classification"] == "native-type" for repo in repos)
     labels = len(repos) - native
@@ -396,7 +399,7 @@ def command_preflight(args: argparse.Namespace, runner: GhRunner, config: dict[s
         try:
             target_preflight(runner, target_for(config, repo))
             ready += 1
-        except WorkError as exc:
+        except EligibilityError as exc:
             failures.append(str(exc))
     json_print({
         "gh_version": ".".join(map(str, version)),
@@ -486,7 +489,10 @@ def command_issue_create(
     if runner.dry_run:
         json_print({"dry_run": True, "repo": args.repo, "type": args.type})
         return 0
-    created_url = result.stdout.strip().splitlines()[-1]
+    output_lines = result.stdout.strip().splitlines()
+    if not output_lines:
+        raise WorkError("gh issue create returned no issue URL")
+    created_url = output_lines[-1]
     parse_issue_url(created_url)
     receipt.add("issue-created", issue=created_url)
     if target["classification"] == "managed-label":
@@ -548,7 +554,13 @@ def command_pr_link(
     issue_repo, _ = parse_issue_url(args.issue)
     pr_repo, _ = parse_pr_url(args.pr)
     mutation_preflight(runner, config, [issue_repo, pr_repo])
+    if args.mode == "closes":
+        finality = finality_result(issue_state(runner, args.issue))
+        if not finality["eligible"]:
+            raise WorkError(f"issue is not eligible for a closing link: {finality}")
     current = runner.json(["pr", "view", args.pr, "--json", "body,url"])
+    if not isinstance(current, dict):
+        raise WorkError(f"cannot read pull request: {args.pr}")
     before = current.get("body") or ""
     after = linked_body(before, args.issue, args.mode, pr_repo)
     if before == after:
@@ -669,6 +681,8 @@ def command_assign(
 
 def restore_pr_body(runner: GhRunner, operation: dict[str, Any]) -> bool:
     current = runner.json(["pr", "view", operation["pr"], "--json", "body"])
+    if not isinstance(current, dict):
+        raise WorkError(f"cannot read pull request: {operation['pr']}")
     body = current.get("body") or ""
     if body == operation["before"]:
         return False
@@ -698,6 +712,14 @@ def command_restore(
     config: dict[str, Any],
     receipt: Receipt,
 ) -> int:
+    if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
+        json_print({
+            "already_restored_operations": len(receipt.data["operations"]),
+            "dry_run": runner.dry_run,
+            "restored_operations": 0,
+            "skipped_labels_in_use": 0,
+        })
+        return 0
     mutation_preflight(runner, config, receipt_repositories(receipt))
     restored = 0
     already_restored = 0

@@ -80,6 +80,20 @@ class HelperTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             work.build_parser().parse_args(["preflight", "--dry-run"])
 
+    def test_missing_gh_binary_is_an_operational_error(self):
+        with mock.patch.object(work.subprocess, "run", side_effect=FileNotFoundError("gh")):
+            with self.assertRaisesRegex(work.WorkError, "cannot execute GitHub CLI"):
+                work.GhRunner().run(["version"])
+
+    def test_preflight_propagates_operational_failures(self):
+        runner = FakeRunner([
+            work.CommandResult(stdout="gh version 2.96.0\n"),
+            work.CommandResult(),
+            work.CommandResult(returncode=1, stderr="denied"),
+        ])
+        with self.assertRaisesRegex(work.WorkError, "repository unavailable"):
+            work.command_preflight(Namespace(repos="sample-space/sample-app"), runner, config())
+
     def test_parse_issue_url(self):
         self.assertEqual(work.parse_issue_url("https://github.com/sample-space/sample-app/issues/42"), ("sample-space/sample-app", 42))
         self.assertEqual(work.parse_issue_url("sample-space/sample-app#42"), ("sample-space/sample-app", 42))
@@ -110,6 +124,18 @@ class HelperTests(unittest.TestCase):
         rendered = work.linked_body(body, "sample-space/sample-app#3", "closes", "sample-space/sample-app")
         self.assertEqual(rendered.count("Closes"), 1)
         self.assertEqual(rendered.lower().count("refs"), 1)
+
+    def test_pr_closing_link_requires_finality(self):
+        responses = managed_preflight_responses() + [
+            {"blockedBy": [{"state": "OPEN"}], "subIssuesSummary": {"total": 0, "completed": 0}},
+        ]
+        args = Namespace(
+            pr="https://github.com/sample-space/sample-app/pull/2",
+            issue="sample-space/sample-app#4",
+            mode="closes",
+        )
+        with self.assertRaisesRegex(work.WorkError, "not eligible for a closing link"):
+            work.command_pr_link(args, FakeRunner(responses), config(), receipt())
 
     def test_pr_template_placeholder_is_replaced(self):
         rendered = work.linked_body("Refs #ISSUE\n", "sample-space/sample-app#3", "refs", "sample-space/sample-app")
@@ -199,6 +225,15 @@ class HelperTests(unittest.TestCase):
         with work.temporary_body("Unicode — body 🤖") as path:
             self.assertEqual(Path(path).read_text(encoding="utf-8"), "Unicode — body 🤖")
 
+    def test_issue_create_fails_when_gh_returns_no_url(self):
+        responses = managed_preflight_responses() + [work.CommandResult()]
+        args = Namespace(
+            repo="sample-space/sample-app", type="Task", title="Sample", body_file=None,
+            parent=None, blocking=None, assignee=None,
+        )
+        with self.assertRaisesRegex(work.WorkError, "returned no issue URL"):
+            work.command_issue_create(args, FakeRunner(responses), config(), receipt())
+
     def test_issue_create_rejects_unassignable_login_before_creation(self):
         responses = managed_preflight_responses() + [work.CommandResult(returncode=1, stderr="not assignable")]
         runner = FakeRunner(responses)
@@ -287,11 +322,12 @@ class HelperTests(unittest.TestCase):
                 work.command_restore(Namespace(receipt=path), first, config(), current)
             reloaded = receipt(path)
             self.assertEqual(reloaded.data["operations"][0]["status"], "restored")
-            second = FakeRunner(managed_preflight_responses())
+            second = FakeRunner([])
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 work.command_restore(Namespace(receipt=path), second, config(), reloaded)
             self.assertEqual(json.loads(output.getvalue())["restored_operations"], 0)
+            self.assertEqual(second.calls, [])
 
     def test_label_restore_skips_labels_that_are_in_use(self):
         current = receipt()
