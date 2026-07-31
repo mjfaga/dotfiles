@@ -107,6 +107,7 @@ class Receipt:
         config_digest: str,
     ) -> None:
         self.path = Path(path) if path else None
+        self.loaded = bool(self.path and self.path.exists())
         self.source_sha = source_sha
         self.config_digest = config_digest
         self.data: dict[str, Any] = {
@@ -116,7 +117,8 @@ class Receipt:
             "config_digest": config_digest,
             "operations": [],
         }
-        if self.path and self.path.exists():
+        if self.loaded:
+            assert self.path is not None
             if stat.S_IMODE(self.path.stat().st_mode) != 0o600:
                 raise WorkError("existing receipt permissions must be exactly 0600")
             self.data = load_json(self.path)
@@ -194,6 +196,7 @@ class Receipt:
             handle.write(json.dumps(self.data, indent=2, sort_keys=True) + "\n")
         temporary.replace(self.path)
         self.path.chmod(0o600)
+        self.loaded = True
 
 
 def load_json(path: str | Path) -> dict[str, Any]:
@@ -597,10 +600,13 @@ def finality_result(state: dict[str, Any]) -> dict[str, Any]:
         raise WorkError("finality summary counts are inconsistent")
     open_blockers = sum(1 for blocker in blockers if blocker["state"].upper() != "CLOSED")
     incomplete = total - completed
+    eligible = open_blockers == 0 and incomplete == 0
     return {
-        "eligible": open_blockers == 0 and incomplete == 0,
-        "open_blockers": open_blockers,
+        "eligible": eligible,
+        "failure": None,
         "incomplete_sub_issues": incomplete,
+        "open_blockers": open_blockers,
+        "reason": "ready" if eligible else "blockers",
     }
 
 
@@ -610,7 +616,13 @@ def command_finality(args: argparse.Namespace, runner: GhRunner, config: dict[st
     try:
         target_preflight(runner, target_for(config, repo))
     except EligibilityError as exc:
-        json_print({"eligible": False, "failure": str(exc)})
+        json_print({
+            "eligible": False,
+            "failure": str(exc),
+            "incomplete_sub_issues": None,
+            "open_blockers": None,
+            "reason": "classification",
+        })
         return 1
     result = finality_result(issue_state(runner, args.issue))
     json_print(result)
@@ -722,7 +734,15 @@ def command_restore(
     receipt: Receipt,
 ) -> int:
     if not receipt.data["operations"]:
-        raise WorkError("receipt records no operations")
+        if not receipt.loaded:
+            raise WorkError(f"receipt not found: {receipt.path}")
+        json_print({
+            "already_restored_operations": 0,
+            "dry_run": runner.dry_run,
+            "restored_operations": 0,
+            "skipped_labels_in_use": 0,
+        })
+        return 0
     if all(operation["status"] == "restored" for operation in receipt.data["operations"]):
         json_print({
             "already_restored_operations": len(receipt.data["operations"]),
@@ -732,8 +752,8 @@ def command_restore(
         })
         return 0
     basic_preflight(runner)
-    for repo in receipt_repositories(receipt):
-        target_for(config, repo)
+    for repo in sorted(receipt_repositories(receipt)):
+        target_for(config, repo)  # Validate that every receipt repository is in the active config.
         repository_preflight(runner, repo)
     restored = 0
     already_restored = 0
@@ -1034,16 +1054,20 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
         if args.command == "restore":
             return command_restore(args, active_runner, config, receipt)
         if args.command == "labels":
-            return command_labels_ensure(args, active_runner, config, receipt)
-        if args.command == "issue-create":
-            return command_issue_create(args, active_runner, config, receipt)
-        if args.command == "pr-link":
-            return command_pr_link(args, active_runner, config, receipt)
-        if args.command == "assign":
-            return command_assign(args, active_runner, config, ownership, receipt)
-        if args.command == "work-graph":
-            return command_work_graph_create(args, active_runner, config, receipt)
-        raise WorkError(f"unsupported command: {args.command}")
+            result = command_labels_ensure(args, active_runner, config, receipt)
+        elif args.command == "issue-create":
+            result = command_issue_create(args, active_runner, config, receipt)
+        elif args.command == "pr-link":
+            result = command_pr_link(args, active_runner, config, receipt)
+        elif args.command == "assign":
+            result = command_assign(args, active_runner, config, ownership, receipt)
+        elif args.command == "work-graph":
+            result = command_work_graph_create(args, active_runner, config, receipt)
+        else:
+            raise WorkError(f"unsupported command: {args.command}")
+        if result == 0 and not active_runner.dry_run:
+            receipt.save()
+        return result
     except WorkError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

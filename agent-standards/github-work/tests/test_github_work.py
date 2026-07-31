@@ -154,7 +154,13 @@ class HelperTests(unittest.TestCase):
 
     def test_finality_blocks_open_relationships(self):
         result = work.finality_result({"blockedBy": [{"state": "OPEN"}], "subIssuesSummary": {"total": 2, "completed": 1}})
-        self.assertEqual(result, {"eligible": False, "open_blockers": 1, "incomplete_sub_issues": 1})
+        self.assertEqual(result, {
+            "eligible": False,
+            "failure": None,
+            "incomplete_sub_issues": 1,
+            "open_blockers": 1,
+            "reason": "blockers",
+        })
 
     def test_finality_returns_eligibility_exit_for_missing_classification(self):
         responses = managed_preflight_responses(labels=[])
@@ -353,9 +359,40 @@ class HelperTests(unittest.TestCase):
     def test_restore_rejects_receipt_without_operations(self):
         current = receipt()
         runner = FakeRunner([])
-        with self.assertRaisesRegex(work.WorkError, "receipt records no operations"):
+        with self.assertRaisesRegex(work.WorkError, "receipt not found"):
             work.command_restore(Namespace(receipt="missing"), runner, config(), current)
         self.assertEqual(runner.calls, [])
+
+    def test_restore_accepts_persisted_noop_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.save()
+            reloaded = receipt(path)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(Namespace(receipt=path), FakeRunner([]), config(), reloaded)
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["restored_operations"], 0)
+
+    def test_main_persists_receipt_for_successful_noop_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "targets.json"
+            receipt_path = root / "noop-receipt.json"
+            config_path.write_text(json.dumps(config()), encoding="utf-8")
+            runner = FakeRunner(managed_preflight_responses())
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.main([
+                    "--config", str(config_path),
+                    "labels", "ensure",
+                    "--repos", "sample-space/sample-app",
+                    "--receipt", str(receipt_path),
+                ], runner=runner)
+            self.assertEqual(result, 0)
+            self.assertTrue(receipt_path.exists())
+            self.assertEqual(json.loads(receipt_path.read_text(encoding="utf-8"))["operations"], [])
 
     def test_partial_managed_label_restore_can_retry_after_reference_removal(self):
         current = receipt()

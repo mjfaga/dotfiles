@@ -31,10 +31,11 @@ native parent/blocking relationships. Use `pr-link --mode refs` by default. `pr-
 enforces the read-only finality check before it edits a PR body; run `finality` separately to inspect
 eligibility first. Assignment preserves existing assignees and uses `needs-owner` when an
 ownership lookup has zero or multiple candidates. Save receipts for mutations and use `restore` for
-compensating rollback; a second restore is a no-op. `restore` exits `3` when labels remain in use,
-meaning rollback is incomplete and should be retried after those references are resolved. Exit `0`
-means success or eligibility, `1` means a read-only eligibility/preflight/finality check failed, and
-`2` means an operational/configuration error. Read-only commands emit JSON on exits `0` and `1`;
+compensating rollback; a second restore and a receipt from a successful no-op mutation are no-ops.
+A missing receipt path is exit `2`. `restore` exits `3` when labels remain in use, meaning rollback is
+incomplete and should be retried after those references are resolved. Exit `0` means success or
+eligibility, `1` means a read-only eligibility/preflight/finality check failed, and `2` means an
+operational/configuration error; mutating commands report classification ineligibility as exit `2`. Read-only commands emit JSON on exits `0` and `1`;
 exit `2` reports the operational error on stderr. Multiline PR bodies are edited through a body file. Never let this generic lifecycle replace local land/deploy
 checks.
 
