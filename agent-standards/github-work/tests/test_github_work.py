@@ -77,6 +77,7 @@ def restore_preflight_responses():
         work.CommandResult(stdout="gh version 2.96.0\n"),
         work.CommandResult(),
         work.CommandResult(),
+        work.CommandResult(stdout="[]"),
     ]
 
 
@@ -1325,6 +1326,23 @@ class HelperTests(unittest.TestCase):
             self.assertTrue(any("--slurp" in call[0] for call in runner.calls))
             self.assertTrue(any("--remove-sub-issue" in call[0] for call in runner.calls))
 
+    def test_restore_requires_issue_read_access_before_replay(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("issue-created", issue="sample-space/sample-app#4")
+            responses = [
+                work.CommandResult(stdout="gh version 2.96.0\n"),
+                work.CommandResult(),
+                work.CommandResult(),
+                work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            ]
+            runner = FakeRunner(responses)
+            with self.assertRaisesRegex(work.WorkError, "issue read access required"):
+                work.command_restore(Namespace(receipt=path), runner, current)
+            self.assertFalse(any(call[0][:2] == ["issue", "close"] for call in runner.calls))
+            self.assertEqual(current.data["operations"][0]["status"], "active")
+
     def test_restore_falls_back_to_mutation_when_rest_endpoint_is_unavailable(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "receipt.json")
@@ -1344,7 +1362,33 @@ class HelperTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 result = work.command_restore(Namespace(receipt=path), FakeRunner(responses), current)
             self.assertEqual(result, 0)
-            self.assertEqual(json.loads(output.getvalue())["mutated_operations"], 1)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["mutated_operations"], 1)
+            self.assertEqual(payload["reason"], "unverified_relationships")
+            self.assertEqual(payload["unverified_relationship_operations"], 1)
+            self.assertTrue(current.data["operations"][0]["restore_unverified"])
+
+    def test_restore_dry_fallback_reports_unverified_without_claiming_mutation(self):
+        current = receipt()
+        current.add(
+            "relationship-added",
+            source="sample-space/sample-app#9",
+            target="sample-space/sample-app#12",
+            relation="blocked-by",
+        )
+        responses = restore_preflight_responses() + [
+            work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            {"blockedBy": []},
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(
+                Namespace(receipt="unused"), FakeRunner(responses, dry_run=True), current,
+            )
+        self.assertEqual(result, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["mutated_operations"], 0)
+        self.assertEqual(payload["unverified_relationship_operations"], 1)
 
     def test_restore_skips_exactly_absent_sub_issue_without_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

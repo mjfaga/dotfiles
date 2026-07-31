@@ -224,6 +224,7 @@ class Receipt:
             for boolean_field in (
                 "restore_missing",
                 "restore_mutated",
+                "restore_unverified",
                 "restored_config_requested",
                 "restored_config_unavailable",
             ):
@@ -283,10 +284,12 @@ class Receipt:
         *,
         missing: bool = False,
         mutated: bool,
+        unverified: bool = False,
     ) -> None:
         operation["status"] = "restored"
         operation["restore_missing"] = missing
         operation["restore_mutated"] = mutated
+        operation["restore_unverified"] = unverified
         operation["restored_by_source_sha"] = self.source_sha
         operation["restored_by_config_digest"] = self.config_digest
         operation["restored_config_requested"] = self.config_requested
@@ -673,6 +676,14 @@ def restore_relationship_state(
                 f"{response_name} response contains an invalid issue URL: {item['html_url']}"
             ) from exc
     return canonical_urls
+
+
+def issue_read_preflight(runner: GhRunner, repo: str) -> None:
+    """Prove issue-read scope before interpreting resource 404s as absence."""
+    result = runner.run(["api", f"repos/{repo}/issues?per_page=1"], check=False)
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        raise WorkError(f"issue read access required for restore in {repo}: {message}")
 
 
 def issue_labels(state: dict[str, Any]) -> set[str]:
@@ -1578,6 +1589,7 @@ def command_restore(
             "missing_issue_operations": 0,
             "mutated_operations": 0,
             "reason": "empty",
+            "unverified_relationship_operations": 0,
             "restored_operations": 0,
             "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
@@ -1594,6 +1606,7 @@ def command_restore(
             "missing_issue_operations": 0,
             "mutated_operations": 0,
             "reason": "already_restored",
+            "unverified_relationship_operations": 0,
             "restored_operations": 0,
             "retained_label_definitions": 0,
             "skipped_labels_in_use": 0,
@@ -1603,9 +1616,11 @@ def command_restore(
     basic_preflight(runner)
     for repo in sorted(receipt_repositories(receipt)):
         repository_preflight(runner, repo)
+        issue_read_preflight(runner, repo)
     restored = 0
     missing_issue_operations = 0
     mutated_operations = 0
+    unverified_relationship_operations = 0
     already_restored = 0
     skipped_in_use = 0
     retained_label_definitions = 0
@@ -1624,6 +1639,7 @@ def command_restore(
             continue
         kind = operation["kind"]
         mutated = False
+        unverified = False
         operation_state: dict[str, Any] | None = None
         issue_reference = operation.get("issue")
         if isinstance(issue_reference, str):
@@ -1717,6 +1733,7 @@ def command_restore(
                 # The mutation command can still use GraphQL on deployments without REST support.
                 probe_error = str(exc)
                 relationship_present = True
+                unverified = True
             else:
                 if related_issues is None:
                     if not runner.dry_run:
@@ -1733,7 +1750,7 @@ def command_restore(
                     check=False,
                 )
                 if result.returncode == 0:
-                    mutated = True
+                    mutated = not (runner.dry_run and unverified)
                 else:
                     detail = f"{result.stderr}\n{result.stdout}".lower()
                     if not any(
@@ -1741,7 +1758,11 @@ def command_restore(
                         for marker in (*relationship_markers, "no relationship", "not related")
                     ):
                         mutation_error = result.stderr.strip() or result.stdout.strip()
-                        prefix = f"{probe_error}; fallback mutation failed" if probe_error else "relationship restore failed"
+                        prefix = (
+                            f"{probe_error}; fallback mutation failed"
+                            if probe_error
+                            else "relationship restore failed"
+                        )
                         raise WorkError(f"{prefix}: {mutation_error}")
         elif kind == "issue-created":
             if operation_state is None:
@@ -1812,9 +1833,14 @@ def command_restore(
                     ], mutate=True)
                     mutated = True
         if not runner.dry_run:
-            receipt.mark_restored(operation, mutated=mutated)
+            receipt.mark_restored(
+                operation,
+                mutated=mutated,
+                unverified=unverified,
+            )
         restored += 1
         mutated_operations += int(mutated)
+        unverified_relationship_operations += int(unverified)
     json_print({
         "already_restored_operations": already_restored,
         "config_requested": receipt.config_requested,
@@ -1826,12 +1852,14 @@ def command_restore(
         "reason": (
             "labels_in_use" if skipped_in_use
             else "retained_labels" if retained_label_definitions
+            else "unverified_relationships" if unverified_relationship_operations
             else "missing_issues" if missing_issue_operations
             else "restored"
         ),
         "restored_operations": restored,
         "retained_label_definitions": retained_label_definitions,
         "skipped_labels_in_use": skipped_in_use,
+        "unverified_relationship_operations": unverified_relationship_operations,
         "total_operations": len(receipt.data["operations"]),
     })
     return 3 if skipped_in_use else 0

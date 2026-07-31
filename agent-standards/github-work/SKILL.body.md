@@ -61,17 +61,21 @@ or invalid during rollback. Its output and schema-v3 per-operation audit metadat
 unavailable requested config from a deliberately config-free restore. `config_status` is `ok`,
 `absent`, `empty`, `unreadable`, or `invalid`; older receipts without these audit fields mean
 unknown. It exits `3` when labels remain in use; resolve those references and retry. Restore output
-distinguishes `empty`, `already_restored`, `restored`, `missing_issues`, `retained_labels`, and
-`labels_in_use`, and reports both restored and mutated operation counts. A retained label definition
-is intentionally left behind to preserve a reversed removal; remove it after its reapplied labels
-are no longer needed. `missing_issues` with `missing_issue_operations` means exact REST lookup
-proved referenced issues were already deleted, so those compensation operations completed as no-ops;
-each affected receipt operation durably records `restore_missing: true`. Older restored operations
-without `restore_missing` have unknown missing-resource status. Receipts remain compatible across
-helper releases with a supported receipt schema even if the repository is later removed from active
-target configuration. Drain outstanding newer-schema receipts before pinning an older standard
-version. Schema-v3 operations require creation and restore attribution. Each new operation records
-the active helper source and private-config digests as audit metadata.
+distinguishes `empty`, `already_restored`, `restored`, `missing_issues`, `unverified_relationships`,
+`retained_labels`, and `labels_in_use`, and reports restored, mutated, and unverified-relationship
+operation counts. A retained label definition is intentionally left behind to preserve a reversed
+removal; remove it after its reapplied labels are no longer needed. `missing_issues` with
+`missing_issue_operations` means exact REST lookup proved referenced issues were already deleted, so
+those compensation operations completed as no-ops; each affected receipt operation durably records
+`restore_missing: true`. Older restored operations without `restore_missing` have unknown
+missing-resource status. Relationship membership is read through REST. When that endpoint is
+unavailable for a confirmed live source, restore falls back to the GitHub mutation and records
+`restore_unverified: true`; for relationship operations, `restore_missing: true` refers to the
+source issue. Receipts remain compatible across helper releases with a supported receipt schema even
+if the repository is later removed from active target configuration. Drain outstanding newer-schema
+receipts before pinning an older standard version. Schema-v3 operations require creation and restore
+attribution. Each new operation records the active helper source and private-config digests as audit
+metadata.
 
 On interruption or partial failure, recover created work from the receipt and any `partial: true`
 output. Partial payloads accompany a non-zero exit and require reconciliation. Stage `audit` means
