@@ -40,8 +40,10 @@ relationships. Use `pr-link --mode refs` by default. `pr-link --mode closes` enf
 finality check before it edits a PR body; run `finality` separately to inspect eligibility first.
 Assignment preserves existing assignees and uses `needs-owner` when an ownership lookup has zero or
 multiple human candidates. A bot-only matched tier remains fail-closed and reports its source. An
-empty `--config`, `--receipt`, `--title`, `--assignee`, `--area`, `--parent`, `--blocking`, or
-`--body-file`, or `--area` without `--from-ownership-map`, exits `2`.
+empty `--receipt`, `--title`, `--assignee`, `--area`, `--parent`, `--blocking`, or `--body-file`, or
+`--area` without `--from-ownership-map`, exits `2`. Empty target or ownership config exits `2` on
+commands that consume configuration; `standard-check` ignores both, while `restore` audits target
+config availability and ignores ownership config.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. A missing receipt path
 is exit `2`. Restore does not require the private target config and tolerates a supplied config path

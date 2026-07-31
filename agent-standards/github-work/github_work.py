@@ -1067,7 +1067,9 @@ def ownership_resolution(
         source = "repo-unmapped"
     elif area is not None:
         exact = [mapping for mapping in mappings if mapping.get("area") == area]
-        if exact:
+        if area == "*" and wildcards:
+            selected, source = wildcards, "wildcard"
+        elif exact:
             selected, source = exact, "exact"
         elif wildcards:
             selected, source = wildcards, "wildcard"
@@ -1184,8 +1186,9 @@ def add_needs_owner(
 def validate_cli_args(args: argparse.Namespace) -> None:
     """Reject supplied-but-empty or incompatible string options."""
     attributes = ["receipt", "assignee", "parent", "blocking", "body_file", "title"]
-    if getattr(args, "command", None) != "restore":
-        attributes.append("config")
+    command = getattr(args, "command", None)
+    if command not in {"restore", "standard-check"}:
+        attributes.extend(("config", "ownership_config"))
     for attribute in attributes:
         value = getattr(args, attribute, None)
         if value is not None and not value:
@@ -1736,8 +1739,6 @@ def main(argv: Sequence[str] | None = None, *, runner: GhRunner | None = None) -
             if args.from_ownership_map:
                 if args.ownership_config is None:
                     raise WorkError("--ownership-config is required with --from-ownership-map")
-                if not args.ownership_config:
-                    raise WorkError("--ownership-config was supplied but is empty")
                 if ownership is None:
                     raise WorkError("ownership config was not loaded")
             return command_assign(args, active_runner, config, ownership, receipt)

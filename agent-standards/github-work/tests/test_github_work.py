@@ -315,6 +315,17 @@ class HelperTests(unittest.TestCase):
             work.ownership_resolution(ownership, "sample-space/sample-app", "web"),
             (["web-user"], "exact"),
         )
+        wildcard_ownership = {
+            "mappings": [{
+                "repo": "sample-space/sample-app",
+                "area": "*",
+                "logins": ["wild-user"],
+            }],
+        }
+        self.assertEqual(
+            work.ownership_resolution(wildcard_ownership, "sample-space/sample-app", "*"),
+            (["wild-user"], "wildcard"),
+        )
         self.assertEqual(
             work.ownership_resolution(ownership, "sample-space/sample-app", "webb"),
             ([], "default-ineligible"),
@@ -1159,9 +1170,24 @@ class HelperTests(unittest.TestCase):
         with self.assertRaisesRegex(work.WorkError, "unsupported receipt operation"):
             current.save()
 
-    def test_main_rejects_empty_config_and_title_before_external_work(self):
+    def test_standard_check_ignores_empty_config_arguments(self):
+        runner = FakeRunner([])
+        with mock.patch.object(work, "command_standard_check", return_value=0) as command:
+            result = work.main([
+                "--config", "",
+                "--ownership-config", "",
+                "standard-check",
+            ], runner=runner)
+        self.assertEqual(result, 0)
+        command.assert_called_once()
+        self.assertEqual(runner.calls, [])
+
+    def test_main_rejects_empty_config_ownership_and_title_before_external_work(self):
         commands = [
             ["--config", "", "labels", "ensure", "--repos", "all",
+             "--receipt", "receipt.json"],
+            ["--config", "missing.json", "--ownership-config", "", "issue-create",
+             "--repo", "sample-space/sample-app", "--type", "Task", "--title", "Sample",
              "--receipt", "receipt.json"],
             ["--config", "missing.json", "issue-create", "--repo",
              "sample-space/sample-app", "--type", "Task", "--title", "",
