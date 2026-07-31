@@ -191,7 +191,7 @@ def merge_form(
             block,
             f"name: {json.dumps(data['name'])}",
             f"description: {json.dumps(data['description'])}",
-            "title: \"\"",
+            f"title: {json.dumps(data.get('title') or f'[{kind.title()}] ')}",
             "body:",
         ]
         for item in data["body"]:

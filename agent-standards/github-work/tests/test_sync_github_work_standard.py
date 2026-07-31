@@ -154,6 +154,8 @@ class RendererTests(unittest.TestCase):
             generated_form = (checkout / ".github/ISSUE_TEMPLATE/bug.yml").read_text()
             self.assertIn("name:", generated_form)
             self.assertIn("description:", generated_form)
+            self.assertIn('title: "[Bug] "', generated_form)
+            self.assertNotIn('title: ""', generated_form)
             self.assertIn("body:", generated_form)
             args.check = True
             with mock.patch.object(sync, "verify_source"):
