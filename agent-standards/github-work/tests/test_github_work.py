@@ -149,7 +149,10 @@ class HelperTests(unittest.TestCase):
 
     def test_pr_closing_link_requires_finality(self):
         responses = managed_preflight_responses() + [
-            {"blockedBy": [{"state": "OPEN"}], "subIssuesSummary": {"total": 0, "completed": 0}},
+            {
+                "blockedBy": {"nodes": [{"state": "OPEN"}], "totalCount": 1},
+                "subIssuesSummary": {"total": 0, "completed": 0},
+            },
         ]
         args = Namespace(
             pr="https://github.com/sample-space/sample-app/pull/2",
@@ -199,7 +202,10 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(rendered, "Refs sample-space/sample-app#3\n")
 
     def test_finality_blocks_open_relationships(self):
-        result = work.finality_result({"blockedBy": [{"state": "OPEN"}], "subIssuesSummary": {"total": 2, "completed": 1}})
+        result = work.finality_result({
+            "blockedBy": {"nodes": [{"state": "OPEN"}], "totalCount": 1},
+            "subIssuesSummary": {"total": 2, "completed": 1},
+        })
         self.assertEqual(result, {
             "eligible": False,
             "failure": None,
@@ -207,6 +213,14 @@ class HelperTests(unittest.TestCase):
             "open_blockers": 1,
             "reason": "not_ready",
         })
+
+    def test_finality_accepts_observed_empty_blocked_by_connection(self):
+        result = work.finality_result({
+            "blockedBy": {"nodes": [], "totalCount": 0},
+            "subIssuesSummary": {"total": 0, "completed": 0},
+        })
+        self.assertTrue(result["eligible"])
+        self.assertEqual(result["reason"], "ready")
 
     def test_finality_returns_eligibility_exit_for_missing_classification(self):
         responses = managed_preflight_responses(labels=[])
@@ -219,7 +233,14 @@ class HelperTests(unittest.TestCase):
         self.assertFalse(json.loads(output.getvalue())["eligible"])
 
     def test_finality_fails_closed_on_missing_or_malformed_fields(self):
-        for state in ({}, {"blockedBy": None, "subIssuesSummary": {}}, {"blockedBy": [], "subIssuesSummary": {"total": "0", "completed": 0}}):
+        for state in (
+            {},
+            {"blockedBy": None, "subIssuesSummary": {}},
+            {
+                "blockedBy": {"nodes": [], "totalCount": 1},
+                "subIssuesSummary": {"total": "0", "completed": 0},
+            },
+        ):
             with self.subTest(state=state), self.assertRaises(work.WorkError):
                 work.finality_result(state)
 

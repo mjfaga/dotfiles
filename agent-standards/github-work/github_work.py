@@ -1140,11 +1140,20 @@ def command_pr_link(
 
 
 def finality_result(state: dict[str, Any]) -> dict[str, Any]:
-    if "blockedBy" not in state or not isinstance(state["blockedBy"], list):
-        raise WorkError("finality response lacks a valid blockedBy array")
+    blocked_by = state.get("blockedBy")
+    if not isinstance(blocked_by, dict):
+        raise WorkError("finality response lacks a valid blockedBy connection")
+    blockers = blocked_by.get("nodes")
+    total_blockers = blocked_by.get("totalCount")
+    if (
+        not isinstance(blockers, list)
+        or not isinstance(total_blockers, int)
+        or isinstance(total_blockers, bool)
+        or total_blockers != len(blockers)
+    ):
+        raise WorkError("finality blockedBy connection is incomplete")
     if "subIssuesSummary" not in state or not isinstance(state["subIssuesSummary"], dict):
         raise WorkError("finality response lacks a valid subIssuesSummary object")
-    blockers = state["blockedBy"]
     for blocker in blockers:
         if not isinstance(blocker, dict) or str(blocker.get("state", "")).upper() not in {"OPEN", "CLOSED"}:
             raise WorkError("finality response contains a malformed blocker")
