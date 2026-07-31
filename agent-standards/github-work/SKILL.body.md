@@ -70,10 +70,11 @@ those compensation operations completed as no-ops; each affected receipt operati
 `restore_missing: true`. Older restored operations without `restore_missing` or `restore_unverified`
 have unknown status for that field. Relationship membership is read through REST. When that endpoint
 is unavailable for a confirmed live source, restore falls back to the GitHub mutation and records
-`restore_unverified: true`; this exits `0`, while dry-run reports the unverified operation without
-counting an unproven mutation. For relationship operations, `restore_missing: true` refers to the
-source issue. Receipts remain compatible across helper releases with a supported receipt schema even
-if the repository is later removed from active target configuration. Drain outstanding newer-schema
+`restore_unverified: true`; this exits `0`, and neither real nor dry-run output counts an unproven
+mutation. This state is terminal: confirm the relationship is absent in GitHub because the helper
+could not verify it. For relationship operations, `restore_missing: true` refers to the source
+issue. Receipts remain compatible across helper releases with a supported receipt schema even if the
+repository is later removed from active target configuration. Drain outstanding newer-schema
 receipts before pinning an older standard version. Schema-v3 operations require creation and restore
 attribution. Each new operation records the active helper source and private-config digests as audit
 metadata.

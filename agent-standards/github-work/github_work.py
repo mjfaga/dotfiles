@@ -678,10 +678,18 @@ def restore_relationship_state(
     return canonical_urls
 
 
-def issue_read_preflight(runner: GhRunner, repo: str) -> None:
+def issue_read_preflight(
+    runner: GhRunner,
+    repo: str,
+    *,
+    allow_disabled: bool = False,
+) -> None:
     """Prove issue-read scope before interpreting resource 404s as absence."""
     result = runner.run(["api", f"repos/{repo}/issues?per_page=1"], check=False)
     if result.returncode != 0:
+        detail = f"{result.stderr}\n{result.stdout}".lower()
+        if allow_disabled and "http 410" in detail:
+            return
         message = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
         raise WorkError(f"cannot verify issue read access for restore in {repo}: {message}")
 
@@ -1576,10 +1584,7 @@ def receipt_issue_repositories(receipt: Receipt) -> set[str]:
     """Return repositories whose active compensation needs issue-scoped reads."""
     repos: set[str] = set()
     for operation in receipt.data["operations"]:
-        if (
-            operation.get("status") != "active"
-            or operation.get("kind") == "pr-body-changed"
-        ):
+        if operation.get("status") != "active" or operation.get("kind") == "pr-body-changed":
             continue
         if isinstance(operation.get("repo"), str):
             repos.add(operation["repo"])
@@ -1587,6 +1592,25 @@ def receipt_issue_repositories(receipt: Receipt) -> set[str]:
         if isinstance(reference, str):
             repos.add(parse_issue_url(reference)[0])
     return repos
+
+
+def receipt_label_only_repositories(receipt: Receipt) -> set[str]:
+    label_repos = {
+        operation["repo"]
+        for operation in receipt.data["operations"]
+        if operation.get("status") == "active" and operation.get("kind") == "label-created"
+    }
+    other_issue_repos: set[str] = set()
+    for operation in receipt.data["operations"]:
+        if operation.get("status") != "active" or operation.get("kind") in {
+            "label-created",
+            "pr-body-changed",
+        }:
+            continue
+        reference = operation.get("issue", operation.get("source"))
+        if isinstance(reference, str):
+            other_issue_repos.add(parse_issue_url(reference)[0])
+    return label_repos - other_issue_repos
 
 
 def command_restore(
@@ -1633,10 +1657,15 @@ def command_restore(
     basic_preflight(runner)
     repositories = receipt_repositories(receipt)
     issue_repositories = receipt_issue_repositories(receipt)
+    label_only_repositories = receipt_label_only_repositories(receipt)
     for repo in sorted(repositories):
         repository_preflight(runner, repo)
         if repo in issue_repositories:
-            issue_read_preflight(runner, repo)
+            issue_read_preflight(
+                runner,
+                repo,
+                allow_disabled=repo in label_only_repositories,
+            )
     restored = 0
     missing_issue_operations = 0
     mutated_operations = 0
@@ -1770,7 +1799,7 @@ def command_restore(
                     check=False,
                 )
                 if result.returncode == 0:
-                    mutated = not (runner.dry_run and unverified)
+                    mutated = not unverified
                 else:
                     detail = f"{result.stderr}\n{result.stdout}".lower()
                     if not any(

@@ -1370,7 +1370,7 @@ class HelperTests(unittest.TestCase):
                 result = work.command_restore(Namespace(receipt=path), FakeRunner(responses), current)
             self.assertEqual(result, 0)
             payload = json.loads(output.getvalue())
-            self.assertEqual(payload["mutated_operations"], 1)
+            self.assertEqual(payload["mutated_operations"], 0)
             self.assertEqual(payload["reason"], "unverified_relationships")
             self.assertEqual(payload["unverified_relationship_operations"], 1)
             self.assertTrue(current.data["operations"][0]["restore_unverified"])
@@ -1472,6 +1472,26 @@ class HelperTests(unittest.TestCase):
                 work.command_restore(
                     Namespace(receipt=path), FakeRunner(responses), current,
                 )
+
+    def test_restore_allows_deleted_label_when_repository_issues_are_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "receipt.json")
+            current = receipt(path)
+            current.add("label-created", repo="sample-space/sample-app", name="type:task")
+            responses = [
+                work.CommandResult(stdout="gh version 2.96.0\n"),
+                work.CommandResult(),
+                work.CommandResult(),
+                work.CommandResult(returncode=1, stderr="Gone (HTTP 410)"),
+                work.CommandResult(returncode=1, stderr="Not Found (HTTP 404)"),
+            ]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = work.command_restore(
+                    Namespace(receipt=path), FakeRunner(responses), current,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["reason"], "restored")
 
     def test_restore_treats_exact_label_http_404_as_already_deleted(self):
         with tempfile.TemporaryDirectory() as directory:
