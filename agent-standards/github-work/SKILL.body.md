@@ -24,10 +24,10 @@ array of `repo`, `area`, and `logins`. The private operator supplies their locat
 
 Assign before creating a branch. Use `issue-create` with Feature, Bug, or Task and native
 parent/blocking relationships. Use `pr-link --mode refs` by default. Run read-only `finality` before
-promotion to `--mode closes`. Assignment preserves existing assignees and uses `needs-owner` when
-an ownership lookup has zero or multiple candidates. Save receipts for mutations and use `restore`
-for compensating rollback; a second restore is a no-op. Multiline PR bodies are edited through a
-body file. Never let this generic lifecycle replace local land/deploy checks.
+promotion to `--mode closes`. Assignment preserves existing assignees and uses `needs-owner` when an
+ownership lookup has zero or multiple candidates. Save receipts for mutations and use `restore` for
+compensating rollback; a second restore is a no-op. Multiline PR bodies are edited through a body
+file. Never let this generic lifecycle replace local land/deploy checks.
 
 The generated helper is tested at its immutable public source tag before distribution.
 
