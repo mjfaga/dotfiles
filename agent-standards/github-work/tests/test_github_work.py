@@ -2334,6 +2334,8 @@ class HelperTests(unittest.TestCase):
             skill = root / "SKILL.md"
             pr_template = root / "pull_request_template.md"
             workflow = root / "github-work-standard.yml"
+            gitignore = root / ".gitignore"
+            prettierignore = root / ".prettierignore"
             issue_forms = [root / name for name in ("bug.yml", "feature.yml", "task.yml")]
             helper.write_text(helper_text)
             agents.write_text("x" * 12000 + "\n" + managed_text)
@@ -2351,12 +2353,31 @@ class HelperTests(unittest.TestCase):
                 + "\n"
                 + workflow_source
             )
+            gitignore.write_text(
+                "# BEGIN github-work-standard\n"
+                ".github-work/\n*github-work-targets*\n*github-work-ownership*\n"
+                "*.github-work-receipt.json*\n*github-work-recovery*.json*\n"
+                "# END github-work-standard\n"
+            )
+            prettierignore.write_text(
+                "# BEGIN github-work-standard\n"
+                ".github/ISSUE_TEMPLATE/bug.yml\n"
+                ".github/ISSUE_TEMPLATE/feature.yml\n"
+                ".github/ISSUE_TEMPLATE/task.yml\n"
+                ".github/pull_request_template.md\n"
+                ".github/PULL_REQUEST_TEMPLATE.md\n"
+                ".github/workflows/github-work-standard.yml\n"
+                "scripts/github_work.py\n"
+                "# END github-work-standard\n"
+            )
             for form in issue_forms:
                 form.write_text(managed_text)
             args = Namespace(
                 agents_path=str(agents), skill_path=str(skill), pr_template_path=str(pr_template),
-                workflow_path=str(workflow), issue_form_path=[str(path) for path in issue_forms],
-                expected_version=None, expected_source_sha=None, expected_target_digest=None,
+                workflow_path=str(workflow), gitignore_path=str(gitignore),
+                prettierignore_path=str(prettierignore),
+                issue_form_path=[str(path) for path in issue_forms], expected_version=None,
+                expected_source_sha=None, expected_target_digest=None,
             )
             with mock.patch.object(work, "__file__", str(helper)), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(work.command_standard_check(args), 0)
@@ -2367,6 +2388,10 @@ class HelperTests(unittest.TestCase):
             with mock.patch.object(work, "__file__", str(helper)), self.assertRaises(work.WorkError):
                 work.command_standard_check(args)
             skill.write_text(managed_text.replace("managed content", "changed content"))
+            with mock.patch.object(work, "__file__", str(helper)), self.assertRaises(work.WorkError):
+                work.command_standard_check(args)
+            skill.write_text(managed_text)
+            gitignore.write_text(gitignore.read_text().replace("*github-work-ownership*\n", ""))
             with mock.patch.object(work, "__file__", str(helper)), self.assertRaises(work.WorkError):
                 work.command_standard_check(args)
 

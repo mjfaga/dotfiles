@@ -2130,6 +2130,23 @@ def verify_content(text: str, marker: dict[str, str], *, managed_region: bool) -
         raise WorkError("github-work-standard managed content digest does not match provenance")
 
 
+def verify_hash_managed_block(
+    text: str,
+    required_lines: tuple[str, ...],
+    label: str,
+) -> None:
+    begin = "# BEGIN github-work-standard"
+    end = "# END github-work-standard"
+    if text.count(begin) != 1 or text.count(end) != 1:
+        raise WorkError(f"{label} requires one complete github-work-standard block")
+    start = text.index(begin) + len(begin)
+    finish = text.index(end, start)
+    lines = {line.strip() for line in text[start:finish].splitlines() if line.strip()}
+    missing = [line for line in required_lines if line not in lines]
+    if missing:
+        raise WorkError(f"{label} github-work-standard block is missing: {', '.join(missing)}")
+
+
 def command_standard_check(args: argparse.Namespace) -> int:
     helper_text = Path(__file__).read_text(encoding="utf-8")
     helper = provenance_from_text(helper_text)
@@ -2158,6 +2175,42 @@ def command_standard_check(args: argparse.Namespace) -> int:
         verify_content(text, marker, managed_region=managed_region)
         if {key: marker[key] for key in identity} != identity:
             raise WorkError(f"{label} provenance does not match helper provenance")
+        checked[label] = str(path)
+    ignore_contracts = (
+        (
+            "gitignore",
+            args.gitignore_path,
+            (
+                ".github-work/",
+                "*github-work-targets*",
+                "*github-work-ownership*",
+                "*.github-work-receipt.json*",
+                "*github-work-recovery*.json*",
+            ),
+        ),
+        (
+            "prettierignore",
+            args.prettierignore_path,
+            (
+                ".github/ISSUE_TEMPLATE/bug.yml",
+                ".github/ISSUE_TEMPLATE/feature.yml",
+                ".github/ISSUE_TEMPLATE/task.yml",
+                ".github/pull_request_template.md",
+                ".github/PULL_REQUEST_TEMPLATE.md",
+                ".github/workflows/github-work-standard.yml",
+                "scripts/github_work.py",
+            ),
+        ),
+    )
+    for label, raw_path, required_lines in ignore_contracts:
+        path = Path(raw_path)
+        if not path.is_file():
+            raise WorkError(f"standard-check path is missing: {path}")
+        verify_hash_managed_block(
+            path.read_text(encoding="utf-8"),
+            required_lines,
+            label,
+        )
         checked[label] = str(path)
     if args.expected_version and helper["version"] != args.expected_version:
         raise WorkError("standard version does not match --expected-version")
@@ -2238,6 +2291,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--workflow-path",
         default=".github/workflows/github-work-standard.yml",
     )
+    standard_check.add_argument("--gitignore-path", default=".gitignore")
+    standard_check.add_argument("--prettierignore-path", default=".prettierignore")
     standard_check.add_argument(
         "--issue-form-path",
         action="append",
