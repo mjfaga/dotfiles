@@ -1047,13 +1047,15 @@ def target_reference_pattern(issue: str, pr_repo: str) -> re.Pattern[str]:
 def linked_body(body: str, issue: str, mode: str, pr_repo: str) -> str:
     reference = issue_reference(issue)
     keyword = "Refs" if mode == "refs" else "Closes"
-    body = re.sub(r"\bRefs\s+#ISSUE\b", f"{keyword} {reference}", body, flags=re.IGNORECASE)
     target = target_reference_pattern(issue, pr_repo)
     closing = re.compile(
         rf"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?P<reference>{target.pattern})",
         re.IGNORECASE,
     )
     demoted = closing.sub(lambda match: f"Refs {match.group('reference')}", body)
+    placeholder = re.compile(r"\bRefs\s+#ISSUE\b", re.IGNORECASE)
+    if placeholder.search(demoted):
+        return placeholder.sub(f"{keyword} {reference}", demoted, count=1).rstrip() + "\n"
     refs = re.compile(rf"\bRefs\s+(?P<reference>{target.pattern})", re.IGNORECASE)
     if mode == "refs":
         if refs.search(demoted):
@@ -1061,6 +1063,12 @@ def linked_body(body: str, issue: str, mode: str, pr_repo: str) -> str:
         desired = f"Refs {reference}"
         return demoted.rstrip() + ("\n\n" if demoted.strip() else "") + desired + "\n"
     desired = f"Closes {reference}"
+    work_item = re.compile(r"(?ms)(^## Work item[^\n]*\n.*?)(?=^## |\Z)")
+    section_match = work_item.search(demoted)
+    if section_match and refs.search(section_match.group(1)):
+        section = refs.sub(desired, section_match.group(1), count=1)
+        demoted = demoted[: section_match.start(1)] + section + demoted[section_match.end(1) :]
+        return demoted.rstrip() + "\n"
     if refs.search(demoted):
         return refs.sub(desired, demoted, count=1).rstrip() + "\n"
     return demoted.rstrip() + ("\n\n" if demoted.strip() else "") + desired + "\n"
@@ -1623,13 +1631,17 @@ def receipt_issue_repositories(receipt: Receipt) -> set[str]:
     return repos
 
 
-def operation_repository(operation: dict[str, Any]) -> str | None:
+def operation_repositories(operation: dict[str, Any]) -> set[str]:
+    repos: set[str] = set()
     if operation.get("kind") == "pr-body-changed":
-        return parse_pr_url(operation["pr"])[0]
+        repos.add(parse_pr_url(operation["pr"])[0])
     if isinstance(operation.get("repo"), str):
-        return operation["repo"]
-    reference = operation.get("issue", operation.get("source"))
-    return parse_issue_url(reference)[0] if isinstance(reference, str) else None
+        repos.add(operation["repo"])
+    for key in ("issue", "source", "target"):
+        reference = operation.get(key)
+        if isinstance(reference, str):
+            repos.add(parse_issue_url(reference)[0])
+    return repos
 
 
 def unverified_relationship_details(operation: dict[str, Any]) -> dict[str, Any]:
@@ -1735,8 +1747,8 @@ def command_restore(
             already_restored += 1
             continue
         kind = operation["kind"]
-        operation_repo = operation_repository(operation)
-        if operation_repo in blocked_repositories:
+        touched_repositories = operation_repositories(operation)
+        if touched_repositories & set(blocked_repositories):
             continue
         fallback_succeeded: bool | None = None
         probe_error: str | None = None

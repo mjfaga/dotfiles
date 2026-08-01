@@ -147,6 +147,17 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(rendered.count("Closes"), 1)
         self.assertEqual(rendered.lower().count("refs"), 1)
 
+    def test_closes_promotes_work_item_reference_not_earlier_summary_reference(self):
+        body = "## Summary\n\nFixes #3 by adding X\n\n## Work item\n\nRefs #3\n"
+        rendered = work.linked_body(
+            body,
+            "sample-space/sample-app#3",
+            "closes",
+            "sample-space/sample-app",
+        )
+        self.assertIn("## Summary\n\nRefs #3 by adding X", rendered)
+        self.assertIn("## Work item\n\nCloses sample-space/sample-app#3", rendered)
+
     def test_pr_closing_link_requires_finality(self):
         responses = managed_preflight_responses() + [
             {
@@ -1404,6 +1415,17 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(payload["blocked_repositories"][0]["repo"], "sample-space/blocked")
         self.assertEqual(current.data["operations"][0]["status"], "active")
         self.assertEqual(current.data["operations"][1]["status"], "restored")
+
+    def test_relationship_operation_includes_source_and_target_repositories(self):
+        operation = {
+            "kind": "relationship-added",
+            "source": "sample-space/source#1",
+            "target": "other-space/target#2",
+        }
+        self.assertEqual(
+            work.operation_repositories(operation),
+            {"sample-space/source", "other-space/target"},
+        )
 
     def test_restore_skips_blocked_pr_repo_and_compensates_healthy_repo(self):
         current = receipt()
