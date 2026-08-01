@@ -73,13 +73,23 @@ class RendererTests(unittest.TestCase):
 
     def test_standard_check_command_uses_adapter_output_paths(self):
         legacy = target(Path("/runtime/checkout"), adapter="generated-legacy")
-        command = sync.standard_check_command(legacy)
+        source_sha = "a" * 40
+        target_digest = "b" * 64
+        command = sync.standard_check_command(
+            legacy,
+            "1.2.3",
+            source_sha,
+            target_digest,
+        )
         self.assertIn("--agents-path AGENTS.md", command)
         self.assertIn("--skill-path docs/skills/github-work.md", command)
         self.assertIn(
             "--workflow-path .github/workflows/github-work-standard.yml",
             command,
         )
+        self.assertIn("--expected-version 1.2.3", command)
+        self.assertIn(f"--expected-source-sha {source_sha}", command)
+        self.assertIn(f"--expected-target-digest {target_digest}", command)
 
     def test_prettierignore_content_includes_configured_skill_paths(self):
         legacy = target(Path("/runtime/checkout"), adapter="generated-legacy")

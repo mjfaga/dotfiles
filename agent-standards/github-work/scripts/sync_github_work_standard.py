@@ -322,7 +322,12 @@ def prettierignore_content(target: dict[str, Any], base_content: str) -> str:
     return "\n".join(dict.fromkeys(entries)) + "\n"
 
 
-def standard_check_command(target: dict[str, Any]) -> str:
+def standard_check_command(
+    target: dict[str, Any],
+    version: str,
+    source_sha: str,
+    target_digest: str,
+) -> str:
     form_dir = target.get("issue_forms_path", ".github/ISSUE_TEMPLATE")
     filenames = target.get(
         "issue_form_files",
@@ -344,6 +349,12 @@ def standard_check_command(target: dict[str, Any]) -> str:
         target.get("gitignore_path", ".gitignore"),
         "--prettierignore-path",
         target.get("prettierignore_path", ".prettierignore"),
+        "--expected-version",
+        version,
+        "--expected-source-sha",
+        source_sha,
+        "--expected-target-digest",
+        target_digest,
     ]
     for kind in ("bug", "feature", "task"):
         command.extend(
@@ -425,7 +436,7 @@ def expected_files(
     )
     workflow_source = workflow_source.replace(
         "python3 scripts/github_work.py standard-check",
-        standard_check_command(target),
+        standard_check_command(target, version, source_sha, target_digest),
     )
     files[workflow_path] = marked_yaml(
         workflow_source,
