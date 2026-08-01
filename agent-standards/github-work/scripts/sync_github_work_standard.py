@@ -8,6 +8,7 @@ import ast
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -294,6 +295,42 @@ def marked_yaml(source: str, version: str, source_sha: str, target_digest: str) 
     return provenance(version, source_sha, target_digest, content_digest, prefix="#") + source
 
 
+def generated_output_path(source_path: str) -> str:
+    if source_path.endswith(".src.md"):
+        return source_path.removesuffix(".src.md") + ".md"
+    return source_path
+
+
+def standard_check_command(target: dict[str, Any]) -> str:
+    form_dir = target.get("issue_forms_path", ".github/ISSUE_TEMPLATE")
+    filenames = target.get(
+        "issue_form_files",
+        {"bug": "bug.yml", "feature": "feature.yml", "task": "task.yml"},
+    )
+    command = [
+        "python3",
+        target.get("helper_path", "scripts/github_work.py"),
+        "standard-check",
+        "--agents-path",
+        generated_output_path(target["agents_source_path"]),
+        "--skill-path",
+        generated_output_path(target["skill_source_path"]),
+        "--pr-template-path",
+        target.get("pr_template_path", ".github/pull_request_template.md"),
+        "--workflow-path",
+        target.get("standard_workflow_path", ".github/workflows/github-work-standard.yml"),
+        "--gitignore-path",
+        target.get("gitignore_path", ".gitignore"),
+        "--prettierignore-path",
+        target.get("prettierignore_path", ".prettierignore"),
+    ]
+    for kind in ("bug", "feature", "task"):
+        command.extend(
+            ["--issue-form-path", str(Path(form_dir) / filenames[kind])]
+        )
+    return shlex.join(command)
+
+
 def safe_output_path(checkout: Path, relative: str) -> Path:
     candidate = (checkout / relative).resolve()
     try:
@@ -362,8 +399,15 @@ def expected_files(
         checkout,
         target.get("standard_workflow_path", ".github/workflows/github-work-standard.yml"),
     )
+    workflow_source = (source_root / "github-work-standard.yml").read_text(
+        encoding="utf-8"
+    )
+    workflow_source = workflow_source.replace(
+        "python3 scripts/github_work.py standard-check",
+        standard_check_command(target),
+    )
     files[workflow_path] = marked_yaml(
-        (source_root / "github-work-standard.yml").read_text(encoding="utf-8"),
+        workflow_source,
         version,
         source_sha,
         target_digest,

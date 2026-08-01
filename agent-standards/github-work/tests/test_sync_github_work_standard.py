@@ -71,6 +71,16 @@ class RendererTests(unittest.TestCase):
                 targets.append(item)
             self.assertEqual(len(sync.validate_targets({"targets": targets})), 3)
 
+    def test_standard_check_command_uses_adapter_output_paths(self):
+        legacy = target(Path("/runtime/checkout"), adapter="generated-legacy")
+        command = sync.standard_check_command(legacy)
+        self.assertIn("--agents-path AGENTS.md", command)
+        self.assertIn("--skill-path docs/skills/github-work.md", command)
+        self.assertIn(
+            "--workflow-path .github/workflows/github-work-standard.yml",
+            command,
+        )
+
     def test_validate_targets_rejects_unknown_layout_and_escape(self):
         with tempfile.TemporaryDirectory() as directory:
             item = target(Path(directory))
