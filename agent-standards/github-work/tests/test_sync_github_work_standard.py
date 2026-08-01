@@ -40,6 +40,18 @@ class RendererTests(unittest.TestCase):
         rendered = sync.merge_marker(original, "<!-- BEGIN github-work-standard -->new<!-- END github-work-standard -->")
         self.assertEqual(rendered, "before\n<!-- BEGIN github-work-standard -->new<!-- END github-work-standard -->\nafter\n")
 
+    def test_merge_hash_marker_preserves_outside_bytes(self):
+        original = (
+            "before\n# BEGIN github-work-standard\nold\n"
+            "# END github-work-standard\nafter\n"
+        )
+        rendered = sync.merge_hash_marker(original, "new\n")
+        self.assertEqual(
+            rendered,
+            "before\n# BEGIN github-work-standard\nnew\n"
+            "# END github-work-standard\nafter\n",
+        )
+
     def test_merge_marker_rejects_partial_markers(self):
         with self.assertRaises(sync.RenderError):
             sync.merge_marker("<!-- BEGIN github-work-standard -->", "block")
@@ -177,6 +189,14 @@ class RendererTests(unittest.TestCase):
                 managed_region=False,
             )
             self.assertIn("python3 scripts/github_work.py standard-check", generated_workflow)
+            self.assertIn(
+                "# BEGIN github-work-standard\n.github-work/",
+                (checkout / ".gitignore").read_text(),
+            )
+            self.assertIn(
+                ".github/workflows/github-work-standard.yml",
+                (checkout / ".prettierignore").read_text(),
+            )
             generated_form = (checkout / ".github/ISSUE_TEMPLATE/bug.yml").read_text()
             self.assertIn("name:", generated_form)
             self.assertIn("description:", generated_form)

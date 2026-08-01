@@ -56,6 +56,7 @@ def validate_targets(config: dict[str, Any]) -> list[dict[str, Any]]:
         path_fields = (
             "agents_source_path", "skill_source_path", "issue_forms_path",
             "pr_template_path", "helper_path", "standard_workflow_path",
+            "gitignore_path", "prettierignore_path",
         )
         for field in path_fields:
             value = target.get(field)
@@ -112,6 +113,24 @@ def merge_marker(original: str, block: str) -> str:
         if original.find(BEGIN, start + len(BEGIN)) >= 0 or original.find(END, end + len(END)) >= 0:
             raise RenderError("multiple github-work-standard marker blocks")
         return original[:start] + block + original[end + len(END) :]
+    separator = "" if not original else ("\n" if original.endswith("\n") else "\n\n")
+    return original + separator + block + "\n"
+
+
+def merge_hash_marker(original: str, content: str) -> str:
+    begin = "# BEGIN github-work-standard"
+    end_marker = "# END github-work-standard"
+    start = original.find(begin)
+    end = original.find(end_marker)
+    if (start < 0) != (end < 0):
+        raise RenderError("found only one github-work-standard hash marker")
+    block = f"{begin}\n{content.rstrip()}\n{end_marker}"
+    if start >= 0:
+        if original.find(begin, start + len(begin)) >= 0 or original.find(
+            end_marker, end + len(end_marker)
+        ) >= 0:
+            raise RenderError("multiple github-work-standard hash marker blocks")
+        return original[:start] + block + original[end + len(end_marker) :]
     separator = "" if not original else ("\n" if original.endswith("\n") else "\n\n")
     return original + separator + block + "\n"
 
@@ -349,6 +368,16 @@ def expected_files(
         source_sha,
         target_digest,
     )
+    for path_key, default_path, fragment_name in (
+        ("gitignore_path", ".gitignore", "gitignore.fragment"),
+        ("prettierignore_path", ".prettierignore", "prettierignore.fragment"),
+    ):
+        ignore_path = safe_output_path(checkout, target.get(path_key, default_path))
+        ignore_original = (
+            ignore_path.read_text(encoding="utf-8") if ignore_path.exists() else ""
+        )
+        ignore_content = (source_root / fragment_name).read_text(encoding="utf-8")
+        files[ignore_path] = merge_hash_marker(ignore_original, ignore_content)
     return files
 
 
