@@ -1065,8 +1065,12 @@ def linked_body(body: str, issue: str, mode: str, pr_repo: str) -> str:
     desired = f"Closes {reference}"
     work_item = re.compile(r"(?ms)(^## Work item[^\n]*\n.*?)(?=^## |\Z)")
     section_match = work_item.search(demoted)
-    if section_match and refs.search(section_match.group(1)):
-        section = refs.sub(desired, section_match.group(1), count=1)
+    if section_match:
+        section = section_match.group(1)
+        if refs.search(section):
+            section = refs.sub(desired, section, count=1)
+        else:
+            section = section.rstrip() + "\n\n" + desired + "\n"
         demoted = demoted[: section_match.start(1)] + section + demoted[section_match.end(1) :]
         return demoted.rstrip() + "\n"
     if refs.search(demoted):
@@ -1625,9 +1629,12 @@ def receipt_issue_repositories(receipt: Receipt) -> set[str]:
             continue
         if isinstance(operation.get("repo"), str):
             repos.add(operation["repo"])
-        reference = operation.get("issue", operation.get("source"))
-        if isinstance(reference, str):
-            repos.add(parse_issue_url(reference)[0])
+        references = [operation.get("issue", operation.get("source"))]
+        if operation.get("kind") == "relationship-added":
+            references.append(operation.get("target"))
+        for reference in references:
+            if isinstance(reference, str):
+                repos.add(parse_issue_url(reference)[0])
     return repos
 
 

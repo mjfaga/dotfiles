@@ -158,6 +158,20 @@ class HelperTests(unittest.TestCase):
         self.assertIn("## Summary\n\nRefs #3 by adding X", rendered)
         self.assertIn("## Work item\n\nCloses sample-space/sample-app#3", rendered)
 
+    def test_closes_appends_to_work_item_when_placeholder_was_deleted(self):
+        body = "## Summary\n\nRefs #3 in summary\n\n## Work item\n\nNo link yet.\n"
+        rendered = work.linked_body(
+            body,
+            "sample-space/sample-app#3",
+            "closes",
+            "sample-space/sample-app",
+        )
+        self.assertIn("## Summary\n\nRefs #3 in summary", rendered)
+        self.assertIn(
+            "## Work item\n\nNo link yet.\n\nCloses sample-space/sample-app#3",
+            rendered,
+        )
+
     def test_pr_closing_link_requires_finality(self):
         responses = managed_preflight_responses() + [
             {
@@ -1415,6 +1429,19 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(payload["blocked_repositories"][0]["repo"], "sample-space/blocked")
         self.assertEqual(current.data["operations"][0]["status"], "active")
         self.assertEqual(current.data["operations"][1]["status"], "restored")
+
+    def test_relationship_issue_preflight_includes_source_and_target_repositories(self):
+        current = receipt()
+        current.add(
+            "relationship-added",
+            relation="sub-issue",
+            source="sample-space/source#1",
+            target="other-space/target#2",
+        )
+        self.assertEqual(
+            work.receipt_issue_repositories(current),
+            {"sample-space/source", "other-space/target"},
+        )
 
     def test_relationship_operation_includes_source_and_target_repositories(self):
         operation = {
