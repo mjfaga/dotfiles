@@ -81,6 +81,13 @@ class RendererTests(unittest.TestCase):
             command,
         )
 
+    def test_prettierignore_content_includes_configured_skill_paths(self):
+        legacy = target(Path("/runtime/checkout"), adapter="generated-legacy")
+        content = sync.prettierignore_content(legacy, "scripts/github_work.py\n")
+        self.assertIn("docs/skills/github-work.src.md\n", content)
+        self.assertIn("docs/skills/github-work.md\n", content)
+        self.assertEqual(content.count("scripts/github_work.py\n"), 1)
+
     def test_validate_targets_rejects_unknown_layout_and_escape(self):
         with tempfile.TemporaryDirectory() as directory:
             item = target(Path(directory))

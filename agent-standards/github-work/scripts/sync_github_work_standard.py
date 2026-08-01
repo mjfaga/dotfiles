@@ -301,6 +301,27 @@ def generated_output_path(source_path: str) -> str:
     return source_path
 
 
+def prettierignore_content(target: dict[str, Any], base_content: str) -> str:
+    form_dir = target.get("issue_forms_path", ".github/ISSUE_TEMPLATE")
+    filenames = target.get(
+        "issue_form_files",
+        {"bug": "bug.yml", "feature": "feature.yml", "task": "task.yml"},
+    )
+    entries = [line for line in base_content.splitlines() if line]
+    skill_source = target["skill_source_path"]
+    entries.extend(
+        [
+            skill_source,
+            generated_output_path(skill_source),
+            target.get("pr_template_path", ".github/pull_request_template.md"),
+            target.get("standard_workflow_path", ".github/workflows/github-work-standard.yml"),
+            target.get("helper_path", "scripts/github_work.py"),
+            *(str(Path(form_dir) / filenames[kind]) for kind in ("bug", "feature", "task")),
+        ]
+    )
+    return "\n".join(dict.fromkeys(entries)) + "\n"
+
+
 def standard_check_command(target: dict[str, Any]) -> str:
     form_dir = target.get("issue_forms_path", ".github/ISSUE_TEMPLATE")
     filenames = target.get(
@@ -421,6 +442,8 @@ def expected_files(
             ignore_path.read_text(encoding="utf-8") if ignore_path.exists() else ""
         )
         ignore_content = (source_root / fragment_name).read_text(encoding="utf-8")
+        if fragment_name == "prettierignore.fragment":
+            ignore_content = prettierignore_content(target, ignore_content)
         files[ignore_path] = merge_hash_marker(ignore_original, ignore_content)
     return files
 
