@@ -167,6 +167,16 @@ class RendererTests(unittest.TestCase):
             generated_skill = skill.read_text()
             self.assertTrue(generated_skill.startswith("---\nname: github-work\n"))
             self.assertIn("description:", generated_skill.split("---", 2)[1])
+            generated_workflow = (
+                checkout / ".github/workflows/github-work-standard.yml"
+            ).read_text()
+            workflow_marker = helper_module.provenance_from_text(generated_workflow)
+            helper_module.verify_content(
+                generated_workflow,
+                workflow_marker,
+                managed_region=False,
+            )
+            self.assertIn("python3 scripts/github_work.py standard-check", generated_workflow)
             generated_form = (checkout / ".github/ISSUE_TEMPLATE/bug.yml").read_text()
             self.assertIn("name:", generated_form)
             self.assertIn("description:", generated_form)

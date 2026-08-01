@@ -2137,10 +2137,11 @@ def command_standard_check(args: argparse.Namespace) -> int:
     identity = {key: helper[key] for key in ("version", "source", "target")}
     checked: dict[str, str] = {"helper": str(Path(__file__))}
     paths = [
-        ("agents", args.agents_path),
-        ("skill", args.skill_path),
-        ("pull-request-template", args.pr_template_path),
-        *((f"issue-form-{index + 1}", path) for index, path in enumerate(
+        ("agents", args.agents_path, True),
+        ("skill", args.skill_path, True),
+        ("pull-request-template", args.pr_template_path, True),
+        ("workflow", args.workflow_path, False),
+        *((f"issue-form-{index + 1}", path, True) for index, path in enumerate(
             args.issue_form_path or [
                 ".github/ISSUE_TEMPLATE/bug.yml",
                 ".github/ISSUE_TEMPLATE/feature.yml",
@@ -2148,13 +2149,13 @@ def command_standard_check(args: argparse.Namespace) -> int:
             ]
         )),
     ]
-    for label, raw_path in paths:
+    for label, raw_path, managed_region in paths:
         path = Path(raw_path)
         if not path.is_file():
             raise WorkError(f"standard-check path is missing: {path}")
         text = path.read_text(encoding="utf-8")
         marker = provenance_from_text(text)
-        verify_content(text, marker, managed_region=True)
+        verify_content(text, marker, managed_region=managed_region)
         if {key: marker[key] for key in identity} != identity:
             raise WorkError(f"{label} provenance does not match helper provenance")
         checked[label] = str(path)
@@ -2233,6 +2234,10 @@ def build_parser() -> argparse.ArgumentParser:
     standard_check.add_argument("--agents-path", default="AGENTS.md")
     standard_check.add_argument("--skill-path", default=".claude/skills/github-work/SKILL.md")
     standard_check.add_argument("--pr-template-path", default=".github/pull_request_template.md")
+    standard_check.add_argument(
+        "--workflow-path",
+        default=".github/workflows/github-work-standard.yml",
+    )
     standard_check.add_argument(
         "--issue-form-path",
         action="append",

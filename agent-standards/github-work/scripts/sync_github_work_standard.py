@@ -55,7 +55,7 @@ def validate_targets(config: dict[str, Any]) -> list[dict[str, Any]]:
             raise RenderError(f"checks must be an array for {target['repo']}")
         path_fields = (
             "agents_source_path", "skill_source_path", "issue_forms_path",
-            "pr_template_path", "helper_path",
+            "pr_template_path", "helper_path", "standard_workflow_path",
         )
         for field in path_fields:
             value = target.get(field)
@@ -270,6 +270,11 @@ def marked_helper(source: str, version: str, source_sha: str, target_digest: str
     return marker + source
 
 
+def marked_yaml(source: str, version: str, source_sha: str, target_digest: str) -> str:
+    content_digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    return provenance(version, source_sha, target_digest, content_digest, prefix="#") + source
+
+
 def safe_output_path(checkout: Path, relative: str) -> Path:
     candidate = (checkout / relative).resolve()
     try:
@@ -330,6 +335,16 @@ def expected_files(
     helper_path = safe_output_path(checkout, target.get("helper_path", "scripts/github_work.py"))
     files[helper_path] = marked_helper(
         (source_root / "github_work.py").read_text(encoding="utf-8"),
+        version,
+        source_sha,
+        target_digest,
+    )
+    workflow_path = safe_output_path(
+        checkout,
+        target.get("standard_workflow_path", ".github/workflows/github-work-standard.yml"),
+    )
+    files[workflow_path] = marked_yaml(
+        (source_root / "github-work-standard.yml").read_text(encoding="utf-8"),
         version,
         source_sha,
         target_digest,

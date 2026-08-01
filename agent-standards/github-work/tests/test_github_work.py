@@ -2333,17 +2333,30 @@ class HelperTests(unittest.TestCase):
             agents = root / "AGENTS.md"
             skill = root / "SKILL.md"
             pr_template = root / "pull_request_template.md"
+            workflow = root / "github-work-standard.yml"
             issue_forms = [root / name for name in ("bug.yml", "feature.yml", "task.yml")]
             helper.write_text(helper_text)
             agents.write_text("x" * 12000 + "\n" + managed_text)
             skill.write_text(managed_text)
             pr_template.write_text(managed_text)
+            workflow_source = "name: GitHub work standard\n"
+            workflow_digest = hashlib.sha256(workflow_source.encode()).hexdigest()
+            workflow.write_text(
+                "# github-work-standard: version=1.0.0 source="
+                + SOURCE
+                + " target="
+                + DIGEST
+                + " content="
+                + workflow_digest
+                + "\n"
+                + workflow_source
+            )
             for form in issue_forms:
                 form.write_text(managed_text)
             args = Namespace(
                 agents_path=str(agents), skill_path=str(skill), pr_template_path=str(pr_template),
-                issue_form_path=[str(path) for path in issue_forms], expected_version=None,
-                expected_source_sha=None, expected_target_digest=None,
+                workflow_path=str(workflow), issue_form_path=[str(path) for path in issue_forms],
+                expected_version=None, expected_source_sha=None, expected_target_digest=None,
             )
             with mock.patch.object(work, "__file__", str(helper)), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(work.command_standard_check(args), 0)

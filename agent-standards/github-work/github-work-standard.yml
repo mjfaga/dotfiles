@@ -1,0 +1,40 @@
+name: GitHub work standard
+
+on:
+  pull_request:
+    paths:
+      - AGENTS.md
+      - AGENTS.src.md
+      - .claude/skills/github-work/**
+      - docs/skills/GITHUB_WORK*
+      - .github/ISSUE_TEMPLATE/**
+      - .github/pull_request_template.md
+      - .github/PULL_REQUEST_TEMPLATE.md
+      - .github/workflows/github-work-standard.yml
+      - scripts/github_work.py
+  push:
+    branches: [main]
+    paths:
+      - AGENTS.md
+      - AGENTS.src.md
+      - .claude/skills/github-work/**
+      - docs/skills/GITHUB_WORK*
+      - .github/ISSUE_TEMPLATE/**
+      - .github/pull_request_template.md
+      - .github/PULL_REQUEST_TEMPLATE.md
+      - .github/workflows/github-work-standard.yml
+      - scripts/github_work.py
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python3 scripts/github_work.py standard-check
