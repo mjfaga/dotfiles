@@ -1,2 +1,5 @@
 .github-work/
+*github-work-targets*
+*github-work-ownership*
 *.github-work-receipt.json*
+*github-work-recovery*.json*
