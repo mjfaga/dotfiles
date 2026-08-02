@@ -15,7 +15,7 @@ authorized to mutate the shared work graph; otherwise use the issue forms and PR
 the helper. Never commit those private files to a consumer.
 
 Requires GitHub CLI 2.96.0 or newer. The canonical immutable helper release tag is
-`agent-standards-github-work-v1.0.70`; exact source and content identities are in each artifact's
+`agent-standards-github-work-v1.0.71`; exact source and content identities are in each artifact's
 provenance marker. Run the repository-local `scripts/github_work.py` with the private
 operator-supplied paths:
 
@@ -58,7 +58,8 @@ remains fail-closed and reports its source. An empty `--receipt`, `--title`, `--
 Empty target or ownership config exits `2` on commands that consume configuration; `standard-check`
 ignores both, while `restore` audits target config availability and ignores ownership config. Other
 commands fail fast on a supplied empty or malformed ownership config even when only a later
-assignment step uses it.
+assignment step uses it. A bare `standard-check` verifies internal artifact consistency and reports
+`pinned: false`; the rendered CI command supplies all release pins and reports `pinned: true`.
 
 A second restore and a receipt from a successful no-op mutation are no-ops. Restore reports
 `retained_labels` with `retained_label_definitions` when a receipt-created label definition must

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Repository-neutral GitHub work lifecycle helper.
 
-Canonical upstream release tag: agent-standards-github-work-v1.0.70
+Canonical upstream release tag: agent-standards-github-work-v1.0.71
 
 Configuration files use JSON syntax (which is valid YAML) so the helper has no
 third-party runtime dependencies.
@@ -30,7 +30,10 @@ SCHEMA_VERSION = 3
 SUPPORTED_SCHEMA_VERSIONS = frozenset(range(1, SCHEMA_VERSION + 1))
 CONFIG_STATUSES = frozenset({"absent", "empty", "invalid", "ok", "unreadable"})
 MIN_GH_VERSION = (2, 96, 0)
-REPOSITORY_PATTERN = r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
+REPOSITORY_PATTERN = (
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/"
+    r"(?!\.+(?:$|[/?#]))[A-Za-z0-9._-]+"
+)
 MANAGED_LABELS = {
     "bug": ("type:bug", "B60205", "Unexpected problem or incorrect behavior"),
     "feature": ("type:feature", "1D76DB", "Requested capability or improvement"),
@@ -199,6 +202,11 @@ class Receipt:
                     raise WorkError(f"receipt operation {kind} fields must be strings")
                 if not value and not (kind == "pr-body-changed" and field in {"before", "after"}):
                     raise WorkError(f"receipt operation {kind} fields must be non-empty strings")
+            if "repo" in required_fields and not re.fullmatch(
+                REPOSITORY_PATTERN,
+                operation["repo"],
+            ):
+                raise WorkError(f"receipt operation {kind} repo must be OWNER/REPO")
             if kind == "relationship-added" and operation["relation"] not in {"sub-issue", "blocked-by"}:
                 raise WorkError("receipt relationship type is invalid")
             operation_id = operation.get("operation_id")

@@ -130,7 +130,7 @@ class HelperTests(unittest.TestCase):
 
     def test_active_source_sha_scans_past_the_old_preamble_limit(self):
         source_sha = "c" * 40
-        source = "x" * 1200 + f"\n# github-work-standard: version=1.0.70 source={source_sha} "
+        source = "x" * 1200 + f"\n# github-work-standard: version=1.0.71 source={source_sha} "
         with mock.patch.object(work.Path, "read_text", return_value=source):
             self.assertEqual(work.active_source_sha(), source_sha)
 
@@ -377,6 +377,20 @@ class HelperTests(unittest.TestCase):
                     payload = {field: config_value}
                 path.write_text(json.dumps(payload), encoding="utf-8")
                 with self.assertRaisesRegex(work.WorkError, message):
+                    work.load_targets(path)
+
+    def test_load_targets_rejects_invalid_github_owner_and_dot_only_repo(self):
+        for repo in ("../..", "_owner/sample-app", "owner-/sample-app", "owner/..."):
+            with self.subTest(repo=repo), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "targets.json"
+                path.write_text(json.dumps({
+                    "targets": [{
+                        "repo": repo,
+                        "adapter": "plain",
+                        "classification": "native-type",
+                    }],
+                }), encoding="utf-8")
+                with self.assertRaisesRegex(work.WorkError, "target repo must be OWNER/REPO"):
                     work.load_targets(path)
 
     def test_load_targets_rejects_non_string_target_fields(self):
@@ -1172,6 +1186,13 @@ class HelperTests(unittest.TestCase):
             path.chmod(0o600)
             with self.assertRaises(work.WorkError):
                 receipt(str(path))
+
+    def test_receipt_rejects_malformed_operation_repository(self):
+        current = receipt()
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        current.data["operations"][0]["repo"] = "../.."
+        with self.assertRaisesRegex(work.WorkError, "repo must be OWNER/REPO"):
+            current.validate()
 
     def test_receipt_schema_one_remains_loadable(self):
         with tempfile.TemporaryDirectory() as directory:
