@@ -114,6 +114,26 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(work.parse_issue_url("https://github.com/sample-space/sample-app/issues/42"), ("sample-space/sample-app", 42))
         self.assertEqual(work.parse_issue_url("sample-space/sample-app#42"), ("sample-space/sample-app", 42))
 
+    def test_parse_pr_url_rejects_non_github_or_malformed_references(self):
+        self.assertEqual(
+            work.parse_pr_url("https://github.com/sample-space/sample-app/pull/42"),
+            ("sample-space/sample-app", 42),
+        )
+        for value in (
+            "https://notgithub.com/sample-space/sample-app/pull/42",
+            "https://evil.example/github.com/sample-space/sample-app/pull/42",
+            "https://github.com/sample space/sample-app/pull/42",
+            "sample-space/sample-app#42",
+        ):
+            with self.subTest(value=value), self.assertRaises(work.WorkError):
+                work.parse_pr_url(value)
+
+    def test_active_source_sha_scans_past_the_old_preamble_limit(self):
+        source_sha = "c" * 40
+        source = "x" * 1200 + f"\n# github-work-standard: version=1.0.69 source={source_sha} "
+        with mock.patch.object(work.Path, "read_text", return_value=source):
+            self.assertEqual(work.active_source_sha(), source_sha)
+
     def test_issue_state_rejects_non_object_json(self):
         with self.assertRaisesRegex(work.WorkError, "cannot verify issue state"):
             work.issue_state(
@@ -2262,6 +2282,25 @@ class HelperTests(unittest.TestCase):
             )
         self.assertEqual(second_result, 0)
         self.assertTrue(all(operation["status"] == "restored" for operation in current.data["operations"]))
+
+    def test_label_restore_fails_closed_when_issue_usage_read_reaches_limit(self):
+        current = receipt()
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        issue_uses = [
+            {"url": f"https://github.com/sample-space/sample-app/issues/{number}"}
+            for number in range(1, 102)
+        ]
+        responses = restore_preflight_responses() + [
+            [{"name": "type:task"}],
+            issue_uses,
+        ]
+        with self.assertRaisesRegex(work.WorkError, "fail-closed limit"):
+            work.command_restore(
+                Namespace(receipt="unused"),
+                FakeRunner(responses),
+                current,
+            )
+        self.assertEqual(current.data["operations"][0]["status"], "active")
 
     def test_label_restore_skips_labels_that_are_in_use(self):
         current = receipt()

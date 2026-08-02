@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Repository-neutral GitHub work lifecycle helper.
 
-Canonical upstream release tag: agent-standards-github-work-v1.0.68
+Canonical upstream release tag: agent-standards-github-work-v1.0.69
 
 Configuration files use JSON syntax (which is valid YAML) so the helper has no
 third-party runtime dependencies.
@@ -361,7 +361,7 @@ def file_digest(path: str | Path) -> str:
 
 
 def active_source_sha() -> str:
-    source = Path(__file__).read_text(encoding="utf-8", errors="replace")[:1000]
+    source = Path(__file__).read_text(encoding="utf-8", errors="replace")
     marker = re.search(r"github-work-standard: version=\S+ source=([0-9a-f]{40})\b", source)
     if marker:
         return marker.group(1)
@@ -501,7 +501,11 @@ def canonical_issue_reference(value: str) -> str:
 
 
 def parse_pr_url(value: str) -> tuple[str, int]:
-    match = re.search(r"github\.com/([^/]+/[^/]+)/pull/(\d+)(?:$|[?#])", value)
+    repository = r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
+    match = re.fullmatch(
+        rf"https://github\.com/({repository})/pull/(\d+)(?:[?#].*)?",
+        value,
+    )
     if not match:
         raise WorkError(f"expected pull request URL: {value}")
     return match.group(1), int(match.group(2))
@@ -1957,13 +1961,21 @@ def command_restore(
             if label_exists:
                 issue_uses = runner.json([
                     "issue", "list", "--repo", operation["repo"], "--state", "all",
-                    "--label", operation["name"], "--limit", "100", "--json", "url",
+                    "--label", operation["name"], "--limit", "101", "--json", "url",
                 ])
+                if not isinstance(issue_uses, list):
+                    raise WorkError(f"cannot verify label usage in {operation['repo']}")
+                if len(issue_uses) >= 101:
+                    raise WorkError(
+                        f"cannot verify complete label usage in {operation['repo']}: "
+                        "issue read reached the fail-closed limit"
+                    )
+                # Pull-request usage is existence-only, so one result is sufficient.
                 pr_uses = runner.json([
                     "pr", "list", "--repo", operation["repo"], "--state", "all",
                     "--label", operation["name"], "--limit", "1", "--json", "url",
                 ])
-                if not isinstance(issue_uses, list) or not isinstance(pr_uses, list):
+                if not isinstance(pr_uses, list):
                     raise WorkError(f"cannot verify label usage in {operation['repo']}")
                 observed_issue_uses = {
                     canonical_issue_reference(use.get("url", ""))
