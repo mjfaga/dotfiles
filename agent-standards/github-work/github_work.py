@@ -1048,11 +1048,27 @@ def linked_body(body: str, issue: str, mode: str, pr_repo: str) -> str:
     reference = issue_reference(issue)
     keyword = "Refs" if mode == "refs" else "Closes"
     target = target_reference_pattern(issue, pr_repo)
-    closing = re.compile(
-        rf"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?P<reference>{target.pattern})",
+    closing_keyword = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
+    closing_line = re.compile(
+        rf"^(?P<prefix>\s*(?:[-*]\s+)?){closing_keyword}\s+"
+        rf"(?P<reference>{target.pattern})\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    demoted = closing_line.sub(
+        lambda match: f"{match.group('prefix')}Refs {match.group('reference')}",
+        body,
+    )
+    closing_in_prose = re.compile(
+        rf"(?P<keyword>\b{closing_keyword})\s+(?P<reference>{target.pattern})",
         re.IGNORECASE,
     )
-    demoted = closing.sub(lambda match: f"Refs {match.group('reference')}", body)
+    demoted = closing_in_prose.sub(
+        lambda match: (
+            f"{match.group('keyword')} <!-- github-work: non-closing --> "
+            f"{match.group('reference')}"
+        ),
+        demoted,
+    )
     placeholder = re.compile(r"\bRefs\s+#ISSUE\b", re.IGNORECASE)
     if placeholder.search(demoted):
         return placeholder.sub(f"{keyword} {reference}", demoted, count=1).rstrip() + "\n"

@@ -133,7 +133,21 @@ class HelperTests(unittest.TestCase):
         )
         rendered = work.linked_body(body, "sample-space/sample-app#3", "refs", "sample-space/sample-app")
         self.assertNotRegex(rendered.lower(), r"(?:closes|closed|fixed|resolves)\s+(?:#3|sample-space/sample-app#3|https://github.com/sample-space/sample-app/issues/3)")
-        self.assertEqual(rendered.lower().count("refs"), 4)
+        self.assertEqual(rendered.lower().count("refs"), 3)
+        self.assertIn(
+            "- FIXED <!-- github-work: non-closing --> sample-space/sample-app#3 after validation",
+            rendered,
+        )
+
+    def test_refs_preserves_rendered_prose_while_neutralizing_closing_keyword(self):
+        body = "The old script fixes #3 incorrectly, so this PR rewrites it.\n"
+        rendered = work.linked_body(body, "sample-space/sample-app#3", "refs", "sample-space/sample-app")
+        self.assertIn(
+            "The old script fixes <!-- github-work: non-closing --> #3 incorrectly",
+            rendered,
+        )
+        self.assertIn("Refs sample-space/sample-app#3", rendered)
+        self.assertNotIn("The old script Refs #3", rendered)
 
     def test_refs_does_not_demote_short_reference_from_other_repo(self):
         body = "Closes #3\n"
@@ -155,7 +169,10 @@ class HelperTests(unittest.TestCase):
             "closes",
             "sample-space/sample-app",
         )
-        self.assertIn("## Summary\n\nRefs #3 by adding X", rendered)
+        self.assertIn(
+            "## Summary\n\nFixes <!-- github-work: non-closing --> #3 by adding X",
+            rendered,
+        )
         self.assertIn("## Work item\n\nCloses sample-space/sample-app#3", rendered)
 
     def test_closes_appends_to_work_item_when_placeholder_was_deleted(self):
