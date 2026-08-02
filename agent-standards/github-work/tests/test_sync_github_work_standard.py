@@ -109,6 +109,71 @@ class RendererTests(unittest.TestCase):
             with self.assertRaises(sync.RenderError):
                 sync.validate_targets({"targets": [item]})
 
+    def test_personal_isolation_rejects_native_types_and_forbidden_target_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            item = target(Path(directory))
+            item["isolation_policy"] = "personal-products"
+            policies = {
+                "personal-products": {
+                    "required_classification": "managed-label",
+                    "forbidden_target_values": ["blocked-space/"],
+                    "forbidden_workflow_uses": ["blocked-space/"],
+                    "forbidden_secret_prefixes": ["BLOCKED_"],
+                }
+            }
+            config = {
+                "targets": [item],
+                "isolation_policies": policies,
+                "isolation_assignments": {
+                    "repository_prefixes": {"sample-space/": "personal-products"}
+                },
+            }
+            with self.assertRaisesRegex(sync.RenderError, "requires managed-label"):
+                sync.validate_targets(config)
+            item["classification"] = "managed-label"
+            del item["isolation_policy"]
+            with self.assertRaisesRegex(sync.RenderError, "requires isolation policy"):
+                sync.validate_targets(config)
+            item["isolation_policy"] = "personal-products"
+            item["repo"] = "blocked-space/sample-app"
+            with self.assertRaisesRegex(sync.RenderError, "violates isolation policy"):
+                sync.validate_targets(config)
+
+    def test_personal_isolation_rejects_forbidden_workflow_dependencies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = Path(directory)
+            workflow = checkout / ".github/workflows/ci.yml"
+            workflow.parent.mkdir(parents=True)
+            item = target(checkout, classification="managed-label")
+            item["isolation_policy"] = "personal-products"
+            policies = {
+                "personal-products": {
+                    "required_classification": "managed-label",
+                    "forbidden_target_values": [],
+                    "forbidden_workflow_uses": ["blocked-space/"],
+                    "forbidden_secret_prefixes": ["BLOCKED_"],
+                }
+            }
+            for content in (
+                "steps:\n  - uses: blocked-space/shared/action@v1\n",
+                "steps:\n  - 'uses': blocked-space/shared/action@v1\n",
+                "steps:\n  - uses : blocked-space/shared/action@v1\n",
+                "steps: [{uses: blocked-space/shared/action@v1}]\n",
+            ):
+                with self.subTest(content=content):
+                    workflow.write_text(content)
+                    with self.assertRaisesRegex(sync.RenderError, "dependency namespace"):
+                        sync.validate_checkout_isolation(checkout, item, policies)
+            action = checkout / ".github/actions/local/action.yml"
+            action.parent.mkdir(parents=True)
+            workflow.unlink()
+            action.write_text("runs:\n  steps:\n    - uses: blocked-space/shared/action@v1\n")
+            with self.assertRaisesRegex(sync.RenderError, "dependency namespace"):
+                sync.validate_checkout_isolation(checkout, item, policies)
+            action.write_text("env:\n  TOKEN: ${{ secrets['BLOCKED_TOKEN'] }}\n")
+            with self.assertRaisesRegex(sync.RenderError, "secret namespace"):
+                sync.validate_checkout_isolation(checkout, item, policies)
+
     def test_safe_output_rejects_symlink_escape(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

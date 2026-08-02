@@ -34,7 +34,126 @@ def load_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def isolation_policies(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Validate private isolation policies without embedding their values publicly."""
+    raw = config.get("isolation_policies", {})
+    if not isinstance(raw, dict):
+        raise RenderError("isolation_policies must be an object")
+    policies: dict[str, dict[str, Any]] = {}
+    for name, policy in raw.items():
+        if not isinstance(name, str) or not name or not isinstance(policy, dict):
+            raise RenderError("isolation policies require named objects")
+        classification = policy.get("required_classification")
+        if classification not in VALID_CLASSIFICATIONS:
+            raise RenderError(f"isolation policy {name} requires a valid classification")
+        for field in (
+            "forbidden_target_values",
+            "forbidden_workflow_uses",
+            "forbidden_secret_prefixes",
+        ):
+            values = policy.get(field)
+            if not isinstance(values, list) or not values or not all(
+                isinstance(value, str) and value for value in values
+            ):
+                raise RenderError(f"isolation policy {name} requires a non-empty string array for {field}")
+        policies[name] = policy
+    return policies
+
+
+def isolation_assignments(
+    config: dict[str, Any],
+    policies: dict[str, dict[str, Any]],
+) -> dict[str, str]:
+    """Load private repository-prefix assignments that make isolation mandatory."""
+    raw = config.get("isolation_assignments", {})
+    if not isinstance(raw, dict):
+        raise RenderError("isolation_assignments must be an object")
+    prefixes = raw.get("repository_prefixes", {})
+    if not isinstance(prefixes, dict):
+        raise RenderError("isolation repository_prefixes must be an object")
+    assignments: dict[str, str] = {}
+    for prefix, policy_name in prefixes.items():
+        if not isinstance(prefix, str) or not prefix or not prefix.endswith("/"):
+            raise RenderError("isolation repository prefixes must be non-empty owner prefixes")
+        if not isinstance(policy_name, str) or policy_name not in policies:
+            raise RenderError(f"isolation prefix {prefix} references an unknown policy")
+        assignments[prefix] = policy_name
+    return assignments
+
+
+def validate_target_isolation(
+    target: dict[str, Any],
+    policies: dict[str, dict[str, Any]],
+    assignments: dict[str, str],
+) -> None:
+    """Reject target configuration that crosses its private isolation boundary."""
+    matching = [policy for prefix, policy in assignments.items() if target["repo"].startswith(prefix)]
+    if len(set(matching)) > 1:
+        raise RenderError(f"conflicting isolation assignments for {target['repo']}")
+    required_policy = matching[0] if matching else None
+    policy_name = target.get("isolation_policy")
+    if required_policy is not None and policy_name != required_policy:
+        raise RenderError(
+            f"target {target['repo']} requires isolation policy {required_policy}"
+        )
+    if policy_name is None:
+        return
+    if not isinstance(policy_name, str) or policy_name not in policies:
+        raise RenderError(f"unknown isolation policy for {target['repo']}")
+    policy = policies[policy_name]
+    if target["classification"] != policy["required_classification"]:
+        raise RenderError(
+            f"isolation policy {policy_name} requires "
+            f"{policy['required_classification']} for {target['repo']}"
+        )
+    encoded = json.dumps(target, sort_keys=True).casefold()
+    for forbidden in policy.get("forbidden_target_values", []):
+        if forbidden.casefold() in encoded:
+            raise RenderError(
+                f"target {target['repo']} violates isolation policy {policy_name}"
+            )
+
+
+def validate_checkout_isolation(
+    checkout: Path,
+    target: dict[str, Any],
+    policies: dict[str, dict[str, Any]],
+) -> None:
+    """Reject forbidden reusable workflows and secret namespaces in a target checkout."""
+    policy_name = target.get("isolation_policy")
+    if policy_name is None:
+        return
+    policy = policies[policy_name]
+    github_dir = checkout / ".github"
+    if not github_dir.is_dir():
+        return
+    forbidden_uses = [value.casefold() for value in policy["forbidden_workflow_uses"]]
+    forbidden_secrets = [value.casefold() for value in policy["forbidden_secret_prefixes"]]
+    paths = {
+        *github_dir.glob("workflows/**/*.yml"),
+        *github_dir.glob("workflows/**/*.yaml"),
+        *github_dir.glob("actions/**/*.yml"),
+        *github_dir.glob("actions/**/*.yaml"),
+    }
+    for path in sorted(paths):
+        folded = path.read_text(encoding="utf-8").casefold()
+        for dependency in forbidden_uses:
+            if dependency in folded:
+                raise RenderError(
+                    f"workflow or action {path} violates isolation policy {policy_name}: "
+                    f"forbidden dependency namespace"
+                )
+        for secret_prefix in forbidden_secrets:
+            if secret_prefix in folded:
+                raise RenderError(
+                    f"workflow or action {path} violates isolation policy {policy_name}: "
+                    f"forbidden secret namespace"
+                )
+
+
 def validate_targets(config: dict[str, Any]) -> list[dict[str, Any]]:
+    policies = isolation_policies(config)
+    assignments = isolation_assignments(config, policies)
     targets = config.get("targets")
     if not isinstance(targets, list):
         raise RenderError("target config requires a targets array")
@@ -80,6 +199,7 @@ def validate_targets(config: dict[str, Any]) -> list[dict[str, Any]]:
         remove_labels = target.get("remove_labels", [])
         if not isinstance(remove_labels, list) or not all(isinstance(label, str) for label in remove_labels):
             raise RenderError(f"remove_labels must be a string array for {target['repo']}")
+        validate_target_isolation(target, policies, assignments)
     return targets
 
 
@@ -528,9 +648,14 @@ def sync(args: argparse.Namespace) -> int:
     verify_source(source_root, args.source_sha, args.source_tag)
     metadata = load_object(source_root / "standard.yml")
     version = str(metadata["version"])
-    all_targets = validate_targets(load_object(Path(args.config)))
+    config = load_object(Path(args.config))
+    policies = isolation_policies(config)
+    all_targets = validate_targets(config)
     targets = select_targets(all_targets, args.repos)
     overrides = parse_checkout_overrides(getattr(args, "checkout_override", []), all_targets)
+    for target in targets:
+        checkout = Path(overrides.get(target["repo"], target["checkout"])).resolve()
+        validate_checkout_isolation(checkout, target, policies)
     drift: list[str] = []
     changed: list[str] = []
     for target in targets:
