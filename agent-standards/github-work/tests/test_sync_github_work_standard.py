@@ -295,6 +295,9 @@ class RendererTests(unittest.TestCase):
             self.assertIn('title: "[Bug] "', generated_form)
             self.assertNotIn('title: ""', generated_form)
             self.assertIn("body:", generated_form)
+            generated_pr = (checkout / ".github/pull_request_template.md").read_text()
+            self.assertIn("- ☐ Repository checks pass", generated_pr)
+            self.assertNotIn("- [ ]", generated_pr)
             args.check = True
             with mock.patch.object(sync, "verify_source"):
                 self.assertEqual(sync.sync(args), 0)
