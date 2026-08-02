@@ -130,7 +130,7 @@ class HelperTests(unittest.TestCase):
 
     def test_active_source_sha_scans_past_the_old_preamble_limit(self):
         source_sha = "c" * 40
-        source = "x" * 1200 + f"\n# github-work-standard: version=1.0.69 source={source_sha} "
+        source = "x" * 1200 + f"\n# github-work-standard: version=1.0.70 source={source_sha} "
         with mock.patch.object(work.Path, "read_text", return_value=source):
             self.assertEqual(work.active_source_sha(), source_sha)
 
@@ -174,6 +174,12 @@ class HelperTests(unittest.TestCase):
     def test_repository_labels_rejects_malformed_paginated_response(self):
         with self.assertRaisesRegex(work.WorkError, "malformed paginated response"):
             work.repository_labels(FakeRunner([[{"name": "not-a-page"}]]), "sample-space/sample-app")
+        for entry in ({}, {"name": ""}, {"name": 42}):
+            with self.subTest(entry=entry), self.assertRaisesRegex(
+                work.WorkError,
+                "malformed label entry",
+            ):
+                work.repository_labels(FakeRunner([[[entry]]]), "sample-space/sample-app")
 
     def test_refs_demotes_all_closing_variants(self):
         body = (
@@ -350,6 +356,28 @@ class HelperTests(unittest.TestCase):
             path.write_text(json.dumps({"targets": [{"repo": "sample-space/sample-app", "adapter": "mystery", "classification": "native-type"}]}))
             with self.assertRaises(work.WorkError):
                 work.load_targets(path)
+
+    def test_load_targets_rejects_repo_values_that_are_not_owner_repo(self):
+        for field, config_value, message in (
+            (
+                "targets",
+                [{"repo": "sample-space/sample-app?per_page=1", "adapter": "plain", "classification": "native-type"}],
+                "target repo must be OWNER/REPO",
+            ),
+            (
+                "auxiliary_repositories",
+                [{"repo": "sample-space/sample/app", "classification": "native-type"}],
+                "auxiliary repo must be OWNER/REPO",
+            ),
+        ):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "targets.json"
+                payload = {"targets": config()["targets"], field: config_value}
+                if field == "targets":
+                    payload = {field: config_value}
+                path.write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaisesRegex(work.WorkError, message):
+                    work.load_targets(path)
 
     def test_load_targets_rejects_non_string_target_fields(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -2283,7 +2311,7 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(second_result, 0)
         self.assertTrue(all(operation["status"] == "restored" for operation in current.data["operations"]))
 
-    def test_label_restore_fails_closed_when_issue_usage_read_reaches_limit(self):
+    def test_label_restore_classifies_truncated_external_usage_as_in_use(self):
         current = receipt()
         current.add("label-created", repo="sample-space/sample-app", name="type:task")
         issue_uses = [
@@ -2293,6 +2321,36 @@ class HelperTests(unittest.TestCase):
         responses = restore_preflight_responses() + [
             [{"name": "type:task"}],
             issue_uses,
+            [],
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = work.command_restore(
+                Namespace(receipt="unused"),
+                FakeRunner(responses),
+                current,
+            )
+        self.assertEqual(result, 3)
+        self.assertEqual(json.loads(output.getvalue())["reason"], "labels_in_use")
+        self.assertEqual(current.data["operations"][0]["status"], "active")
+
+    def test_label_restore_fails_closed_when_truncated_usage_could_all_be_reapplied(self):
+        current = receipt()
+        for number in range(1, 101):
+            current.add(
+                "issue-label-removed",
+                issue=f"sample-space/sample-app#{number}",
+                name="type:task",
+            )
+        current.add("label-created", repo="sample-space/sample-app", name="type:task")
+        issue_uses = [
+            {"url": f"https://github.com/sample-space/sample-app/issues/{number}"}
+            for number in range(1, 102)
+        ]
+        responses = restore_preflight_responses() + [
+            [{"name": "type:task"}],
+            issue_uses,
+            [],
         ]
         with self.assertRaisesRegex(work.WorkError, "fail-closed limit"):
             work.command_restore(
@@ -2300,7 +2358,7 @@ class HelperTests(unittest.TestCase):
                 FakeRunner(responses),
                 current,
             )
-        self.assertEqual(current.data["operations"][0]["status"], "active")
+        self.assertEqual(current.data["operations"][-1]["status"], "active")
 
     def test_label_restore_skips_labels_that_are_in_use(self):
         current = receipt()

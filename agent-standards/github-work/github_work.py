@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Repository-neutral GitHub work lifecycle helper.
 
-Canonical upstream release tag: agent-standards-github-work-v1.0.69
+Canonical upstream release tag: agent-standards-github-work-v1.0.70
 
 Configuration files use JSON syntax (which is valid YAML) so the helper has no
 third-party runtime dependencies.
@@ -30,6 +30,7 @@ SCHEMA_VERSION = 3
 SUPPORTED_SCHEMA_VERSIONS = frozenset(range(1, SCHEMA_VERSION + 1))
 CONFIG_STATUSES = frozenset({"absent", "empty", "invalid", "ok", "unreadable"})
 MIN_GH_VERSION = (2, 96, 0)
+REPOSITORY_PATTERN = r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
 MANAGED_LABELS = {
     "bug": ("type:bug", "B60205", "Unexpected problem or incorrect behavior"),
     "feature": ("type:feature", "1D76DB", "Requested capability or improvement"),
@@ -395,6 +396,8 @@ def load_targets(path: str | None) -> dict[str, Any]:
         for field in required:
             if not isinstance(target[field], str) or not target[field]:
                 raise WorkError(f"target field {field} must be a non-empty string")
+        if not re.fullmatch(REPOSITORY_PATTERN, target["repo"]):
+            raise WorkError(f"target repo must be OWNER/REPO: {target['repo']}")
         if target["repo"] in seen:
             raise WorkError(f"duplicate target: {target['repo']}")
         seen.add(target["repo"])
@@ -416,6 +419,8 @@ def load_targets(path: str | None) -> dict[str, Any]:
             or not item["repo"]
         ):
             raise WorkError("auxiliary repository entries require a non-empty repo")
+        if not re.fullmatch(REPOSITORY_PATTERN, item["repo"]):
+            raise WorkError(f"auxiliary repo must be OWNER/REPO: {item['repo']}")
         if (
             not isinstance(item.get("classification"), str)
             or not item["classification"]
@@ -479,14 +484,13 @@ def parse_repositories(config: dict[str, Any], value: str) -> list[str]:
 
 
 def parse_issue_url(value: str) -> tuple[str, int]:
-    repository = r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
     match = re.fullmatch(
-        rf"https://github\.com/({repository})/issues/(\d+)(?:[?#].*)?",
+        rf"https://github\.com/({REPOSITORY_PATTERN})/issues/(\d+)(?:[?#].*)?",
         value,
     )
     if match:
         return match.group(1), int(match.group(2))
-    match = re.fullmatch(rf"({repository})#(\d+)", value)
+    match = re.fullmatch(rf"({REPOSITORY_PATTERN})#(\d+)", value)
     if match:
         return match.group(1), int(match.group(2))
     raise WorkError(f"expected issue URL or OWNER/REPO#N: {value}")
@@ -501,13 +505,12 @@ def canonical_issue_reference(value: str) -> str:
 
 
 def parse_pr_url(value: str) -> tuple[str, int]:
-    repository = r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
     match = re.fullmatch(
-        rf"https://github\.com/({repository})/pull/(\d+)(?:[?#].*)?",
+        rf"https://github\.com/({REPOSITORY_PATTERN})/pull/(\d+)(?:[?#].*)?",
         value,
     )
     if not match:
-        raise WorkError(f"expected pull request URL: {value}")
+        raise WorkError(f"expected full https://github.com/OWNER/REPO/pull/N URL: {value}")
     return match.group(1), int(match.group(2))
 
 
@@ -744,7 +747,12 @@ def repository_labels(
     if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
         raise WorkError(f"cannot read labels for {repo}: malformed paginated response")
     labels = [item for page in pages for item in page]
-    if any(not isinstance(item, dict) for item in labels):
+    if any(
+        not isinstance(item, dict)
+        or not isinstance(item.get("name"), str)
+        or not item["name"]
+        for item in labels
+    ):
         raise WorkError(f"cannot read labels for {repo}: malformed label entry")
     return labels
 
@@ -1965,11 +1973,7 @@ def command_restore(
                 ])
                 if not isinstance(issue_uses, list):
                     raise WorkError(f"cannot verify label usage in {operation['repo']}")
-                if len(issue_uses) >= 101:
-                    raise WorkError(
-                        f"cannot verify complete label usage in {operation['repo']}: "
-                        "issue read reached the fail-closed limit"
-                    )
+                usage_read_truncated = len(issue_uses) >= 101
                 # Pull-request usage is existence-only, so one result is sufficient.
                 pr_uses = runner.json([
                     "pr", "list", "--repo", operation["repo"], "--state", "all",
@@ -1997,6 +2001,14 @@ def command_restore(
                     if name == operation["name"]
                     and parse_issue_url(issue)[0] == operation["repo"]
                 }
+                if usage_read_truncated:
+                    if len(reapplication_targets) >= 100:
+                        raise WorkError(
+                            f"cannot verify complete label usage in {operation['repo']}: "
+                            "issue read reached the fail-closed limit"
+                        )
+                    skipped_in_use += 1
+                    continue
                 if observed_issue_uses or pr_uses:
                     if not pr_uses and observed_issue_uses <= reapplication_targets:
                         retained_label_definitions += 1
@@ -2267,7 +2279,19 @@ def command_standard_check(args: argparse.Namespace) -> int:
         raise WorkError("standard source does not match --expected-source-sha")
     if args.expected_target_digest and helper["target"] != args.expected_target_digest:
         raise WorkError("standard target digest does not match --expected-target-digest")
-    json_print({"current": True, "provenance": helper, "checked": checked})
+    expected = {
+        "version": args.expected_version,
+        "source": args.expected_source_sha,
+        "target": args.expected_target_digest,
+    }
+    supplied_expected = {key: value for key, value in expected.items() if value}
+    json_print({
+        "current": True,
+        "pinned": len(supplied_expected) == len(expected),
+        "expected": supplied_expected,
+        "provenance": helper,
+        "checked": checked,
+    })
     return 0
 
 
