@@ -9,8 +9,15 @@ description:
 
 # GitHub work lifecycle
 
-Requires GitHub CLI 2.96.0 or newer. Run the repository-local `scripts/github_work.py` with the
-private operator-supplied configuration paths; never commit those private files to a consumer:
+The GitHub work policy in `AGENTS.md` applies to every contributor. The CLI is operator-only: obtain
+`GITHUB_WORK_PRIVATE_CONFIG` and `GITHUB_WORK_OWNERSHIP_CONFIG` from the repository owner if you are
+authorized to mutate the shared work graph; otherwise use the issue forms and PR guidance without
+the helper. Never commit those private files to a consumer.
+
+Requires GitHub CLI 2.96.0 or newer. The canonical immutable helper release tag is
+`agent-standards-github-work-v1.0.68`; exact source and content identities are in each artifact's
+provenance marker. Run the repository-local `scripts/github_work.py` with the private
+operator-supplied paths:
 
 ```bash
 python3 scripts/github_work.py \

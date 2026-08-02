@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Repository-neutral GitHub work lifecycle helper.
 
+Canonical upstream release tag: agent-standards-github-work-v1.0.68
+
 Configuration files use JSON syntax (which is valid YAML) so the helper has no
 third-party runtime dependencies.
 """
@@ -323,10 +325,13 @@ class Receipt:
             return
         if self.path is None:
             raise WorkError("persistent receipt has no path")
-        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.tmp")
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(temporary, flags, 0o600)
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
                 handle.write(json.dumps(self.data, indent=2, sort_keys=True) + "\n")
             temporary.replace(self.path)
@@ -474,10 +479,14 @@ def parse_repositories(config: dict[str, Any], value: str) -> list[str]:
 
 
 def parse_issue_url(value: str) -> tuple[str, int]:
-    match = re.search(r"github\.com/([^/]+/[^/]+)/issues/(\d+)(?:$|[?#])", value)
+    repository = r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
+    match = re.fullmatch(
+        rf"https://github\.com/({repository})/issues/(\d+)(?:[?#].*)?",
+        value,
+    )
     if match:
         return match.group(1), int(match.group(2))
-    match = re.fullmatch(r"([^/]+/[^#]+)#(\d+)", value)
+    match = re.fullmatch(rf"({repository})#(\d+)", value)
     if match:
         return match.group(1), int(match.group(2))
     raise WorkError(f"expected issue URL or OWNER/REPO#N: {value}")
@@ -716,6 +725,26 @@ def issue_assignees(state: dict[str, Any]) -> set[str]:
     return {item["login"] for item in state.get("assignees", [])}
 
 
+def repository_labels(
+    runner: GhRunner,
+    repo: str,
+    *,
+    check: bool = True,
+) -> list[dict[str, Any]] | None:
+    pages = runner.json(
+        ["api", f"repos/{repo}/labels?per_page=100", "--paginate", "--slurp"],
+        check=check,
+    )
+    if pages is None:
+        return None
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise WorkError(f"cannot read labels for {repo}: malformed paginated response")
+    labels = [item for page in pages for item in page]
+    if any(not isinstance(item, dict) for item in labels):
+        raise WorkError(f"cannot read labels for {repo}: malformed label entry")
+    return labels
+
+
 def basic_preflight(runner: GhRunner) -> tuple[int, int, int]:
     version = gh_version(runner)
     if version < MIN_GH_VERSION:
@@ -745,11 +774,8 @@ def target_preflight(runner: GhRunner, target: dict[str, Any]) -> None:
         if missing:
             raise EligibilityError(f"{owner} missing issue types: {sorted(missing)}")
     else:
-        current = runner.json([
-            "label", "list", "--repo", repo, "--limit", "200",
-            "--json", "name,color,description",
-        ], check=False)
-        if not isinstance(current, list):
+        current = repository_labels(runner, repo, check=False)
+        if current is None:
             raise WorkError(f"cannot read labels for {repo}")
         names = {item.get("name") for item in current if isinstance(item, dict)}
         missing = {definition[0] for definition in MANAGED_LABELS.values()} - names
@@ -801,10 +827,7 @@ def command_labels_ensure(
             raise WorkError(f"repository unavailable: {repo}")
         if target["classification"] != "managed-label":
             raise WorkError(f"labels ensure is invalid for native-type target: {repo}")
-        current = runner.json([
-            "label", "list", "--repo", repo, "--limit", "200",
-            "--json", "name,color,description",
-        ]) or []
+        current = repository_labels(runner, repo) or []
         by_name = {item["name"]: item for item in current}
         for name, color, description in MANAGED_LABELS.values():
             if name in by_name:
@@ -980,7 +1003,7 @@ def command_issue_create(
         )
     if target["classification"] == "managed-label":
         try:
-            receipt.add("issue-label-added", issue=created_url, name=f"type:{args.type.lower()}")
+            receipt.add("issue-label-added", issue=created_url, name=MANAGED_LABELS[kind][0])
         except WorkError as exc:
             raise_issue_partial(
                 exc,
@@ -1276,10 +1299,8 @@ def add_needs_owner(
     if NEEDS_OWNER_LABEL[0] in issue_labels(state):
         return
     repo, _ = parse_issue_url(issue)
-    labels = runner.json([
-        "label", "list", "--repo", repo, "--limit", "200", "--json", "name",
-    ])
-    if not isinstance(labels, list):
+    labels = repository_labels(runner, repo)
+    if labels is None:
         raise WorkError(f"cannot verify ownership labels in {repo}")
     label_created = False
     if NEEDS_OWNER_LABEL[0] not in {item.get("name") for item in labels if isinstance(item, dict)}:

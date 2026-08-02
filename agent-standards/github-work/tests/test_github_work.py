@@ -23,6 +23,7 @@ SPEC.loader.exec_module(work)
 SOURCE = "a" * 40
 DIGEST = "b" * 64
 ALL_LABELS = [{"name": value[0]} for value in work.MANAGED_LABELS.values()]
+PAGED_ALL_LABELS = [ALL_LABELS]
 
 
 class FakeRunner:
@@ -68,7 +69,7 @@ def managed_preflight_responses(*, labels=None):
         work.CommandResult(stdout="gh version 2.96.0\n"),
         work.CommandResult(),
         work.CommandResult(),
-        labels if labels is not None else ALL_LABELS,
+        [labels] if labels is not None else PAGED_ALL_LABELS,
     ]
 
 
@@ -121,8 +122,38 @@ class HelperTests(unittest.TestCase):
             )
 
     def test_parse_issue_url_rejects_invalid(self):
-        with self.assertRaises(work.WorkError):
-            work.parse_issue_url("#42")
+        for value in (
+            "#42",
+            "https://notgithub.com/sample-space/sample-app/issues/42",
+            "sample space/sample-app#42",
+            "sample-space/sample/app#42",
+            "sample-space/sample-app?query#42",
+        ):
+            with self.subTest(value=value), self.assertRaises(work.WorkError):
+                work.parse_issue_url(value)
+
+    def test_repository_labels_flattens_all_paginated_api_pages(self):
+        runner = FakeRunner([[
+            [{"name": "first"}],
+            [{"name": "second"}],
+        ]])
+        self.assertEqual(
+            work.repository_labels(runner, "sample-space/sample-app"),
+            [{"name": "first"}, {"name": "second"}],
+        )
+        self.assertEqual(
+            runner.calls[0][0],
+            [
+                "api",
+                "repos/sample-space/sample-app/labels?per_page=100",
+                "--paginate",
+                "--slurp",
+            ],
+        )
+
+    def test_repository_labels_rejects_malformed_paginated_response(self):
+        with self.assertRaisesRegex(work.WorkError, "malformed paginated response"):
+            work.repository_labels(FakeRunner([[{"name": "not-a-page"}]]), "sample-space/sample-app")
 
     def test_refs_demotes_all_closing_variants(self):
         body = (
@@ -468,7 +499,7 @@ class HelperTests(unittest.TestCase):
     def test_labels_ensure_creates_only_missing_after_preflight(self):
         existing = [{"name": "type:bug", "color": "000000", "description": "preserved"}]
         runner = FakeRunner([
-            work.CommandResult(stdout="gh version 2.96.0\n"), work.CommandResult(), work.CommandResult(), existing,
+            work.CommandResult(stdout="gh version 2.96.0\n"), work.CommandResult(), work.CommandResult(), [existing],
         ])
         current_receipt = receipt()
         args = Namespace(repos="sample-space/sample-app")
@@ -522,22 +553,26 @@ class HelperTests(unittest.TestCase):
         self.assertEqual([operation["kind"] for operation in current_receipt.data["operations"]], ["issue-created", "relationship-added"])
 
     def test_managed_issue_creation_records_classification_label_for_restore(self):
-        responses = managed_preflight_responses() + [
+        runner = FakeRunner([
             work.CommandResult(stdout="https://github.com/sample-space/sample-app/issues/7\n")
-        ]
-        runner = FakeRunner(responses)
+        ])
         args = Namespace(
             repo="sample-space/sample-app", type="Task", title="Sample", body_file=None,
-            parent=None, blocking=None, assignee=None,
+            parent=None, blocking=None, assignee=None, preflighted=True,
         )
         current_receipt = receipt()
-        with contextlib.redirect_stdout(io.StringIO()):
+        with mock.patch.dict(
+            work.MANAGED_LABELS,
+            {"task": ("kind:task", "8250DF", "Bounded implementation or follow-up work")},
+            clear=True,
+        ), contextlib.redirect_stdout(io.StringIO()):
             work.command_issue_create(args, runner, config(), current_receipt)
         self.assertEqual(
             [operation["kind"] for operation in current_receipt.data["operations"]],
             ["issue-created", "issue-label-added"],
         )
-        self.assertEqual(current_receipt.data["operations"][1]["name"], "type:task")
+        self.assertEqual(current_receipt.data["operations"][1]["name"], "kind:task")
+        self.assertIn("kind:task", runner.calls[0][0])
 
     def test_temporary_body_writes_utf8(self):
         with work.temporary_body("Unicode — body 🤖") as path:
@@ -982,7 +1017,7 @@ class HelperTests(unittest.TestCase):
         targets = config(repos=["sample-space/one-app", "sample-space/two-app"])
         responses = [work.CommandResult(stdout="gh version 2.96.0\n"), work.CommandResult()]
         for _ in range(2):
-            responses.extend([work.CommandResult(), ALL_LABELS])
+            responses.extend([work.CommandResult(), PAGED_ALL_LABELS])
         runner = FakeRunner(responses)
         current_receipt = receipt()
         calls = 0
@@ -1015,7 +1050,7 @@ class HelperTests(unittest.TestCase):
             work.CommandResult(stdout="gh version 2.96.0\n"),
             work.CommandResult(),
             work.CommandResult(),
-            ALL_LABELS,
+            PAGED_ALL_LABELS,
         ]
 
         failed = {
@@ -1045,7 +1080,7 @@ class HelperTests(unittest.TestCase):
             work.CommandResult(stdout="gh version 2.96.0\n"),
             work.CommandResult(),
             work.CommandResult(),
-            ALL_LABELS,
+            PAGED_ALL_LABELS,
         ]
         args = Namespace(repos="all", umbrella="sample-space/one-app#9", assignee=None)
         output = io.StringIO()
@@ -1165,6 +1200,17 @@ class HelperTests(unittest.TestCase):
             path.chmod(0o600)
             current = work.Receipt(str(path), source_sha=SOURCE, config_digest=None)
             self.assertIsNone(current.data["config_digest"])
+
+    def test_receipt_save_uses_exclusive_non_following_temporary_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current = receipt(str(Path(directory) / "receipt.json"))
+            original_open = work.os.open
+            with mock.patch.object(work.os, "open", wraps=original_open) as opened:
+                current.save()
+            flags = opened.call_args.args[1]
+            self.assertTrue(flags & work.os.O_EXCL)
+            if hasattr(work.os, "O_NOFOLLOW"):
+                self.assertTrue(flags & work.os.O_NOFOLLOW)
 
     def test_receipt_save_maps_os_errors_to_work_error(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -2183,14 +2229,14 @@ class HelperTests(unittest.TestCase):
         for name in ("type:bug", "type:feature", "type:task"):
             current.add("label-created", repo="sample-space/sample-app", name=name)
         first_responses = restore_preflight_responses() + [
-            ALL_LABELS,
+            PAGED_ALL_LABELS,
             [{"url": "https://github.com/sample-space/sample-app/issues/9"}],
             [],
-            ALL_LABELS,
+            PAGED_ALL_LABELS,
             [],
             [],
             work.CommandResult(),
-            ALL_LABELS,
+            PAGED_ALL_LABELS,
             [],
             [],
             work.CommandResult(),
