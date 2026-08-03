@@ -2,6 +2,8 @@
 
 Public, repository-neutral sources for using GitHub as an agent work ledger. Runtime target and ownership inventories are external and must be supplied with `--config` and `--ownership-config`.
 
+For immutable versioning, validation, tagging, consumer rollout, and completion criteria, see [RELEASING.md](RELEASING.md). Private target sequencing, fixtures, rollback, and cleanup belong in the private operator runbook.
+
 ## Commands
 
 `github_work.py` provides `preflight`, `labels ensure`, `issue-create`, `work-graph create`, `pr-link`, `finality`, `assign`, `restore`, and `standard-check`. `--dry-run` is a global option and must precede the command. Mutations use strict mode-`0600` JSON receipts bound to the helper source SHA and private-config digest. Multiline GitHub content is always passed through temporary body files.
