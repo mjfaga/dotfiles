@@ -1,18 +1,17 @@
 {
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol",
+  "defaultProvider": "xai",
+  "defaultModel": "grok-4.5",
   "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
   "enabledModels": [
-    "anthropic/claude-fable-5",
-    "anthropic/claude-opus-4-8",
-    "anthropic/claude-sonnet-5",
-    "anthropic/claude-haiku-4-5",
     "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-5.6-luna",
     "openai-codex/gpt-5.6-terra",
     "xai/grok-4.5",
-    "kimi-coding/k3"
+    "xai/grok-4.3",
+    "xai/grok-build-0.1",
+    "kimi-coding/k3",
+    "kimi-coding/kimi-for-coding"
   ],
   "warnings": {
     "anthropicExtraUsage": true
@@ -20,7 +19,7 @@
   "hideThinkingBlock": false,
   "enableInstallTelemetry": false,
   "shellCommandPrefix": "[ -f ~/.pi/agent/shell-init.bash ] && source ~/.pi/agent/shell-init.bash || true",
-  "lastChangelogVersion": "0.80.10",
+  "lastChangelogVersion": "0.83.0",
   "theme": "dark",
   "packages": [
     "npm:pi-mcp-adapter"
