@@ -13,6 +13,93 @@
     "xai/grok-build-0.1",
     "xai/grok-4.3"
   ],
+  "subagents": {
+    "defaultModel": "openai-codex/gpt-5.6-luna",
+    "defaultThinking": "max",
+    "agentOverrides": {
+      "scout": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "low",
+        "fallbackModels": [
+          "kimi-coding/kimi-for-coding",
+          "xai/grok-4.3",
+          "xai/grok-build-0.1"
+        ]
+      },
+      "delegate": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "kimi-coding/kimi-for-coding",
+          "xai/grok-4.5"
+        ]
+      },
+      "worker": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "xai/grok-4.5",
+          "kimi-coding/k3"
+        ]
+      },
+      "context-builder": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "xai/grok-4.5",
+          "kimi-coding/k3"
+        ]
+      },
+      "researcher": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "xai/grok-4.5",
+          "kimi-coding/k3"
+        ]
+      },
+      "planner": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "openai-codex/gpt-5.6-sol",
+          "xai/grok-4.5"
+        ]
+      },
+      "reviewer": {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "xai/grok-4.5",
+          "kimi-coding/k3"
+        ]
+      },
+      "oracle": {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "xai/grok-4.5",
+          "kimi-coding/k3"
+        ]
+      },
+      "advisor": {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fallbackModels": [
+          "openai-codex/gpt-5.6-terra",
+          "xai/grok-4.5",
+          "kimi-coding/k3"
+        ]
+      }
+    }
+  },
   "warnings": {
     "anthropicExtraUsage": true
   },
