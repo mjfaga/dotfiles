@@ -60,3 +60,5 @@ desktop.ini
 #######################
 .pi/todos
 .pi-subagents/
+
+**/.claude/settings.local.json
